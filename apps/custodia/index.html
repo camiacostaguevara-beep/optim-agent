@@ -252,6 +252,7 @@ th{font-size:13px;color:var(--mute);font-weight:600}
   <section id="tablero" hidden>
     <h2>Resultados de la custodia</h2>
     <div class="stats" id="stats"></div>
+    <h3>Capacidad diaria</h3><div id="capacidad"><p class="meta">Calculando…</p></div>
     <div id="sedes"></div>
     <div id="empresa"></div>
     <div id="personal"></div>
@@ -1172,6 +1173,32 @@ function renderPrec(){
 /* ---------- tablero ---------- */
 
 
+/* Capacidad: el espacio de archivos y las imágenes por consulta se leen de la cuenta real;
+   los tiempos son los típicos de la IA (1 a 2 min por paquete con video). */
+const CAP={MB:1048576,video:4.8,fVideo:5,adm:.75,fAdm:3,rec:.75,fRec:3};
+async function renderCap(){
+  const el=$('#capacidad');if(!el)return;
+  let u=null;if(S.assets&&S.assets.list){try{const r=await S.assets.list();u=r&&r.usage}catch(e){}}
+  const mx=S.sample?await imgMax():0,ref=Math.max(1,Math.min(4,mx-2)),per=mx?Math.max(1,Math.floor((mx-ref)/2)):0,cmp=Math.min(8,per*3),rondas=per?Math.ceil(cmp/per):0;
+  const act=S.paq.filter(p=>['custodia','separado','rezago','venta'].includes(p.estado)).length;
+  let dia=50;try{dia=Math.max(1,+localStorage.getItem('cap_dia')||50)}catch(e){}
+  const n=x=>Math.round(x).toLocaleString('es-CO'),mb=b=>(b/CAP.MB>=1024?(b/CAP.MB/1024).toFixed(1)+' GB':n(b/CAP.MB)+' MB');
+  let alm='<p class="meta">Solo un Editor o administrador puede ver el espacio de archivos.</p>';
+  if(u&&u.maxBytes){const lb=Math.max(0,u.maxBytes-u.bytes),lf=Math.max(0,(u.maxFiles||Infinity)-u.files);
+    const caben=Math.floor(Math.min(lb/(CAP.video*CAP.MB),lf/CAP.fVideo)),porDia=(CAP.video+CAP.adm+CAP.rec*.3)*CAP.MB*dia,dias=porDia?lb/porDia:0;
+    alm=`<p>Espacio usado: <b>${mb(u.bytes)}</b> de ${mb(u.maxBytes)} · ${n(u.files)} de ${u.maxFiles?n(u.maxFiles):'∞'} archivos.</p>
+    <p>Caben unos <b>${n(caben)} paquetes más con video</b> (≈${CAP.video} MB y ${CAP.fVideo} archivos cada uno: el video comprimido y 4 cuadros).</p>
+    <div class="bar"><label class="f" style="flex:0 1 220px">Paquetes nuevos por día<input id="cap_dia" type="number" min="1" value="${dia}"></label></div>
+    <p>Con ${n(dia)} paquetes al día (más su admisión y algunos reclamos con fotos) el espacio alcanza para <b>${n(dias)} días</b>.</p>`}
+  el.innerHTML=`<div style="overflow-x:auto"><table class="stack"><thead><tr><th>Tarea</th><th>Cuánto cubre</th><th>Tiempo</th><th>Límite por día</th></tr></thead><tbody>
+  <tr><td>Búsqueda rápida por texto</td><td>Hasta 1.000 paquetes activos (hoy ${n(act)})</td><td>Al instante</td><td>Sin límite</td></tr>
+  <tr><td>Buscar con IA (descripción)</td><td>Hasta 300 paquetes por consulta</td><td>10–40 s</td><td>El uso de IA de quien busca</td></tr>
+  <tr><td>Comparar fotos o videos</td><td>${mx?`Los ${cmp} paquetes más parecidos, en ${rondas} consulta(s) de ${mx} imágenes`:'IA con imágenes no disponible en esta vista'}</td><td>30–90 s por consulta</td><td>El uso de IA de quien busca</td></tr>
+  <tr><td>Registrar paquete con video</td><td>2 consultas de IA: rasgos y lectura de la guía</td><td>1–2 min</td><td>≈160 por operario en 8 h</td></tr>
+  </tbody></table></div>
+  <p class="meta">La IA gasta el uso de Claude de cada persona: si alguien llega a su límite, sus consultas esperan y las de los demás siguen. Varias personas trabajando a la vez multiplican la capacidad del día.</p>${alm}`;
+  const ci=$('#cap_dia');if(ci)ci.onchange=()=>{try{localStorage.setItem('cap_dia',String(Math.max(1,Math.round(+ci.value)||50)))}catch(e){}renderCap()};
+}
 function renderStats(){
   const c=custodia(),ent=S.paq.filter(p=>p.estado==='entregado'),kgRec=S.lotes.reduce((s,l)=>s+(+l.pesoTotal||0),0);
   const recov=ent.reduce((s,p)=>s+(+p.valor||0),0);
@@ -1190,7 +1217,7 @@ function banner(m){$('#banner').innerHTML=m?`<div class="banner">${esc(m)}</div>
 /* ---------- pestañas y QR ---------- */
 document.querySelector('nav').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
   document.querySelectorAll('nav button').forEach(x=>x.setAttribute('aria-selected',x===b));
-  document.querySelectorAll('main>section').forEach(s=>s.hidden=s.id!==b.dataset.t);if(b.dataset.t==='conciliar')renderConc()});
+  document.querySelectorAll('main>section').forEach(s=>s.hidden=s.id!==b.dataset.t);if(b.dataset.t==='conciliar')renderConc();if(b.dataset.t==='tablero')renderCap()});
 function routeHash(){const h=location.hash.slice(1);if(/^cst-[a-z0-9-]+$/.test(h)&&S.loaded)openDetail(h)}
 window.addEventListener('hashchange',routeHash);
 
