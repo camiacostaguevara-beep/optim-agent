@@ -101,7 +101,6 @@ th{font-size:13px;color:var(--mute);font-weight:600}
     <button role="tab" data-t="inventario" aria-selected="false">Inventario</button>
     <button role="tab" data-t="conciliar" aria-selected="false">Conciliar guías</button>
     <button role="tab" data-t="disposicion" aria-selected="false">Disposición</button>
-    <button role="tab" data-t="venta" aria-selected="false">Venta empleados</button>
     <button role="tab" data-t="tablero" aria-selected="false">Tablero</button>
   </nav>
 </header>
@@ -120,7 +119,7 @@ th{font-size:13px;color:var(--mute);font-weight:600}
 
   <section id="asistente" hidden>
     <h2>Asistente IA: revisión diaria de la custodia</h2>
-    <p class="meta">Un toque revisa todo: cruza reclamos con paquetes, separa dañados, propone precios de venta y arma la ruta de conteo. Usted solo confirma.</p>
+    <p class="meta">Un toque revisa todo: cruza reclamos con paquetes, separa dañados, señala lo que pasa a rezago y arma la ruta de conteo. Usted solo confirma.</p>
     <button class="btn red" id="as_go">Revisar la custodia ahora</button>
     <div id="as_out" style="margin-top:16px"></div>
   </section>
@@ -196,7 +195,7 @@ th{font-size:13px;color:var(--mute);font-weight:600}
   <section id="inventario" hidden>
     <h2>Inventario de la custodia</h2>
     <div id="alerts"></div>
-    <div class="bar" style="margin:14px 0"><input id="f_txt" placeholder="Filtrar por código, estante u objeto"><select id="f_est" style="flex:0 1 200px"><option value="custodia">En custodia</option><option value="separado">Separados para disposición</option><option value="entregado">Entregados</option><option value="dispuesto">Enviados a reciclaje</option><option value="rezago">En rezago</option><option value="donado">Donados</option><option value="venta">En venta a empleados</option><option value="vendido">Vendidos a empleados</option><option value="">Todos</option></select></div>
+    <div class="bar" style="margin:14px 0"><input id="f_txt" placeholder="Filtrar por código, estante u objeto"><select id="f_est" style="flex:0 1 200px"><option value="custodia">En custodia</option><option value="separado">Separados para disposición</option><option value="entregado">Entregados</option><option value="dispuesto">Enviados a reciclaje</option><option value="rezago">En rezago</option><option value="donado">Donados</option><option value="">Todos</option></select></div>
     <div style="overflow-x:auto"><table class="stack" id="inv"></table></div>
   </section>
 
@@ -250,19 +249,6 @@ th{font-size:13px;color:var(--mute);font-weight:600}
     <h3>Lotes entregados</h3><div id="d_lotes"></div>
   </section>
 
-  <section id="venta" hidden>
-    <h2>Venta nacional a empleados</h2>
-    <p class="meta">Paquetes en buen estado cuyo plazo legal se cumplió sin que nadie los reclamara y que ya son propiedad de la transportadora, con el acta que lo respalda.</p>
-    <div class="bar" id="vcfg" style="margin:10px 0"></div>
-    <h3>Cumplieron el plazo legal (buen estado)</h3><div id="v_eleg"></div>
-    <h3>Catálogo en venta</h3><div id="v_cat" class="list"></div>
-    <h3>Mensaje para WhatsApp</h3>
-    <div class="bar"><button class="btn" id="v_copy" type="button">Copiar mensaje</button><a class="btn red" id="v_wa" href="https://wa.me/" target="_blank" rel="noopener">Abrir en WhatsApp</a><button class="btn alt" id="v_ai" type="button">Mejorar texto con IA</button></div>
-    <textarea id="v_msg" style="min-height:240px;margin-top:10px" aria-label="Mensaje de WhatsApp"></textarea>
-    <p class="meta">"Abrir en WhatsApp" le deja escoger el grupo o contacto de empleados. Las fotos se envían aparte desde la ficha de cada producto.</p>
-    <h3>Ventas realizadas</h3><div id="v_sold"></div>
-  </section>
-
   <section id="tablero" hidden>
     <h2>Resultados de la custodia</h2>
     <div class="stats" id="stats"></div>
@@ -289,7 +275,7 @@ const fdate=d=>d?new Date(d).toLocaleDateString('es-CO',{day:'numeric',month:'sh
 const toast=m=>{const t=$('#toast');t.textContent=m;t.style.display='block';clearTimeout(toast.h);toast.h=setTimeout(()=>t.style.display='none',3000)};
 const use=n=>{try{return window.claude&&window.claude.use?window.claude.use(n).catch(()=>null):Promise.resolve(null)}catch(e){return Promise.resolve(null)}};
 
-const S={db:null,sample:null,assets:null,user:null,me:null,paq:[],rec:[],lotes:[],rez:[],imp:[],fb:[],cfgP:{},cfgE:{},cfgS:{},adm:[],cfg:{},cfgV:{},loaded:false,canWrite:true,isAdmin:false,names:{}};
+const S={db:null,sample:null,assets:null,user:null,me:null,paq:[],rec:[],lotes:[],rez:[],imp:[],fb:[],cfgP:{},cfgE:{},cfgS:{},adm:[],cfg:{},loaded:false,canWrite:true,isAdmin:false,names:{}};
 
 /* ---------- búsqueda local ---------- */
 const SYN={zapatos:'tenis',zapatillas:'tenis',calzado:'tenis',telefono:'celular',movil:'celular',smartphone:'celular',computador:'portatil',laptop:'portatil',computadora:'portatil',chamarra:'chaqueta',campera:'chaqueta',auriculares:'audifonos',cascos:'audifonos',marron:'cafe',tv:'televisor',tele:'televisor'};
@@ -497,7 +483,7 @@ function openDetail(id,pp){
    :p.estado==='separado'?`<div class="bar"><button class="btn alt sm" data-back="${esc(p.id)}">Devolver a custodia</button><button class="btn red sm" data-deliver="${esc(p.id)}">Verificar y entregar</button></div>`
    :p.estado==='rezago'?`<p>En rezago, lote <b>${esc(p.rezagoCodigo||'')}</b>. Aún puede recuperarlo su dueño.</p><div class="bar"><button class="btn red sm" data-deliver="${esc(p.id)}">Verificar y entregar</button></div>`
    :p.estado==='donado'?`<p>Donado a <b>${esc(p.donacion&&p.donacion.a)}</b> el ${fdate(p.donacion&&p.donacion.fecha)}</p>`
-   :p.estado==='venta'?`<p>En venta: antes ${money(p.venta&&p.venta.base)}, ahora <b>${money(p.venta&&p.venta.precio)}</b> · acta ${esc(p.venta&&p.venta.acta)}</p><div class="bar"><button class="btn red sm" data-sell="${esc(p.id)}">Vender</button><a class="btn alt sm" target="_blank" rel="noopener" href="${esc(waLink(itemMsg(p)))}">Compartir por WhatsApp</a></div>`
+   :p.estado==='venta'?`<p>Quedó marcado para venta, una función que ya no existe. Devuélvalo a custodia para que siga el proceso de rezago y donación.</p><div class="bar"><button class="btn red sm" data-unsale="${esc(p.id)}">Devolver a custodia</button></div>`
    :p.estado==='vendido'?`<p>Vendido a <b>${esc(p.vendido&&p.vendido.a)}</b> por ${money(p.vendido&&p.vendido.precio)} el ${fdate(p.vendido&&p.vendido.fecha)} · envío a ${esc(p.vendido&&p.vendido.ciudad)}${p.vendido&&p.vendido.guia?' · guía '+esc(p.vendido.guia):''}</p>`
    :p.estado==='dispuesto'?`<p>Enviado a reciclaje en el lote <b>${esc(p.loteCodigo||p.loteId)}</b></p>`
    :`<p>Entregado a <b>${esc(p.entrega&&p.entrega.a)}</b> el ${fdate(p.entrega&&p.entrega.fecha)}</p>`}
@@ -531,7 +517,7 @@ function deliver(id){
   $('#nov').onclick=async()=>{await write(()=>S.db.collection('paquetes').doc(p.id).update({historial:histAdd(p,'Intento de reclamo rechazado: dato no coincide')}),'Entrega bloqueada. Quedó registrado.');closeM()};
 }
 document.addEventListener('click',async e=>{
-  const t=e.target.closest('[data-open],[data-deliver],[data-move],[data-check],[data-match],[data-link],[data-cmp],[data-sep],[data-back],[data-acta],[data-tosale],[data-sell],[data-unsale]');if(!t)return;
+  const t=e.target.closest('[data-open],[data-deliver],[data-move],[data-check],[data-match],[data-link],[data-cmp],[data-sep],[data-back],[data-acta],[data-unsale]');if(!t)return;
   const d=t.dataset;
   if(d.sep!==undefined){const p=S.paq.find(x=>x.id===d.sep);if(!p)return;const cl=openClaim(p);
     if(cl&&!t.dataset.force){t.dataset.force='1';toast('Ojo: se parece al reclamo de '+cl.cliente+'. Toque de nuevo para separar igual.');return}
@@ -539,9 +525,7 @@ document.addEventListener('click',async e=>{
   else if(d.back!==undefined){const p=S.paq.find(x=>x.id===d.back);if(!p)return;const u=p.ubicacionAnterior||'SIN-UBICAR';
     if(await write(()=>S.db.collection('paquetes').doc(p.id).update({estado:'custodia',ubicacion:u,historial:histAdd(p,'Devuelto a custodia en '+u)}),'Devuelto a '+u))closeM()}
   else if(d.acta!==undefined)showActa(d.acta);
-  else if(d.tosale!==undefined)toSale(d.tosale);
-  else if(d.sell!==undefined)sell(d.sell);
-  else if(d.unsale!==undefined){const p=S.paq.find(x=>x.id===d.unsale);if(p)write(()=>S.db.collection('paquetes').doc(p.id).update({estado:'custodia',venta:null,historial:histAdd(p,'Retirado de la venta')}),'Retirado del catálogo')}
+  else if(d.unsale!==undefined){const p=S.paq.find(x=>x.id===d.unsale);if(p)write(()=>S.db.collection('paquetes').doc(p.id).update({estado:'custodia',venta:null,historial:histAdd(p,'Devuelto a custodia (venta retirada)')}),'Devuelto a custodia')}
   else if(d.cmp!==undefined){const r=S.rec.find(x=>x.id===d.cmp);if(r)compareFotos(r,$('#m_'+CSS.escape(r.id)),t)}
   else if(d.open!==undefined)openDetail(d.open);
   else if(d.deliver!==undefined)deliver(d.deliver);
@@ -639,7 +623,9 @@ function renderInv(){
     matches.slice(0,10).map(m=>`<div class="alert g"><span>Posible coincidencia: reclamo de <b>${esc(m.r.cliente)}</b> con <b>${esc(m.p.codigo)}</b> (${m.s.pct}%)</span><span class="bar"><button class="btn alt sm" data-open="${esc(m.p.id)}">Ver</button><button class="btn sm" data-link="${esc(m.r.id)}|${esc(m.p.id)}">Vincular</button></span></div>`).join('')+
     (old.length?`<div class="alert"><span><b>${old.length}</b> paquete(s) con más de 30 días en custodia</span></div>`:'')+
     (disp.length?`<div class="alert"><span><b>${disp.length}</b> paquete(s) afectados listos para separar (pestaña Disposición)</span></div>`:'')+
-    (stale.length?`<div class="alert k"><span><b>${stale.length}</b> paquete(s) sin confirmar en estante hace más de 15 días</span></div>`:'');
+    (stale.length?`<div class="alert k"><span><b>${stale.length}</b> paquete(s) sin confirmar en estante hace más de 15 días</span></div>`:'')+
+    (S.paq.some(p=>p.estado==='venta')?`<div class="alert"><span><b>${S.paq.filter(p=>p.estado==='venta').length}</b> paquete(s) quedaron marcados para venta. Devuélvalos a custodia para el proceso de rezago y donación.</span><button class="btn sm" id="unsale_all">Devolver todos</button></div>`:'');
+  const ua=$('#unsale_all');if(ua)ua.onclick=async()=>{ua.disabled=true;let n=0;for(const p of S.paq.filter(p=>p.estado==='venta')){if(await write(()=>S.db.collection('paquetes').doc(p.id).update({estado:'custodia',venta:null,historial:histAdd(p,'Devuelto a custodia (venta retirada)')})))n++}toast(n+' paquete(s) devueltos a custodia')};
   const ft=norm($('#f_txt').value),fe=$('#f_est').value;
   const rows=S.paq.filter(p=>(!fe||p.estado===fe)&&(!ft||norm([p.codigo,p.ubicacion,p.objeto,p.descripcion,...(p.etiquetas||[])].join(' ')).includes(ft)))
     .sort((a,b)=>String(a.ubicacion).localeCompare(String(b.ubicacion)));
@@ -711,96 +697,14 @@ function showActa(id,ll){
   modal.style.display='grid';
 }
 
-/* ---------- venta a empleados ---------- */
-const desc=()=>Math.min(95,Math.max(0,+(S.cfgV&&S.cfgV.descuento)>=0&&S.cfgV.descuento!==undefined?+S.cfgV.descuento:50));
-const maxMes=()=>Math.max(1,+(S.cfgV&&S.cfgV.maxMes)||3);
-const waLink=t=>'https://wa.me/?text='+encodeURIComponent(t);
-const itemMsg=p=>`*${p.codigo}* · ${p.descripcion||p.objeto} (${p.condicion||'Bueno'})\nAntes ${money(p.venta&&p.venta.base)} → *Ahora ${money(p.venta&&p.venta.precio)}*\nVenta exclusiva para empleados. Responda con el código para apartarlo.`;
-const buenEstado=p=>/^(Bueno|Usado)$/.test(p.condicion||'')&&!afectado(p);
-function toSale(id){
-  const p=S.paq.find(x=>x.id===id);if(!p)return;
-  const base=+p.valor||0;
-  $('#mbody').innerHTML=`<h2>Pasar a venta · ${esc(p.codigo)}</h2><p>${esc(p.descripcion||p.objeto)} · ${days(p.ingreso)} días en custodia</p>
-  <label class="check"><input type="checkbox" id="s_ok"> Confirmo que se cumplió el plazo legal, nadie lo reclamó y la transportadora tiene la propiedad del bien.</label>
-  <label class="f" style="margin-top:12px">N.º del acta o resolución que lo respalda<input id="s_acta"></label>
-  <div class="row2" style="margin-top:12px"><label class="f">Precio de referencia ($)<input id="s_base" type="number" value="${base||''}"></label><label class="f">Descuento (%)<input id="s_desc" type="number" min="0" max="95" value="${desc()}"></label></div>
-  <p class="big" id="s_prec" style="font-size:30px;margin:12px 0"></p>
-  <div class="row2"><button class="btn red" id="s_go">Publicar en el catálogo</button><button class="btn alt" data-close>Cancelar</button></div>`;
-  modal.style.display='grid';
-  const calc=()=>{const b=+$('#s_base').value||0,d=Math.min(95,Math.max(0,+$('#s_desc').value||0));$('#s_prec').textContent='Precio empleado: '+money(Math.round(b*(1-d/100)/100)*100);return {b,d,pr:Math.round(b*(1-d/100)/100)*100}};
-  $('#s_base').oninput=calc;$('#s_desc').oninput=calc;calc();
-  $('#s_go').onclick=async()=>{
-    if(!$('#s_ok').checked){toast('Debe confirmar la propiedad legal');return}
-    if(!$('#s_acta').value.trim()){toast('Escriba el número del acta');return}
-    const {b,d,pr}=calc();if(!(b>0)){toast('Ponga un precio de referencia');return}
-    if(await write(()=>S.db.collection('paquetes').doc(p.id).update({estado:'venta',venta:{base:b,descuento:d,precio:pr,acta:$('#s_acta').value.trim(),desde:new Date().toISOString(),por:S.me||''},historial:histAdd(p,'Publicado en venta a empleados por '+money(pr))}),'Publicado en el catálogo'))closeM();
-  };
-}
-function sell(id){
-  const p=S.paq.find(x=>x.id===id);if(!p)return;
-  $('#mbody').innerHTML=`<h2>Vender ${esc(p.codigo)}</h2><p>${esc(p.descripcion||p.objeto)} · <b>${money(p.venta&&p.venta.precio)}</b></p>
-  <label class="f">Empleado que compra<input id="v_a"></label>
-  <div class="row2" style="margin-top:12px"><label class="f">Ciudad de entrega<input id="v_c"></label><label class="f">Forma de pago<select id="v_p"><option>Descuento por nómina</option><option>Transferencia</option><option>Efectivo</option></select></label></div>
-  <label class="f" style="margin-top:12px">Guía del envío nacional<input id="v_g" placeholder="Si ya se despachó"></label>
-  <p class="meta" id="v_warn"></p>
-  <div class="row2" style="margin-top:12px"><button class="btn red" id="v_go">Registrar venta</button><button class="btn alt" data-close>Cancelar</button></div>`;
-  modal.style.display='grid';let forced=false;
-  $('#v_go').onclick=async()=>{
-    const a=$('#v_a').value.trim();if(!a){toast('Escriba quién compra');return}
-    const n=S.paq.filter(x=>x.estado==='vendido'&&x.vendido&&norm(x.vendido.a)===norm(a)&&days(x.vendido.fecha)<=30).length;
-    if(n>=maxMes()&&!forced){forced=true;$('#v_warn').textContent=a+' ya compró '+n+' producto(s) este mes (máximo '+maxMes()+'). Toque de nuevo para registrar igual.';return}
-    const v={a,ciudad:$('#v_c').value.trim(),pago:$('#v_p').value,guia:$('#v_g').value.trim(),precio:+(p.venta&&p.venta.precio)||0,fecha:new Date().toISOString(),por:S.me||''};
-    if(await write(()=>S.db.collection('paquetes').doc(p.id).update({estado:'vendido',vendido:v,ubicacion:'VENDIDO',historial:histAdd(p,'Vendido a '+a+' por '+money(v.precio))}),'Venta registrada'))closeM();
-  };
-}
-let msgEdited=false;
-function buildMsg(){
-  const cat=S.paq.filter(p=>p.estado==='venta').slice(0,40);
-  if(!cat.length)return '';
-  return `*VENTA EXCLUSIVA PARA EMPLEADOS*\nProductos de nuestra custodia con hasta ${Math.max(...cat.map(p=>+(p.venta&&p.venta.descuento)||0))}% de descuento. Envío a todo el país.\n\n`+
-    cat.map((p,i)=>`${i+1}. *${p.codigo}* · ${p.descripcion||p.objeto} (${p.condicion||'Bueno'})\n   Antes ${money(p.venta&&p.venta.base)} → *Ahora ${money(p.venta&&p.venta.precio)}*`).join('\n\n')+
-    `\n\nPara comprar responda con el código. Se vende por orden de llegada, máximo ${maxMes()} por empleado al mes. Pago por nómina o transferencia. Pida las fotos de cualquier producto.`;
-}
-function renderVenta(){
-  if(!ventaOn()){
-    $('#v_eleg').innerHTML=`<div class="banner"><b>Venta bloqueada.</b> El procedimiento de rezago (Res. MinTIC 1822 de 2018, art. 5) ordena ofrecer los envíos no reclamados al ICBF y luego a entidades sin ánimo de lucro; no contempla venderlos. Use "Rezago y donación" en la pestaña Disposición. Solo habilite la venta si su abogado emite un concepto que la permita.</div>`+(S.isAdmin?`<div class="bar"><input id="cv_con" placeholder="N.º o referencia del concepto jurídico" style="flex:1 1 240px"><button class="btn alt sm" data-venta-on>Habilitar venta con este concepto</button></div>`:'');
-    $('#v_cat').innerHTML='';$('#v_sold').innerHTML='';$('#vcfg').innerHTML='';$('#v_msg').value='';return;
-  }
-  const elig=S.paq.filter(p=>p.estado==='custodia'&&buenEstado(p)&&days(p.ingreso)>=plazo());
-  $('#v_eleg').innerHTML=elig.length?elig.map(p=>{const cl=openClaim(p);return `<div class="alert ${cl?'':'g'}"><span><b>${esc(p.codigo)}</b> · ${esc(p.descripcion||p.objeto)} · ${days(p.ingreso)} días · ref. ${money(p.valor)}${cl?`<br><b>Tiene reclamo parecido de ${esc(cl.cliente)}: no vender</b>`:''}</span><span class="bar"><button class="btn alt sm" data-open="${esc(p.id)}">Ver</button>${cl?'':`<button class="btn sm" data-tosale="${esc(p.id)}">Pasar a venta</button>`}</span></div>`}).join(''):`<p class="meta">Ningún paquete en buen estado ha cumplido el plazo de ${plazo()} días.</p>`;
-  const cat=S.paq.filter(p=>p.estado==='venta');
-  $('#v_cat').innerHTML=cat.length?cat.map(p=>`<article class="label">${thumb(p,true)}<div><b>${esc(p.codigo)}</b> · ${esc(p.descripcion||p.objeto)}<div class="meta">${esc(p.condicion||'')} · ${p.peso?kg(p.peso)+' · ':''}acta ${esc(p.venta&&p.venta.acta)}</div><div class="meta"><s>${money(p.venta&&p.venta.base)}</s> −${esc(p.venta&&p.venta.descuento)}%</div></div>
-    <div class="loc"><span class="big">${money(p.venta&&p.venta.precio)}</span><span class="bar"><button class="btn red sm" data-sell="${esc(p.id)}">Vender</button><a class="btn alt sm" target="_blank" rel="noopener" href="${esc(waLink(itemMsg(p)))}">WhatsApp</a><button class="btn alt sm" data-unsale="${esc(p.id)}">Retirar</button></span></div></article>`).join(''):'<p class="meta">El catálogo está vacío.</p>';
-  if(!msgEdited)$('#v_msg').value=buildMsg();
-  $('#v_wa').href=waLink($('#v_msg').value||'');
-  const sold=S.paq.filter(p=>p.estado==='vendido').sort((a,b)=>String(b.vendido&&b.vendido.fecha).localeCompare(String(a.vendido&&a.vendido.fecha)));
-  const tot=sold.reduce((s,p)=>s+(+(p.vendido&&p.vendido.precio)||0),0);
-  $('#v_sold').innerHTML=sold.length?`<p class="meta">${sold.length} venta(s) · total ${money(tot)}</p><div style="overflow-x:auto"><table class="stack"><thead><tr><th>Fecha</th><th>Código</th><th>Producto</th><th>Empleado</th><th>Ciudad</th><th>Pago</th><th style="text-align:right">Precio</th></tr></thead><tbody>`+
-    sold.map(p=>`<tr><td>${fdate(p.vendido.fecha)}</td><td>${esc(p.codigo)}</td><td>${esc(p.objeto||p.descripcion)}</td><td>${esc(p.vendido.a)}</td><td>${esc(p.vendido.ciudad)}</td><td>${esc(p.vendido.pago)}</td><td style="text-align:right;white-space:nowrap">${money(p.vendido.precio)}</td></tr>`).join('')+'</tbody></table></div>':'<p class="meta">Aún no hay ventas.</p>';
-  $('#vcfg').innerHTML=`<span class="meta" style="align-self:center">Descuento por defecto <b>${desc()}%</b> · máximo <b>${maxMes()}</b> compras por empleado al mes · plazo legal <b>${plazo()} días</b> (se cambia en Disposición).</span>`+
-    (S.isAdmin?`<input id="cv_d" type="number" min="0" max="95" value="${desc()}" style="flex:0 1 90px" aria-label="Descuento"><input id="cv_m" type="number" min="1" value="${maxMes()}" style="flex:0 1 90px" aria-label="Máximo al mes"><button class="btn alt sm" id="cv_b">Guardar</button>`:'');
-  const cb=$('#cv_b');if(cb)cb.onclick=()=>{const d=Math.round(+$('#cv_d').value),m=Math.round(+$('#cv_m').value);if(d>=0&&d<=95&&m>0)write(()=>S.db.doc('config/venta').set({descuento:d,maxMes:m}),'Condiciones de venta guardadas')};
-}
-$('#v_msg').addEventListener('input',()=>{msgEdited=true;$('#v_wa').href=waLink($('#v_msg').value)});
-$('#v_copy').addEventListener('click',async()=>{const t=$('#v_msg').value;try{await navigator.clipboard.writeText(t);toast('Mensaje copiado. Péguelo en WhatsApp.')}catch(e){$('#v_msg').select();toast('Selección lista: mantenga presionado y copie')}});
-$('#v_ai').addEventListener('click',async e=>{
-  const b=e.currentTarget;if(!S.sample){toast('IA no disponible');return}
-  const t=$('#v_msg').value;if(!t.trim()){toast('El catálogo está vacío');return}
-  b.disabled=true;
-  try{const r=await S.sample(`Mejora este mensaje de WhatsApp para vender a los empleados de una transportadora en Colombia productos que quedaron en custodia. Hazlo atractivo, claro y corto, en español colombiano, con formato de WhatsApp (*negrita*), máximo 3 emojis. NO cambies ningún código de producto, precio, porcentaje ni condición de venta. Devuelve solo el mensaje.\n\n${t}`,{modelTier:'quick'});
-    if(r&&r.text){$('#v_msg').value=r.text.trim();msgEdited=true;$('#v_wa').href=waLink($('#v_msg').value);toast('Revise que precios y códigos sigan iguales')}}
-  catch(err){toast('La IA no respondió')}finally{b.disabled=false}
-});
-
 /* ---------- asistente IA ---------- */
-let AS={dispo:[],venta:[],matches:[],precios:{},ruta:[]};
+let AS={dispo:[],matches:[],ruta:[]};
 async function review(btn){
   const out=$('#as_out');btn.disabled=true;out.innerHTML='<p class="meta">Revisando con reglas locales…</p>';
   const c=S.paq.filter(p=>p.estado==='custodia');
   AS.dispo=c.filter(p=>afectado(p)&&(urgente(p)||days(p.ingreso)>=plazo())&&!openClaim(p));
-  AS.venta=c.filter(p=>buenEstado(p)&&days(p.ingreso)>=plazo()&&!openClaim(p));
   AS.ruta=c.filter(p=>days(p.verificado||p.ingreso)>15).sort((a,b)=>String(a.ubicacion).localeCompare(String(b.ubicacion)));
-  AS.matches=[];AS.precios={};
+  AS.matches=[];
   const open=S.rec.filter(r=>r.estado==='abierto'),pool=custodia();
   let note='';
   if(S.sample&&open.length&&pool.length){
@@ -811,13 +715,6 @@ Paquetes: ${JSON.stringify(pool.slice(0,250).map(p=>({id:p.id,desc:p.descripcion
       AS.matches=(o&&Array.isArray(o.coincidencias)?o.coincidencias:[]).map(m=>({r:S.rec.find(x=>x.id===String(m.reclamo)),p:S.paq.find(x=>x.id===String(m.paquete)),pct:Math.round(+m.probabilidad||0),why:String(m.razon||'')})).filter(m=>m.r&&m.p);
     }catch(e){note+='No se pudo hacer el cruce con IA. '}
   }
-  if(S.sample&&AS.venta.length&&ventaOn()){
-    out.innerHTML='<p class="meta">La IA está estimando precios de venta…</p>';
-    try{const o=await S.sample.json(`Estima el precio de reventa en Colombia, en pesos colombianos, de estos productos según su estado (precio de mercado de segunda mano o de liquidación, no de tienda nueva). Responde SOLO con JSON: {"precios":[{"id":"...","precio":número redondeado a miles,"razon":"frase corta"}]}.
-Productos: ${JSON.stringify(AS.venta.slice(0,60).map(p=>({id:p.id,desc:p.descripcion||p.objeto,marca:p.marca,estado:p.condicion,valor_declarado:p.valor||null})))}`,{modelTier:'quick'});
-      (o&&Array.isArray(o.precios)?o.precios:[]).forEach(x=>{if(+x.precio>0)AS.precios[String(x.id)]={v:Math.round(+x.precio),why:String(x.razon||'')}});
-    }catch(e){note+='No se pudieron estimar precios. '}
-  }
   btn.disabled=false;renderAS(note);
 }
 function renderAS(note){
@@ -825,16 +722,9 @@ function renderAS(note){
   out.innerHTML=(note?`<div class="banner">${esc(note)}</div>`:'')+
   sec('1. Reclamos que la IA encontró ('+AS.matches.length+')',AS.matches.length?AS.matches.map(m=>`<div class="alert g"><span><b>${m.pct}%</b> · reclamo de <b>${esc(m.r.cliente)}</b> ↔ <b>${esc(m.p.codigo)}</b> en ${esc(m.p.ubicacion)}<br><span class="meta">${esc(m.why)}</span></span><span class="bar"><button class="btn alt sm" data-open="${esc(m.p.id)}">Ver</button><button class="btn sm" data-link="${esc(m.r.id)}|${esc(m.p.id)}">Vincular</button>${fbBtns('asistente',m.p.id+'~'+m.r.id)}</span></div>`).join(''):'<p class="meta">Sin coincidencias nuevas.</p>')+
   sec('2. Dañados para separar ('+AS.dispo.length+')',AS.dispo.length?`<p class="meta">${AS.dispo.map(p=>esc(p.codigo)+' ('+esc(p.condicion||p.empaque)+')').join(' · ')}</p><button class="btn sm" id="as_sep">Separar los ${AS.dispo.length} para disposición</button>`:'<p class="meta">Ninguno.</p>')+
-  (!ventaOn()?sec('3. Para declarar en rezago ('+S.paq.filter(p=>(p.estado==='custodia'||p.estado==='separado')&&days(p.ingreso)>=90&&!openClaim(p)).length+')','<p class="meta">Envíos con más de 3 meses sin entrega ni devolución. Créelos como lote en la pestaña Disposición, sección Rezago y donación.</p>'):'')+
-  (!ventaOn()?'':sec('3. Listos para venta a empleados ('+AS.venta.length+')',AS.venta.length?AS.venta.map(p=>{const pr=AS.precios[p.id];return `<div class="alert k"><span><b>${esc(p.codigo)}</b> · ${esc(p.descripcion||p.objeto)}<br><span class="meta">Precio sugerido ${pr?money(pr.v)+' · '+esc(pr.why):money(p.valor)+' (valor declarado)'}</span></span></div>`}).join('')+
-    `<p class="meta">Al publicar confirma que el plazo legal se cumplió y que la transportadora tiene la propiedad de estos bienes.</p><div class="bar"><input id="as_acta" placeholder="N.º de acta de propiedad (para todos)" style="flex:1 1 220px"><button class="btn sm" id="as_sale">Publicar todos con ${desc()}% de descuento</button></div>`:'<p class="meta">Ninguno.</p>'))+
+  (sec('3. Para declarar en rezago ('+S.paq.filter(p=>(p.estado==='custodia'||p.estado==='separado')&&days(p.ingreso)>=90&&!openClaim(p)).length+')','<p class="meta">Envíos con más de 3 meses sin entrega ni devolución. Créelos como lote en la pestaña Disposición, sección Rezago y donación.</p>'))+
   sec('4. Ruta de conteo: sin confirmar hace más de 15 días ('+AS.ruta.length+')',AS.ruta.length?`<p class="meta">Recorra en este orden y toque "Está aquí":</p>`+AS.ruta.map(p=>`<div class="alert k"><span><b>${esc(p.ubicacion)}</b> · ${esc(p.codigo)} · ${esc(p.objeto||p.descripcion)}</span><button class="btn sm" data-check="${esc(p.id)}">Está aquí</button></div>`).join(''):'<p class="meta">Todo confirmado.</p>');
   const sb=$('#as_sep');if(sb)sb.onclick=async()=>{sb.disabled=true;let n=0;for(const p of AS.dispo){if(await write(()=>S.db.collection('paquetes').doc(p.id).update({estado:'separado',ubicacionAnterior:p.ubicacion,ubicacion:'DISP',separado:new Date().toISOString(),historial:histAdd(p,'Separado para disposición (asistente IA)')})))n++}AS.dispo=[];renderAS();toast(n+' paquete(s) separados')};
-  const vb=$('#as_sale');if(vb)vb.onclick=async()=>{const acta=$('#as_acta').value.trim();if(!acta){toast('Escriba el número del acta de propiedad');return}
-    vb.disabled=true;let n=0;const d=desc();
-    for(const p of AS.venta){const b=(AS.precios[p.id]&&AS.precios[p.id].v)||+p.valor||0;if(!(b>0))continue;const pr=Math.round(b*(1-d/100)/100)*100;
-      if(await write(()=>S.db.collection('paquetes').doc(p.id).update({estado:'venta',venta:{base:b,descuento:d,precio:pr,acta,desde:new Date().toISOString(),por:S.me||'',precioIA:!!AS.precios[p.id]},historial:histAdd(p,'Publicado en venta por '+money(pr)+' (asistente IA)')})))n++}
-    AS.venta=[];renderAS();toast(n+' producto(s) publicados. El mensaje de WhatsApp ya está listo.')};
 }
 $('#as_go').addEventListener('click',e=>review(e.currentTarget));
 $('#add_media').addEventListener('change',e=>onAddMedia(e));
@@ -926,7 +816,7 @@ document.addEventListener('change',async e=>{const t=e.target;if(!t.dataset||!t.
   const now=new Date().toISOString(),v={fecha:now,por:S.me||''};if(k==='icbf')v.limite=addBizDays(now,15);
   if(k==='web'){await write(()=>S.db.collection('rezagos').doc(rid).update({pasos:{[k]:v},publicacionHasta:addMonths(now,2),recuperacionHasta:addDays(addMonths(now,2),30)}),'Publicación registrada; plazos recalculados');return}
   write(()=>S.db.collection('rezagos').doc(rid).update({pasos:{[k]:v}}),'Paso registrado')});
-document.addEventListener('click',async e=>{const t=e.target.closest('[data-don],[data-amb],[data-asg],[data-venta-on]');if(!t)return;
+document.addEventListener('click',async e=>{const t=e.target.closest('[data-don],[data-amb],[data-asg]');if(!t)return;
   if(t.dataset.asg){const [pid,g]=t.dataset.asg.split('|');const p=S.paq.find(x=>x.id===pid),gr=S.imp.find(x=>x.g===g);if(!p||!gr)return;
     const up={guia:g,guiaContenido:gr.c||'',historial:histAdd(p,'Guía '+g+' asignada por conciliación')};if(!p.origen&&gr.o)up.origen=gr.o;if(!p.destino&&gr.d)up.destino=gr.d;if(!p.valor&&gr.v)up.valor=gr.v;
     if(await write(()=>S.db.collection('paquetes').doc(pid).update(up),'Guía '+g+' asignada a '+p.codigo)){CONC.ai=CONC.ai.filter(m=>m.p.id!==pid);CONC.force=true;renderConc()}return}
@@ -939,10 +829,7 @@ document.addEventListener('click',async e=>{const t=e.target.closest('[data-don]
   if(t.dataset.amb){const items=S.paq.filter(p=>p.rezagoId===t.dataset.amb&&p.estado==='rezago');t.disabled=true;
     for(const p of items)await write(()=>S.db.collection('paquetes').doc(p.id).update({estado:'separado',ubicacionAnterior:p.ubicacion,ubicacion:'DISP',separado:new Date().toISOString(),historial:histAdd(p,'Sin interesados en donación: a disposición ambiental')}));
     toast('Pasaron a la zona de disposición. Entréguelos con acta de reciclaje.');return}
-  if(t.dataset.ventaOn!==undefined){const c=($('#cv_con')||{}).value||'';if(!c.trim()){toast('Escriba el número o referencia del concepto jurídico');return}
-    write(()=>S.db.doc('config/venta').set({...S.cfgV,habilitada:true,concepto:c.trim(),habilitadaPor:S.me||'',habilitadaEn:new Date().toISOString()}),'Venta habilitada con concepto '+c.trim())}
 });
-const ventaOn=()=>!!(S.cfgV&&S.cfgV.habilitada);
 
 /* ---------- fotos y videos ---------- */
 const MAXV=20*1024*1024;
@@ -1290,14 +1177,14 @@ function renderStats(){
   const recov=ent.reduce((s,p)=>s+(+p.valor||0),0);
   const prom=c.length?c.reduce((s,p)=>s+days(p.ingreso),0)/c.length:0;
   const recT=S.rec.length,recOk=S.rec.filter(r=>r.estado!=='abierto').length;
-  $('#stats').innerHTML=[['En custodia',c.length],['Entregados a su dueño',ent.length],['Valor recuperado',money(recov)],['Días promedio en custodia',Math.round(prom)],['Reclamos abiertos',recT-recOk],['Reclamos resueltos',recT?Math.round(100*recOk/recT)+'%':'—'],['Separados para disposición',S.paq.filter(p=>p.estado==='separado').length],['Entregado a reciclaje',kg(kgRec)],['Ventas a empleados',S.paq.filter(p=>p.estado==='vendido').length],['Ingresos por ventas',money(S.paq.filter(p=>p.estado==='vendido').reduce((s,p)=>s+(+(p.vendido&&p.vendido.precio)||0),0))]]
+  $('#stats').innerHTML=[['En custodia',c.length],['Entregados a su dueño',ent.length],['Valor recuperado',money(recov)],['Días promedio en custodia',Math.round(prom)],['Reclamos abiertos',recT-recOk],['Reclamos resueltos',recT?Math.round(100*recOk/recT)+'%':'—'],['Separados para disposición',S.paq.filter(p=>p.estado==='separado').length],['Entregado a reciclaje',kg(kgRec)],['Donados (rezago)',S.paq.filter(p=>p.estado==='donado').length],['En rezago',S.paq.filter(p=>p.estado==='rezago').length]]
     .map(([k,v])=>`<div class="stat"><span class="big">${esc(v)}</span><span class="meta">${esc(k)}</span></div>`).join('');
   const demo=S.paq.filter(p=>p.muestra).length+S.rec.filter(r=>r.muestra).length;
   $('#admin').innerHTML=S.isAdmin&&demo?`<p class="meta">Hay ${demo} registros de ejemplo para demostraciones.</p><button class="btn alt sm" id="deldemo">Borrar datos de ejemplo</button>`:'';
   const b=$('#deldemo');if(b)b.onclick=async()=>{b.disabled=true;for(const p of S.paq.filter(p=>p.muestra))await write(()=>S.db.collection('paquetes').doc(p.id).delete());for(const r of S.rec.filter(r=>r.muestra))await write(()=>S.db.collection('reclamos').doc(r.id).delete());toast('Datos de ejemplo borrados')};
 }
 
-function renderAll(){renderRec();renderInv();renderDisp();renderRezago();renderVenta();renderConc();renderStats();renderPrec();const q=$('#q').value;if(q&&!$('#res').querySelector('.why'))localSearch(q)}
+function renderAll(){renderRec();renderInv();renderDisp();renderRezago();renderConc();renderStats();renderPrec();const q=$('#q').value;if(q&&!$('#res').querySelector('.why'))localSearch(q)}
 function banner(m){$('#banner').innerHTML=m?`<div class="banner">${esc(m)}</div>`:''}
 
 /* ---------- pestañas y QR ---------- */
@@ -1337,7 +1224,6 @@ window.addEventListener('hashchange',routeHash);
   db.doc('config/sedes').onSnapshot(s=>{S.cfgS=s.exists?s.data():{};const o=$('#ad_of');if(o)o.innerHTML=sedeOpts('Oficina');renderSedes()},()=>{});
   db.collection('admisiones').orderBy('fecha','desc').limit(1000).onSnapshot(s=>{S.adm=s.docs.map(d=>({...d.data(),id:d.id}));renderAdm()},()=>{});
   db.doc('config/empresa').onSnapshot(s=>{S.cfgE=s.exists?s.data():{};renderEmpresa()},()=>{});
-  db.doc('config/venta').onSnapshot(s=>{S.cfgV=s.exists?s.data():{};renderAll()},()=>{});
   db.doc('config/disposicion').onSnapshot(s=>{S.cfg=s.exists?s.data():{};renderAll()},()=>{});
 })();
 renderAll();
