@@ -31,7 +31,7 @@ nav{display:flex;gap:4px;overflow-x:auto}
 nav button{flex:none;font:600 15px Inter,sans-serif;border:0;background:transparent;color:#1d1a16;padding:12px 14px;min-height:44px;border-radius:10px 10px 0 0;cursor:pointer}
 nav button[aria-selected=true]{background:var(--ink);color:var(--bg)}
 main{max-width:1100px;margin:0 auto;padding:24px max(4vw,16px) 60px}
-section[hidden]{display:none}
+section[hidden],[hidden]{display:none!important}
 input,select,textarea{font:16px Inter,sans-serif;color:var(--ink);background:var(--card);border:2px solid var(--line);border-radius:10px;padding:12px;min-height:48px;width:100%}
 textarea{min-height:84px;resize:vertical}
 input:focus,select:focus,textarea:focus,button:focus-visible{outline:3px solid var(--red);outline-offset:1px}
@@ -370,7 +370,9 @@ async function write(fn,okMsg){
   if(!S.db){toast('Sin conexión a la base de datos');return false}
   try{await fn();if(okMsg)toast(okMsg);return true}
   catch(e){
-    if(e&&e.code==='invalid_argument'){S.canWrite=false;banner('Su cuenta solo puede consultar. Pida al administrador acceso como Editor para registrar.');}
+    if(e&&(e.code==='invalid_argument'||e.code==='transform_error')){
+      if(S.writeOk===true)toast('No se pudo guardar: el registro tiene datos no válidos o es muy grande. Avise al administrador.');
+      else{S.canWrite=false;banner('Su cuenta solo puede consultar. Pida al administrador acceso como Editor para registrar.');}}
     else if(e&&e.code==='quota_exceeded')toast('La base de datos está llena. Borre paquetes entregados antiguos.');
     else toast('No se pudo guardar. Intente de nuevo.');
     return false;
@@ -380,7 +382,7 @@ const ev=(accion)=>({t:new Date().toISOString(),quien:S.me||'',accion});
 const histAdd=(p,a)=>[...(p.historial||[]).slice(-29),ev(a)];
 
 /* ---------- registro ---------- */
-let fotoBlob=null,fotoMini='',aiSug=null;
+let fotoBlob=null,fotoMini='',aiSug=null,regAI={huella:null,guias:[],guia:''};
 const toJpeg=(img,max,q)=>new Promise(r=>{const c=document.createElement('canvas'),k=Math.min(1,max/Math.max(img.width,img.height));c.width=Math.round(img.width*k);c.height=Math.round(img.height*k);c.getContext('2d').drawImage(img,0,0,c.width,c.height);c.toBlob(b=>r({b,url:c.toDataURL('image/jpeg',q)}),'image/jpeg',q)});
 $('#drop').addEventListener('click',()=>$('#foto').click());
 $('#drop_gal').addEventListener('click',()=>$('#foto_gal').click());
@@ -402,7 +404,7 @@ async function analyze(){
   st.textContent='La IA está mirando la foto…';
   try{
     const o=await S.sample.json(`Analiza los cuadros de un video de 15 segundos que recorre por fuera un paquete en la bodega de custodia de una empresa de mensajería en Colombia (combina lo que se ve en todos: caras, etiquetas, sellos, marcas, averías). ${learnText()}${$('#aper').value==='exterior'?'El paquete está CERRADO: describe el empaque, tamaño, marcas, etiquetas y texto visible; no adivines el contenido, usa objeto "paquete cerrado" si no se ve.':'El paquete fue abierto legalmente: describe su contenido.'} Responde SOLO con JSON:
-{"objeto":"nombre corto","categoria":"","marca":"o vacío","color":"","estado":"nuevo|usado|dañado","descripcion":"una frase en español","etiquetas":["8 a 12 palabras clave en español, minúsculas, sin tildes: objeto, sinónimos, marca, modelo, color, material, talla, accesorios"],"texto_visible":"texto o números legibles (guía, nombres, direcciones, seriales) o vacío","averias":"daños visibles del empaque o del contenido (aplastado, roto, mojado, cinta abierta, etc.) o vacío","origen_posible":"ciudad colombiana de donde probablemente salió, deducida SOLO de pistas visibles (dirección del remitente, factura o tienda, indicativo telefónico, sello) o vacío","destino_posible":"ciudad deducida de pistas visibles o vacío","pista_ciudades":"qué pista usaste, frase corta, o vacío","peso_estimado_kg":número aproximado,"peso_bascula_kg":número exacto en kg SOLO si en la foto se ve la pantalla de una báscula, si no null,"zona":"A electrónicos y celulares|B ropa, calzado y accesorios|C hogar, electrodomésticos y cocina|D documentos, alimentos, belleza y otros (responde solo la letra)","condicion":"Bueno|Usado|Dañado parcial|Dañado total|Vencido o perecedero","material":"Mixto|Cartón y papel|Plástico|Electrónico (RAEE)|Textil|Vidrio|Metal|Orgánico|Peligroso (baterías, químicos, medicamentos, aerosoles)","sensible":true/false (documentos de identidad, medicamentos, ropa interior o datos personales)}`,{images:aiImages(RM,8),modelTier:'default'});
+{"objeto":"nombre corto","categoria":"","marca":"o vacío","color":"","estado":"nuevo|usado|dañado","descripcion":"una frase en español","etiquetas":["8 a 12 palabras clave en español, minúsculas, sin tildes: objeto, sinónimos, marca, modelo, color, material, talla, accesorios"],"texto_visible":"texto o números legibles (guía, nombres, direcciones, seriales) o vacío","averias":"daños visibles del empaque o del contenido (aplastado, roto, mojado, cinta abierta, etc.) o vacío","origen_posible":"ciudad colombiana de donde probablemente salió, deducida SOLO de pistas visibles (dirección del remitente, factura o tienda, indicativo telefónico, sello) o vacío","destino_posible":"ciudad deducida de pistas visibles o vacío","pista_ciudades":"qué pista usaste, frase corta, o vacío","peso_estimado_kg":número aproximado,"peso_bascula_kg":número exacto en kg SOLO si en la foto se ve la pantalla de una báscula, si no null,"zona":"A electrónicos y celulares|B ropa, calzado y accesorios|C hogar, electrodomésticos y cocina|D documentos, alimentos, belleza y otros (responde solo la letra)","condicion":"Bueno|Usado|Dañado parcial|Dañado total|Vencido o perecedero","material":"Mixto|Cartón y papel|Plástico|Electrónico (RAEE)|Textil|Vidrio|Metal|Orgánico|Peligroso (baterías, químicos, medicamentos, aerosoles)","sensible":true/false (documentos de identidad, medicamentos, ropa interior o datos personales),"huella":{"empaque":"caja de cartón|bolsa plástica de mensajería|sobre|bolsa de tela|otro","color_principal":"","cinta":"tipo y color o vacío","logos":["logos o marcas impresas en el empaque"],"etiquetas":["cada etiqueta pegada: color, formato, posición"],"marcas_distintivas":["rasgos únicos: escritos a mano, golpes, parches de cinta"],"tamano":"pequeño|mediano|grande"}}`,{images:aiImages(RM,Math.min(8,(await imgMax())||8)),modelTier:'complex'});
     if(!o){st.textContent='La IA no devolvió datos.';return}
     const set=(id,v)=>{if(v&&!$(id).value)$(id).value=String(v)};
     set('#desc',o.descripcion);set('#obj',o.objeto);set('#marca',o.marca);set('#color',o.color);set('#texto',o.texto_visible);set('#aver',o.averias);
@@ -417,6 +419,19 @@ async function analyze(){
     if(o.origen_posible||o.destino_posible)msg+=' Ciudades sugeridas por la IA'+(o.pista_ciudades?' ('+String(o.pista_ciudades)+')':'')+': confírmelas.';
     if(+o.peso_estimado_kg>0&&!$('#peso').value)msg+=' Peso estimado a ojo: '+(+o.peso_estimado_kg)+' kg. Péselo en la báscula para el dato real.';
     st.textContent=msg+' Estante sugerido según el tipo de producto.';
+    regAI.huella=o.huella&&typeof o.huella==='object'?o.huella:null;
+    st.textContent=msg+' Estante sugerido según el tipo de producto. Leyendo etiquetas…';
+    try{const L=await readLabels(RM);
+      if(L){const gs=(Array.isArray(L.guias)?L.guias:[]).map(g=>({n:String(g&&g.numero||'').replace(/[^\d?]/g,''),ok:!!(g&&g.seguro)})).filter(g=>g.n.length>=6);
+        regAI.guias=gs.filter(g=>g.ok&&!g.n.includes('?')).map(g=>g.n);
+        const extra=[...gs.map(g=>g.n),L.remitente,L.destinatario,...(Array.isArray(L.telefonos)?L.telefonos:[]),...(Array.isArray(L.otros_textos)?L.otros_textos:[])].map(x=>String(x||'').trim()).filter(Boolean);
+        if(extra.length)$('#texto').value=[...new Set([...$('#texto').value.split(' · ').filter(Boolean),...extra])].join(' · ').slice(0,400);
+        const hit=regAI.guias.map(g=>({g,a:S.adm.find(a=>a.guia===g),i:S.imp.find(x=>String(x.g).replace(/\D/g,'')===g)})).find(x=>x.a||x.i);
+        regAI.guia=hit?hit.g:'';
+        if(hit){const a=hit.a,i=hit.i;if(!$('#orig').value)$('#orig').value=(a&&a.origen)||(i&&i.o)||'';if(!$('#dest').value)$('#dest').value=(a&&a.destino)||(i&&i.d)||'';}
+        st.textContent=msg+(regAI.guias.length?' Guía leída: '+regAI.guias.join(', ')+'.':gs.length?' Se ve una guía pero con dígitos dudosos ('+gs[0].n+'): acérquese a la etiqueta y agregue otro video.':' No se leyó número de guía.')+(hit?' Coincide con '+(hit.a?'una admisión':'el reporte de la transportadora')+': se asignará al guardar.':'');
+      }else st.textContent=msg;
+    }catch(err){st.textContent=msg}
     aiSug=Object.fromEntries(FB_CAMPOS.map(([k,id])=>[k,$(id).value]));
   }catch(e){st.textContent=e&&e.code==='rate_limited'?'IA ocupada, espere un momento y vuelva a tomar la foto.':'La IA no respondió: llene los datos a mano.'}
 }
@@ -452,12 +467,14 @@ $('#rform').addEventListener('submit',async e=>{
     peso:+v('#peso')||0,medidas:v('#med'),valor:+v('#valor')||0,origen:v('#orig'),destino:v('#dest'),empaque:$('#emp').value,ubicacion:v('#ubi').toUpperCase(),apertura:$('#aper').value,condicion:$('#cond').value,material:$('#mat').value,
     verificacion:v('#ver'),testigo:v('#test'),privado:$('#priv').checked,fotoId,media,fotoMini:fotoId?'':fotoMini,ingreso:now.toISOString(),verificado:now.toISOString(),
     operario:S.me||'',historial:[ev('Apertura registrada en '+v('#ubi').toUpperCase())]};
+  if(regAI.huella)p.huella=regAI.huella;if(regAI.guias.length)p.guiasLeidas=regAI.guias;
+  if(regAI.guia&&!S.paq.some(x=>x.guia===regAI.guia)){p.guia=regAI.guia;p.historial.push(ev('Guía '+regAI.guia+' leída del video por la IA'))}
   const fin=Object.fromEntries(FB_CAMPOS.map(([k,id])=>[k,$(id).value]));
   const ok=await write(()=>S.db.collection('paquetes').doc(id).set(p),'Paquete '+code+' registrado');
   if(ok&&aiSug){const campos={},corr=[];for(const [k] of FB_CAMPOS){if(!aiSug[k]&&!fin[k])continue;const same=norm(aiSug[k]).trim()===norm(fin[k]).trim();campos[k]=same;if(!same)corr.push({campo:k,ia:String(aiSug[k]).slice(0,80),final:String(fin[k]).slice(0,80)})}
     fbLog({tipo:'foto',ref:id,ok:!corr.length,campos,corr});aiSug=null}
   btn.disabled=false;
-  if(ok){e.target.reset();fotoBlob=null;fotoMini='';RM.length=0;$('#rm_grid').innerHTML='';$('#aistate').textContent='';openDetail(id,{...p,id})}
+  if(ok){e.target.reset();fotoBlob=null;fotoMini='';regAI={huella:null,guias:[],guia:''};RM.length=0;$('#rm_grid').innerHTML='';$('#aistate').textContent='';openDetail(id,{...p,id})}
 });
 
 /* ---------- detalle, etiqueta y entrega ---------- */
@@ -524,7 +541,7 @@ document.addEventListener('click',async e=>{
   else if(d.acta!==undefined)showActa(d.acta);
   else if(d.tosale!==undefined)toSale(d.tosale);
   else if(d.sell!==undefined)sell(d.sell);
-  else if(d.unsale!==undefined){const p=S.paq.find(x=>x.id===d.unsale);if(p)write(()=>S.db.collection('paquetes').doc(p.id).update({estado:'custodia',venta:{__delete__:true},historial:histAdd(p,'Retirado de la venta')}),'Retirado del catálogo')}
+  else if(d.unsale!==undefined){const p=S.paq.find(x=>x.id===d.unsale);if(p)write(()=>S.db.collection('paquetes').doc(p.id).update({estado:'custodia',venta:null,historial:histAdd(p,'Retirado de la venta')}),'Retirado del catálogo')}
   else if(d.cmp!==undefined){const r=S.rec.find(x=>x.id===d.cmp);if(r)compareFotos(r,$('#m_'+CSS.escape(r.id)),t)}
   else if(d.open!==undefined)openDetail(d.open);
   else if(d.deliver!==undefined)deliver(d.deliver);
@@ -584,18 +601,14 @@ async function compareFotos(r,box,btn,override){
     const toks=tokens([r.descripcion,r.fotoDesc,...(r.fotoTags||[]),r.origen,r.destino].join(' '));
     const withFoto=custodia().filter(p=>(fotoSrc(p)||(p.media||[]).length)&&!p.privado);
     if(!withFoto.length){B().innerHTML='<p class="meta">Aún no hay paquetes con foto en custodia. Uso la búsqueda por texto.</p>';await aiSearch([r.descripcion,r.fotoDesc,r.origen,r.destino].join(' '),box,btn);return}
-    const ranked=withFoto.map(p=>({p,s:score(p,toks).pct})).sort((a,b)=>b.s-a.s||String(b.p.ingreso).localeCompare(String(a.p.ingreso))).slice(0,6);
-    const cands=[];for(const x of ranked.slice(0,5)){const bs=await imagesOf(x.p,2);if(bs.length)cands.push({p:x.p,bs})}
+    const ranked=withFoto.map(p=>({p,s:score(p,toks).pct})).sort((a,b)=>b.s-a.s||String(b.p.ingreso).localeCompare(String(a.p.ingreso))).slice(0,8);
+    const cands=[];for(const x of ranked){const bs=await imagesOf(x.p,2);if(bs.length)cands.push({id:x.p.id,imgs:bs,datos:{desc:x.p.descripcion,marca:x.p.marca,color:x.p.color,texto:x.p.textoVisible,averias:x.p.averias,orig:x.p.origen,dest:x.p.destino,kg:x.p.peso,huella:x.p.huella||null}})}
     if(!cands.length){B().innerHTML='<p class="meta">No se pudieron abrir las fotos de la custodia.</p>';return}
-    B().innerHTML=`<p class="meta">La IA está comparando las fotos del cliente con los videos de ${cands.length} paquetes…</p>`;
-    const out=await S.sample.json(`Eres el verificador visual de una bodega de custodia de mensajería en Colombia. Las primeras ${cimgs.length} imágenes son ${override?'fotos del paquete cerrado tomadas al admitirlo en la oficina':'las fotos que envió el cliente de su envío'}. Después vienen cuadros de los videos que grabó el personal de cada paquete en custodia (casi siempre por fuera: empaque, etiquetas, averías), en este orden: ${JSON.stringify(cands.map(c=>({id:c.p.id,cuadros:c.bs.length})))}.
-Datos de esos paquetes: ${JSON.stringify(cands.map(c=>({id:c.p.id,desc:c.p.descripcion,marca:c.p.marca,color:c.p.color,texto:c.p.textoVisible,averias:c.p.averias,orig:c.p.origen,dest:c.p.destino,kg:c.p.peso})))}
-Lo que dice el cliente: ${JSON.stringify(r.descripcion||'')} (origen ${JSON.stringify(r.origen||'')}, destino ${JSON.stringify(r.destino||'')}).
-Para cada paquete, juzga si es el MISMO envío: si el cliente fotografió el empaque, compara caja, tamaño, color, cintas, logos, etiquetas y textos; si fotografió el producto, compara lo que se alcance a ver o lo declarado (marca, forma, tamaño). Diferencia de ángulo o luz no importa; una caja, logo o etiqueta distinta sí.
-Responde SOLO con JSON: {"resultados":[{"id":"...","probabilidad":0-100,"razon":"frase corta: qué coincide y qué no"}]} ordenado de mayor a menor, solo los de probabilidad >= 20.`,{images:[...cimgs.slice(0,4),...cands.flatMap(c=>c.bs)],modelTier:'complex'});
-    const res=(out&&Array.isArray(out.resultados)?out.resultados:[]).map(x=>({p:S.paq.find(p=>p.id===String(x.id)),pct:Math.max(0,Math.min(100,Math.round(+x.probabilidad||0))),why:String(x.razon||'')})).filter(x=>x.p);
-    B().innerHTML=(res.length?`<p class="meta">Comparación de fotos: ${res.length} posible(s)</p>`+res.map(x=>card(x.p,{pct:x.pct,why:x.why,hits:toks,src:'cruce_foto'})+(x.pct>=60?`<div class="bar"><button class="btn sm" data-link="${esc(r.id)}|${esc(x.p.id)}">Vincular a este reclamo</button></div>`:'')).join('')
-      :'<p class="meta">Ninguna foto de la custodia se parece al producto del cliente.</p>');
+    B().innerHTML=`<p class="meta">La IA está comparando rasgo por rasgo con ${cands.length} paquetes…</p>`;
+    const vm=await visualMatch(cimgs,override?'fotos del paquete cerrado tomadas al admitirlo en la oficina':'las fotos que envió el cliente de su envío',cands,`Lo que dice el cliente: ${JSON.stringify(r.descripcion||'')} (origen ${JSON.stringify(r.origen||'')}, destino ${JSON.stringify(r.destino||'')}).`);
+    const res=vm.filter(x=>x.pct>=20).map(x=>({...x,p:S.paq.find(p=>p.id===x.id)})).filter(x=>x.p);
+    B().innerHTML=(res.length?`<p class="meta">Comparación rasgo por rasgo: ${res.length} posible(s)</p>`+res.map(x=>card(x.p,{pct:x.pct,why:nivel(x.pct)+' · '+x.why,hits:toks,src:'cruce_foto'})+(x.pct>=70?`<div class="bar"><button class="btn sm" data-link="${esc(r.id)}|${esc(x.p.id)}">Vincular a este reclamo</button></div>`:'')).join('')
+      :'<p class="meta">Ningún paquete de la custodia coincide con las fotos del cliente.</p>');
   }catch(e){B().innerHTML='<p class="meta">'+(e&&e.code==='rate_limited'?'IA ocupada, intente en un momento.':'La IA no pudo comparar las fotos.')+'</p>'}
   finally{btn.disabled=false}
 }
@@ -855,8 +868,8 @@ function concMatches(){
   const pool=S.paq.filter(p=>p.estado==='custodia'&&!p.guia),used=new Set(S.paq.map(p=>p.guia).filter(Boolean));
   const G=S.imp.filter(g=>!used.has(g.g)).map(g=>({g,t:tokens([g.c,g.o,g.d].join(' ')),gd:String(g.g).replace(/\D/g,'')}));
   const out=[];
-  for(const p of pool){const digits=String(p.textoVisible||'').match(/\d{4,}/g)||[];let best=null;
-    for(const x of G){let sc=0;const why=[];if(digits.some(d=>x.gd.includes(d))){sc+=60;why.push('números visibles de la guía')}
+  for(const p of pool){const digits=[...(p.guiasLeidas||[]),...(String(p.textoVisible||'').match(/\d{4,}/g)||[])];let best=null;
+    for(const x of G){let sc=0;const why=[];if((p.guiasLeidas||[]).includes(x.gd)){sc+=95;why.push('número de guía leído del video')}else if(digits.some(d=>x.gd.includes(d))){sc+=60;why.push('números visibles de la guía')}
       const s=score(p,x.t).pct;sc+=s*.6;if(s>=50)why.push('contenido y ciudades');
       if(p.peso&&x.g.p&&Math.abs(p.peso-x.g.p)<=Math.max(.3,x.g.p*.15)){sc+=10;why.push('peso')}
       if(!best||sc>best.sc)best={g:x.g,sc,why}}
@@ -934,15 +947,32 @@ const ventaOn=()=>!!(S.cfgV&&S.cfgV.habilitada);
 /* ---------- fotos y videos ---------- */
 const MAXV=20*1024*1024;
 const loadImg=src=>new Promise(r=>{const i=new Image();i.onload=()=>r(i);i.onerror=()=>r(null);i.src=src});
+function frameStats(c){
+  const sc=document.createElement('canvas'),k=160/Math.max(c.width,c.height);sc.width=Math.max(8,Math.round(c.width*k));sc.height=Math.max(8,Math.round(c.height*k));
+  const g=sc.getContext('2d',{willReadFrequently:true});g.drawImage(c,0,0,sc.width,sc.height);
+  const d=g.getImageData(0,0,sc.width,sc.height).data,w=sc.width,h=sc.height,gr=new Float32Array(w*h);let sum=0;
+  for(let i=0;i<w*h;i++){const v=.299*d[i*4]+.587*d[i*4+1]+.114*d[i*4+2];gr[i]=v;sum+=v}
+  let m=0,m2=0,n=0;for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){const i=y*w+x,l=4*gr[i]-gr[i-1]-gr[i+1]-gr[i-w]-gr[i+w];m+=l;m2+=l*l;n++}
+  const mu=n?m/n:0;return {bright:sum/(w*h),sharp:n?m2/n-mu*mu:0};
+}
+const frameScore=x=>x.sharp*(x.bright<40||x.bright>235?.3:1);
+/* Revisa 16 momentos del video, mide nitidez y luz de cada cuadro y se queda con el más nítido de cada tramo:
+   la IA recibe cuadros enfocados que cubren todas las caras del paquete, no cuadros movidos al azar. */
 async function videoFrames(file,n){
   const url=URL.createObjectURL(file),v=document.createElement('video');v.muted=true;v.playsInline=true;v.preload='auto';v.src=url;
-  try{await new Promise((ok,ko)=>{v.onloadeddata=ok;v.onerror=ko;setTimeout(ko,15000)})}catch(e){return {frames:[],dur:0}}
-  const dur=isFinite(v.duration)&&v.duration>0?v.duration:1,out=[];
-  for(let i=1;i<=n;i++){v.currentTime=Math.min(dur-0.05,dur*i/(n+1));await new Promise(r=>{v.onseeked=r;setTimeout(r,4000)});
-    if(!v.videoWidth)continue;const c=document.createElement('canvas'),k=Math.min(1,1000/Math.max(v.videoWidth,v.videoHeight));c.width=Math.round(v.videoWidth*k);c.height=Math.round(v.videoHeight*k);
-    c.getContext('2d').drawImage(v,0,0,c.width,c.height);const b=await new Promise(r=>c.toBlob(r,'image/jpeg',.8));if(b)out.push(b)}
-  URL.revokeObjectURL(url);return {frames:out,dur};
+  try{await new Promise((ok,ko)=>{v.onloadeddata=ok;v.onerror=ko;setTimeout(ko,15000)})}catch(e){URL.revokeObjectURL(url);return {frames:[],best:[],dur:0,q:null}}
+  const dur=isFinite(v.duration)&&v.duration>0?v.duration:1,N=Math.max(16,n*2),cand=[],c=document.createElement('canvas');
+  for(let i=0;i<N;i++){v.currentTime=Math.min(dur-0.05,dur*(i+.5)/N);await new Promise(r=>{v.onseeked=r;setTimeout(r,4000)});
+    if(!v.videoWidth)continue;const k=Math.min(1,1280/Math.max(v.videoWidth,v.videoHeight));c.width=Math.round(v.videoWidth*k);c.height=Math.round(v.videoHeight*k);
+    c.getContext('2d').drawImage(v,0,0,c.width,c.height);const st=frameStats(c);const b=await new Promise(r=>c.toBlob(r,'image/jpeg',.85));if(b)cand.push({i,b,...st})}
+  URL.revokeObjectURL(url);
+  if(!cand.length)return {frames:[],best:[],dur,q:null};
+  const picked=[];for(let j=0;j<n;j++){const bin=cand.filter(x=>Math.floor(x.i*n/N)===j);if(bin.length)picked.push(bin.reduce((a,b)=>frameScore(b)>frameScore(a)?b:a))}
+  const best=cand.slice().sort((a,b)=>frameScore(b)-frameScore(a)).slice(0,4).map(x=>x.b);
+  const sh=cand.map(x=>x.sharp).sort((a,b)=>a-b),q={sharp:Math.round(sh[sh.length>>1]),bright:Math.round(cand.reduce((s,x)=>s+x.bright,0)/cand.length)};
+  return {frames:picked.map(x=>x.b),best,dur,q};
 }
+const calidadTxt=q=>!q?'':q.bright<45?'El video está oscuro: con más luz la IA reconoce mejor el paquete.':q.sharp<30?'El video está movido o desenfocado: grabe más despacio y acérquese a las etiquetas.':'';
 async function compressVideo(file,st){
   if(typeof MediaRecorder==='undefined')return null;
   const mime=['video/mp4;codecs=avc1','video/mp4','video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'].find(m=>{try{return MediaRecorder.isTypeSupported(m)}catch(e){return false}});if(!mime)return null;
@@ -959,16 +989,58 @@ async function compressVideo(file,st){
 }
 async function prepMedia(file,st){
   if(file.type.startsWith('video/')){
-    const {frames,dur}=await videoFrames(file,6);if(!frames.length)throw new Error('No se pudo leer el video. Pruebe con otro formato (MP4).');
+    const {frames,best,dur,q}=await videoFrames(file,8);if(!frames.length)throw new Error('No se pudo leer el video. Pruebe con otro formato (MP4).');
     if(dur>20)throw new Error('El video dura '+Math.round(dur)+' segundos. Debe durar unos 15 segundos.');
     if(dur<4)throw new Error('El video es muy corto. Grabe unos 15 segundos mostrando todo el paquete.');
     if(file.size>8*1024*1024){const cv=await compressVideo(file,st);if(cv&&cv.size<file.size)file=cv;}
     if(file.size>MAXV)throw new Error('El video pesa más de 20 MB y no se pudo comprimir. Grabe en calidad 720p.');
     const img=await loadImg(URL.createObjectURL(frames[0])),mini=img?await toJpeg(img,360,.6):{url:''};
-    return {kind:'video',file,frames,poster:frames[0],mini:mini.url,dur};
+    return {kind:'video',file,frames,best,q,poster:frames[0],mini:mini.url,dur};
   }
   const img=await loadImg(URL.createObjectURL(file));if(!img)throw new Error('No se pudo leer la imagen.');
   const big=await toJpeg(img,1200,.8),mini=await toJpeg(img,360,.6);return {kind:'foto',blob:big.b,mini:mini.url};
+}
+let IMGMAX;
+async function imgMax(){if(IMGMAX!==undefined)return IMGMAX;try{const l=S.sample&&await S.sample.limits();IMGMAX=l&&l.images?Math.max(0,l.images.maxCount|0):0}catch(e){IMGMAX=0}return IMGMAX}
+/* Lectura dedicada de etiquetas: solo transcribe texto y números, con los cuadros más nítidos. */
+async function readLabels(list){
+  const max=await imgMax();if(!max)return null;
+  const imgs=list.flatMap(m=>m.kind==='video'?(m.best&&m.best.length?m.best:m.frames):[m.blob]).slice(0,Math.min(6,max));if(!imgs.length)return null;
+  return S.sample.json(`Estas imágenes son los cuadros más nítidos de un video de un paquete de mensajería en Colombia. Tu único trabajo es LEER texto con exactitud, como un escáner.
+Transcribe: números de guía o remesa (secuencias de 6 o más dígitos; también el número impreso bajo un código de barras), nombres y direcciones de remitente y destinatario, teléfonos y ciudades.
+Reglas: copia los dígitos exactamente; si un dígito no se lee con seguridad escribe "?" en su lugar; no completes ni adivines; si el mismo número aparece en varios cuadros, compáralos para confirmar cada dígito y marca "seguro" solo si todos los dígitos se leen igual.
+Responde SOLO con JSON: {"guias":[{"numero":"...","seguro":true}],"remitente":"","destinatario":"","telefonos":[],"ciudades":[],"otros_textos":[]}`,{images:imgs,modelTier:'complex'});
+}
+const FEAT=[['numeros','números de guía',45],['etiquetas','etiquetas',18],['logos','logos',15],['empaque','empaque',12],['color','color',10],['cinta','cinta y sellos',8],['forma','forma y tamaño',8],['averias','averías',4]];
+/* Puntaje calculado aquí, no inventado por la IA: cada rasgo que ella ve igual suma, uno distinto resta,
+   y lo que no se ve no cuenta. Sin números de guía legibles el máximo es ~79%. Un número distinto,
+   o un logo, etiqueta o empaque distinto, bajan el resultado a "no es". */
+function scoreFeat(r){
+  let pos=0,seen=0;const f={};
+  for(const [k,,w] of FEAT){const v=String(r[k]||'nv').toLowerCase().trim();f[k]=v==='si'||v==='sí'?'si':v==='no'?'no':'nv';if(f[k]==='si'){pos+=w;seen+=w}else if(f[k]==='no')seen+=w}
+  let pct=seen?Math.round(100*pos/(seen+20)):0;
+  if(f.numeros==='si')pct=Math.max(pct,92);
+  if(f.numeros==='no')pct=Math.min(pct,8);
+  if(['logos','etiquetas','empaque'].some(k=>f[k]==='no'))pct=Math.min(pct,25);
+  return {pct:Math.max(0,Math.min(99,pct)),f};
+}
+const featTxt=f=>FEAT.filter(([k])=>f[k]!=='nv').map(([k,t])=>(f[k]==='si'?'✓ ':'✗ ')+t).join(' · ');
+const nivel=p=>p>=85?'Confianza alta':p>=60?'Confianza media: confirme con el dato de verificación':'Confianza baja';
+async function visualMatch(ref,refDesc,cands,ctx){
+  const max=await imgMax();if(!max)throw {code:'images_unavailable'};
+  const R=ref.slice(0,Math.max(1,Math.min(4,max-2))),per=Math.max(1,Math.floor((max-R.length)/2)),out=[];
+  for(let i=0;i<cands.length&&i<per*3;i+=per){
+    const batch=cands.slice(i,i+per).map(c=>({...c,imgs:c.imgs.slice(0,2)})).filter(c=>c.imgs.length);if(!batch.length)continue;
+    const o=await S.sample.json(`Eres perito visual de una bodega de custodia de mensajería en Colombia. Las primeras ${R.length} imágenes son ${refDesc}. Después vienen, en este orden, las imágenes de ${batch.length} paquete(s) candidato(s): ${JSON.stringify(batch.map(c=>({id:c.id,imagenes:c.imgs.length})))}.
+Datos registrados de los candidatos: ${JSON.stringify(batch.map(c=>({id:c.id,...c.datos})))}
+${ctx||''}
+Para CADA candidato compara contra la referencia rasgo por rasgo. Para cada rasgo responde "si" (claramente igual), "no" (claramente distinto) o "nv" (no se ve en alguna de las dos, o no se puede saber).
+Rasgos: numeros (número de guía o texto impreso legible en ambas), etiquetas (etiquetas pegadas: posición, color, formato), logos (logos, marcas y estampados impresos), empaque (caja de cartón, bolsa plástica de mensajería, sobre, etc.), color, cinta (tipo y color de cinta, sellos, amarres), forma (forma y proporciones), averias (golpes, roturas, manchas).
+Sé estricto: el ángulo, la luz y la calidad de la cámara NO son diferencias; un logo, texto, etiqueta o tipo de empaque distinto SÍ lo es. Si la referencia muestra el producto y el candidato una caja cerrada, marca "nv" salvo lo que la caja deje ver (por ejemplo, la marca impresa). Ante la duda responde "nv", nunca "si".
+Responde SOLO con JSON: {"resultados":[{"id":"...","numeros":"si|no|nv","etiquetas":"...","logos":"...","empaque":"...","color":"...","cinta":"...","forma":"...","averias":"...","razon":"frase corta: qué coincide y qué no"}]} incluyendo TODOS los candidatos.`,{images:[...R,...batch.flatMap(c=>c.imgs)],modelTier:'complex'});
+    for(const r of (o&&Array.isArray(o.resultados)?o.resultados:[])){const c=batch.find(x=>x.id===String(r.id));if(!c)continue;const {pct,f}=scoreFeat(r);out.push({id:c.id,pct,f,why:[featTxt(f),String(r.razon||'')].filter(Boolean).join(' · ')})}
+  }
+  return out.sort((a,b)=>b.pct-a.pct);
 }
 const aiImages=(list,max)=>list.flatMap(m=>m.kind==='foto'?[m.blob]:m.frames).slice(0,max);
 const firstImg=list=>{const m=list[0];return m?(m.kind==='foto'?m.blob:m.poster):null};
@@ -979,7 +1051,7 @@ async function addFiles(files,list,el,tag,st,want){
   if(!canUpload()){toast('Solo el personal autorizado puede subir archivos');return false}
   let added=0;for(const f of [...files].slice(0,10)){if(list.length>=(want==='video'?3:10)){toast(want==='video'?'Máximo 3 videos por paquete':'Máximo 10 fotos');break}
     if(want&&!f.type.startsWith(want==='video'?'video/':'image/')){toast(want==='video'?'El personal sube solo videos de 15 segundos':'El cliente sube solo fotos');continue}
-    st.textContent='Preparando '+f.name+'…';try{list.push(await prepMedia(f,st));added++}catch(err){toast(err.message||'No se pudo leer '+f.name)}}
+    st.textContent='Preparando '+f.name+'…';try{const m=await prepMedia(f,st);list.push(m);added++;const w=calidadTxt(m.q);if(w)toast(w)}catch(err){toast(err.message||'No se pudo leer '+f.name)}}
   renderGrid(list,el,tag);st.textContent=added?list.length+' archivo(s) listos.':'';return added>0;
 }
 async function uploadMedia(list,origen){
@@ -987,7 +1059,7 @@ async function uploadMedia(list,origen){
   for(const m of list){
     if(!S.assets){if(m.kind==='foto'&&media.length<3)media.push({...base,tipo:'foto',mini:m.mini});if(!mini)mini=m.mini;continue}
     try{if(m.kind==='foto'){const a=await S.assets.upload(m.blob);media.push({...base,tipo:'foto',id:a.id});if(!mainId)mainId=a.id}
-      else{const a=await S.assets.upload(m.file),fr=[];for(const b of m.frames.slice(0,3)){try{fr.push((await S.assets.upload(b)).id)}catch(e){}}
+      else{const a=await S.assets.upload(m.file),fr=[];for(const b of m.frames.slice(0,4)){try{fr.push((await S.assets.upload(b)).id)}catch(e){}}
         media.push({...base,tipo:'video',id:a.id,posterId:fr[0]||'',frames:fr});if(!mainId&&fr[0])mainId=fr[0]}}
     catch(e){toast(e&&e.code==='quota_exceeded'?'Se llenó el espacio de archivos':'No se pudo subir un archivo')}
   }
@@ -1061,7 +1133,7 @@ $('#ad_q').addEventListener('input',renderAdm);
 const onAdmFoto=async e=>{const files=[...e.target.files];e.target.value='';if(!files.length)return;
   if(await addFiles(files,AM,$('#ad_grid'),'am',$('#ad_st'),'foto')){
     if(!S.sample)return;$('#ad_st').textContent='La IA está describiendo el empaque…';
-    try{const o=await S.sample.json(`Estas fotos muestran un paquete CERRADO en el momento de admitirlo en una oficina de mensajería en Colombia. Describe solo lo que se ve por fuera, para reconocerlo después en cámaras y bodegas. Responde SOLO con JSON: {"descripcion":"una frase: tipo de empaque, tamaño aparente, color, cintas, logos, marcas","etiquetas":["8 a 12 palabras clave en español, minúsculas, sin tildes: empaque, colores, cinta, logos, textos, forma"],"texto_visible":"texto o números legibles o vacío","averias":"daños visibles o vacío"}`,{images:aiImages(AM,4),modelTier:'quick'});
+    try{const o=await S.sample.json(`Estas fotos muestran un paquete CERRADO en el momento de admitirlo en una oficina de mensajería en Colombia. Describe solo lo que se ve por fuera, para reconocerlo después en cámaras y bodegas. Responde SOLO con JSON: {"descripcion":"una frase: tipo de empaque, tamaño aparente, color, cintas, logos, marcas","etiquetas":["8 a 12 palabras clave en español, minúsculas, sin tildes: empaque, colores, cinta, logos, textos, forma"],"texto_visible":"texto o números legibles o vacío","averias":"daños visibles o vacío","huella":{"empaque":"caja de cartón|bolsa plástica de mensajería|sobre|bolsa de tela|otro","color_principal":"","cinta":"tipo y color o vacío","logos":[],"etiquetas":["cada etiqueta pegada: color, formato, posición"],"marcas_distintivas":[],"tamano":"pequeño|mediano|grande"}}`,{images:aiImages(AM,4),modelTier:'quick'});
       if(o){if(!$('#ad_desc').value)$('#ad_desc').value=String(o.descripcion||'');$('#ad_tags').value=Array.isArray(o.etiquetas)?o.etiquetas.map(String).join(', '):'';$('#ad_st').textContent='Listo. Revise y guarde.'+(o.averias?' Averías: '+o.averias:'');AM.ai=o}}
     catch(err){$('#ad_st').textContent='La IA no respondió; describa el empaque a mano.'}}};
 $('#ad_foto').addEventListener('change',onAdmFoto);$('#ad_drop').addEventListener('click',()=>$('#ad_foto').click());
@@ -1073,7 +1145,7 @@ $('#aform').addEventListener('submit',async e=>{
   const up=await uploadMedia(AM,'admision');
   const a={guia:g,fecha:new Date().toISOString(),oficina:$('#ad_of').value,origen:v('#ad_orig'),destino:v('#ad_dest'),contenido:v('#ad_cont'),descripcion:v('#ad_desc'),
     etiquetas:[...new Set(v('#ad_tags').split(',').map(t=>norm(t).trim()).filter(Boolean))],textoVisible:String((AM.ai&&AM.ai.texto_visible)||''),averias:String((AM.ai&&AM.ai.averias)||''),
-    peso:+v('#ad_peso')||0,medidas:v('#ad_med'),valor:+v('#ad_val')||0,media:up.media,avistamientos:[],por:S.me||''};
+    peso:+v('#ad_peso')||0,medidas:v('#ad_med'),valor:+v('#ad_val')||0,media:up.media,avistamientos:[],por:S.me||''};if(AM.ai&&AM.ai.huella&&typeof AM.ai.huella==='object')a.huella=AM.ai.huella;
   const ok=await write(()=>S.db.collection('admisiones').doc('adm-'+g).set(a),'Admisión de la guía '+g+' guardada');b.disabled=false;
   if(ok){e.target.reset();AM.length=0;AM.ai=null;$('#ad_grid').innerHTML='';$('#ad_st').textContent=''}
 });
@@ -1091,12 +1163,12 @@ function openAdm(id){
   <p><button class="btn sm" data-close>Cerrar</button></p>`;
   modal.style.display='grid';
   $('#av_b').onclick=()=>{if(!canUpload()){toast('Solo el personal autorizado puede subir archivos');return}$('#av_f').click()};
-  $('#av_f').onchange=async e=>{const f=e.target.files[0];if(!f)return;const st=$('#av_st');
+  $('#av_f').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;const st=$('#av_st');
     if(!$('#av_s').value){toast('Elija la sede');return}
     let m;try{m=await prepMedia(f,st)}catch(err){toast(err.message);return}
     let pct=0,why='';if(S.sample){st.textContent='Comparando con las fotos de admisión…';
-      try{const ref=await imagesOf(a,3);const o=await S.sample.json(`La primera imagen es una captura de una cámara de seguridad de una sede de mensajería. Las siguientes ${ref.length} son fotos de un paquete al admitirlo. ¿Aparece ese mismo paquete en la captura? Compara empaque, tamaño, color, cintas, logos y etiquetas; la calidad de cámara será menor. Responde SOLO con JSON: {"probabilidad":0-100,"razon":"frase corta"}`,{images:[m.blob,...ref],modelTier:'default'});
-        pct=Math.round(+o.probabilidad||0);why=String(o.razon||'')}catch(err){}}
+      try{const ref=await imagesOf(a,2);const vm=await visualMatch([m.blob],'una captura de una cámara de seguridad de una sede de mensajería (calidad baja; puede haber varios paquetes: busca el que más se parezca)',[{id:a.guia,imgs:ref,datos:{desc:a.descripcion,huella:a.huella||null}}]);
+        if(vm[0]){pct=vm[0].pct;why=vm[0].why}}catch(err){}}
     const up=await uploadMedia([m],'camara');const h=$('#av_h').value;
     const x={t:h?new Date(h).toISOString():new Date().toISOString(),sede:$('#av_s').value,camara:$('#av_c').value.trim(),pct,razon:why,foto:(up.media[0]&&up.media[0].id)||'',ok:false,por:S.me||''};
     if(await write(()=>S.db.collection('admisiones').doc(a.id).update({avistamientos:[...(a.avistamientos||[]),x].slice(-60)}),`Avistamiento guardado: ${pct}% de coincidencia`))setTimeout(()=>openAdm(a.id),400);
@@ -1106,15 +1178,15 @@ async function findAdmission(pid,btn){
   const p=S.paq.find(x=>x.id===pid),box=$('#fa_box');if(!p||!box)return;
   if(!S.adm.length){box.innerHTML='<p class="meta">Aún no hay admisiones con foto.</p>';return}
   const toks=tokens([p.descripcion,p.objeto,p.marca,p.color,...(p.etiquetas||[]),p.textoVisible].join(' '));const digits=String(p.textoVisible||'').match(/\d{4,}/g)||[];
-  const ranked=S.adm.filter(a=>!S.paq.some(x=>x.guia===a.guia)).map(a=>{let s=0;const at=norm([a.descripcion,...(a.etiquetas||[]),a.textoVisible].join(' '));s+=toks.filter(t=>at.includes(t)).length*10;
+  const ranked=S.adm.filter(a=>a.guia&&!S.paq.some(x=>x.guia===a.guia)).map(a=>{let s=0;const at=norm([a.descripcion,...(a.etiquetas||[]),a.textoVisible].join(' '));s+=toks.filter(t=>at.includes(t)).length*10;
     if(digits.some(d=>a.guia.includes(d)))s+=60;if(norm(a.origen)===norm(p.origen)&&p.origen)s+=8;if(norm(a.destino)===norm(p.destino)&&p.destino)s+=8;if(p.peso&&a.peso&&Math.abs(p.peso-a.peso)<=Math.max(.3,a.peso*.15))s+=10;return {a,s}})
-    .sort((x,y)=>y.s-x.s).slice(0,5);
+    .sort((x,y)=>y.s-x.s).slice(0,8);
   if(!S.sample){box.innerHTML=ranked.map(x=>admRow(p,x.a,Math.min(99,x.s),'coincidencia por texto')).join('');return}
   btn.disabled=true;box.innerHTML='<p class="meta">Comparando el video de este paquete con las fotos de admisión…</p>';
-  try{const mine=await imagesOf(p,3),c=[];for(const x of ranked){const im=await imagesOf(x.a,1);if(im.length)c.push({a:x.a,im:im[0]})}
+  try{const mine=await imagesOf(p,4),c=[];for(const x of ranked){const im=await imagesOf(x.a,2);if(im.length)c.push({id:x.a.guia,imgs:im,datos:{guia:x.a.guia,desc:x.a.descripcion,contenido:x.a.contenido,texto:x.a.textoVisible,orig:x.a.origen,dest:x.a.destino,kg:x.a.peso,huella:x.a.huella||null}})}
     if(!mine.length||!c.length){box.innerHTML='<p class="meta">Faltan imágenes para comparar.</p>';return}
-    const o=await S.sample.json(`Las primeras ${mine.length} imágenes son cuadros del video de un paquete en custodia (sin guía legible). Las siguientes ${c.length} son fotos de paquetes al admitirlos, en este orden de guías: ${JSON.stringify(c.map(x=>x.a.guia))}. ¿Cuál es el mismo paquete? Compara empaque, tamaño, color, cintas, logos, etiquetas y averías. Responde SOLO con JSON: {"resultados":[{"guia":"...","probabilidad":0-100,"razon":"frase corta"}]} con probabilidad >= 20, de mayor a menor.`,{images:[...mine,...c.map(x=>x.im)],modelTier:'complex'});
-    const res=(o&&Array.isArray(o.resultados)?o.resultados:[]).map(r=>({a:S.adm.find(a=>a.guia===String(r.guia)),pct:Math.round(+r.probabilidad||0),why:String(r.razon||'')})).filter(r=>r.a);
+    const vm=await visualMatch(mine,'cuadros del video de un paquete en custodia (sin guía legible)',c,`Datos del paquete en custodia: ${JSON.stringify({desc:p.descripcion,texto:p.textoVisible,averias:p.averias,kg:p.peso,huella:p.huella||null})}`);
+    const res=vm.filter(x=>x.pct>=20).map(x=>({a:S.adm.find(a=>a.guia===x.id),pct:x.pct,why:nivel(x.pct)+' · '+x.why})).filter(r=>r.a);
     box.innerHTML=res.length?res.map(r=>admRow(p,r.a,r.pct,r.why)).join(''):'<p class="meta">Ninguna admisión se parece a este paquete.</p>';
   }catch(e){box.innerHTML='<p class="meta">La IA no respondió.</p>'}finally{btn.disabled=false}
 }
@@ -1123,7 +1195,7 @@ document.addEventListener('click',async e=>{const t=e.target.closest('[data-adm]
   if(d.adm)openAdm(d.adm);
   else if(d.findadm)findAdmission(d.findadm,t);
   else if(d.asgadm){const [pid,aid]=d.asgadm.split('|'),p=S.paq.find(x=>x.id===pid),a=S.adm.find(x=>x.id===aid);if(!p||!a)return;
-    const up={guia:a.guia,guiaContenido:a.contenido||'',historial:histAdd(p,'Guía '+a.guia+' asignada por foto de admisión')};if(!p.origen)up.origen=a.origen;if(!p.destino)up.destino=a.destino;if(!p.valor&&a.valor)up.valor=a.valor;
+    const up={guia:a.guia,guiaContenido:a.contenido||'',historial:histAdd(p,'Guía '+a.guia+' asignada por foto de admisión')};if(!p.origen&&a.origen)up.origen=a.origen;if(!p.destino&&a.destino)up.destino=a.destino;if(!p.valor&&a.valor)up.valor=a.valor;
     if(await write(()=>S.db.collection('paquetes').doc(pid).update(up),'Guía '+a.guia+' asignada a '+p.codigo)){fbDone.add('admision|'+pid+'~'+a.guia);fbLog({tipo:'admision',ref:pid+'~'+a.guia,ok:true,implicito:true});closeM()}}
   else if(d.cmpadm){const r=S.rec.find(x=>x.id===d.cmpadm),a=r&&admOf(r.guia);if(!a)return;const imgs=await imagesOf(a,3);if(!imgs.length){toast('La admisión no tiene fotos');return}compareFotos(r,$('#m_'+CSS.escape(r.id)),t,imgs)}
   else if(d.sedeDel){write(()=>S.db.doc('config/sedes').set({lista:sedes().filter(x=>x.nombre!==d.sedeDel)}),'Sede quitada')}
@@ -1239,14 +1311,19 @@ window.addEventListener('hashchange',routeHash);
 (async()=>{
   const [db,sample,assets,user]=await Promise.all(['db','sample','assets','user'].map(use));
   Object.assign(S,{db,sample,assets,user});
-  if(user){try{S.me=await user.id()||''}catch(e){}try{S.isAdmin=!!(await user.canEdit())}catch(e){}try{const cw=await user.can('data.write');if(cw===false){S.canWrite=false;banner('Su cuenta solo puede consultar. Pida acceso como Editor para registrar paquetes.')}}catch(e){}}
+  if(user){try{S.me=await user.id()||''}catch(e){}try{S.isAdmin=!!(await user.canEdit())}catch(e){}try{const cw=await user.can('data.write');S.writeOk=cw;if(cw===false){S.canWrite=false;banner('Su cuenta solo puede consultar. Pida acceso como Editor para registrar paquetes.')}}catch(e){}}
   if(!sample){$('#aiq').hidden=true}
   if(!db){$('#status').textContent='Sin conexión';banner('Abra esta aplicación con una cuenta autorizada para ver y registrar paquetes.');return}
   $('#status').textContent='Cargando datos…';
   const timer=setTimeout(()=>{$('#status').textContent='Los datos tardan en llegar; pueden estar desactualizados'},10000);
   let got=0;const done=()=>{if(++got>=2){S.loaded=true;routeHash()}};let first1=true,first2=true;
+  const PQ={rec:new Map(),act:new Map()};
+  const mergePaq=()=>{S.paq=[...new Map([...PQ.rec,...PQ.act]).values()].sort((a,b)=>String(b.ingreso).localeCompare(String(a.ingreso)))};
+  db.collection('paquetes').where('estado','in',['custodia','separado','rezago','venta']).limit(1000).onSnapshot(s=>{
+    PQ.act=new Map(s.docs.map(d=>[d.id,{...d.data(),id:d.id}]));mergePaq();renderAll();renderAdm();
+  },()=>{});
   db.collection('paquetes').orderBy('ingreso','desc').limit(1000).onSnapshot(s=>{
-    S.paq=s.docs.map(d=>({...d.data(),id:d.id}));if(!s.metadata.fromCache){clearTimeout(timer);$('#status').textContent='En línea · '+custodia().length+' en custodia'}
+    PQ.rec=new Map(s.docs.map(d=>[d.id,{...d.data(),id:d.id}]));mergePaq();if(!s.metadata.fromCache){clearTimeout(timer);$('#status').textContent='En línea · '+custodia().length+' en custodia'}
     renderAll();if(first1){first1=false;done()}
   },e=>{clearTimeout(timer);$('#status').textContent='Sin acceso a los datos';banner('No se pudieron leer los paquetes. Verifique que tiene acceso a esta aplicación.')});
   db.collection('reclamos').orderBy('creado','desc').limit(500).onSnapshot(s=>{
