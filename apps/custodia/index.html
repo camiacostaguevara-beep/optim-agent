@@ -1,0 +1,1270 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Custodia: buscador de envíos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Narrow:wght@500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+/* VOICE: herramienta de bodega, directa y rápida, como un rótulo de despacho.
+   IDEA: la etiqueta de envío y la cinta de empaque; cada resultado es una etiqueta pegada a una caja.
+   PICTURE: el buscador y sus tarjetas-etiqueta con el estante en grande.
+   COLOUR and TYPE: kraft y blanco de etiqueta, tinta casi negra, rojo de cinta; Archivo Narrow + Inter.
+   LAYOUT: pestañas arriba, herramienta de inmediato, una columna en el teléfono. */
+:root{color-scheme:light dark;
+--bg:light-dark(#f4ede2,#17130f);--card:light-dark(#ffffff,#221c16);--ink:light-dark(#1d1a16,#f1e9dc);
+--mute:light-dark(#6b5f51,#b3a593);--kraft:light-dark(#c9a06b,#8a6a42);--line:light-dark(#e2d6c4,#3a3027);
+--red:light-dark(#d23a22,#ff6a4d);--ok:light-dark(#1f7a4d,#5fd39a)}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 Inter,system-ui,sans-serif;overflow-x:clip}
+h1,h2,h3,.big{font-family:"Archivo Narrow",Inter,sans-serif;line-height:1.05}
+h1{font-size:clamp(28px,5vw,40px);margin:0;text-wrap:balance}
+h2{font-size:26px;margin:0 0 12px}h3{font-size:20px;margin:18px 0 8px}
+header{background:var(--kraft);color:#1d1a16;padding:18px max(5vw,16px) 0;border-bottom:6px solid var(--ink)}
+header p{margin:4px 0 12px;font-size:15px}
+.status{font-size:13px;background:#fff8;border-radius:99px;padding:3px 10px;display:inline-block;margin-bottom:10px}
+nav{display:flex;gap:4px;overflow-x:auto}
+nav button{flex:none;font:600 15px Inter,sans-serif;border:0;background:transparent;color:#1d1a16;padding:12px 14px;min-height:44px;border-radius:10px 10px 0 0;cursor:pointer}
+nav button[aria-selected=true]{background:var(--ink);color:var(--bg)}
+main{max-width:1100px;margin:0 auto;padding:24px max(4vw,16px) 60px}
+section[hidden]{display:none}
+input,select,textarea{font:16px Inter,sans-serif;color:var(--ink);background:var(--card);border:2px solid var(--line);border-radius:10px;padding:12px;min-height:48px;width:100%}
+textarea{min-height:84px;resize:vertical}
+input:focus,select:focus,textarea:focus,button:focus-visible{outline:3px solid var(--red);outline-offset:1px}
+.bar{display:flex;gap:8px;flex-wrap:wrap}.bar>input{flex:1 1 240px}
+.btn{font:600 15px Inter,sans-serif;border:0;border-radius:10px;padding:12px 16px;min-height:48px;cursor:pointer;background:var(--ink);color:var(--bg)}
+a.btn{display:inline-flex;align-items:center;text-decoration:none}
+.btn.alt{background:transparent;color:var(--ink);border:2px solid var(--ink)}
+.btn.red{background:var(--red);color:#fff}.btn.sm{min-height:40px;padding:8px 12px;font-size:14px}
+.btn:disabled{opacity:.5;cursor:wait}
+.hint{color:var(--mute);font-size:14px;margin:8px 0 0}
+.meta{font-size:14px;color:var(--mute)}
+.banner{background:var(--card);border-left:6px solid var(--red);padding:12px 14px;border-radius:6px;margin-bottom:16px}
+.list{display:grid;gap:14px;margin-top:18px}
+.label{display:grid;grid-template-columns:112px minmax(0,1fr) auto;gap:14px;background:var(--card);border:2px solid var(--ink);border-radius:6px;padding:16px 14px 14px;position:relative;animation:in .25s ease both}
+.label::before{content:"";position:absolute;left:-2px;right:-2px;top:-2px;height:7px;background:repeating-linear-gradient(-45deg,var(--red) 0 10px,transparent 10px 20px);border-radius:6px 6px 0 0;opacity:.85}
+@keyframes in{from{opacity:0;transform:translateY(6px)}}
+@media(prefers-reduced-motion:reduce){.label{animation:none}}
+.thumb{width:112px;height:112px;border-radius:4px;overflow:hidden;background:var(--bg);display:grid;place-items:center;cursor:pointer;border:0;padding:0}
+.thumb img{width:100%;height:100%;object-fit:cover}.thumb.blur img{filter:blur(10px)}
+.tags{display:flex;flex-wrap:wrap;gap:4px;margin:6px 0}
+.tag{font-size:13px;background:var(--bg);border-radius:4px;padding:2px 8px}
+.tag.hit{background:var(--ink);color:var(--bg)}
+.loc{text-align:right;display:flex;flex-direction:column;gap:6px;align-items:flex-end}
+.loc .big{font-size:34px;white-space:nowrap}
+.score{font:700 15px Inter;color:var(--ok)}.score.low{color:var(--mute)}
+.why{font-size:14px;border-left:3px solid var(--ok);padding-left:8px;margin:4px 0}
+@media(max-width:600px){.label{grid-template-columns:84px minmax(0,1fr)}.thumb{width:84px;height:84px}.loc{grid-column:1/-1;flex-direction:row;flex-wrap:wrap;align-items:center;justify-content:space-between}.loc .big{font-size:28px}}
+.form{display:grid;gap:14px;max-width:680px}
+.row2{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+label.f{display:grid;gap:6px;font-weight:600;font-size:15px}
+.drop{border:2px dashed var(--kraft);border-radius:10px;padding:18px;text-align:center;background:var(--card);cursor:pointer;width:100%;color:var(--ink);font:inherit}
+.drop img{max-height:240px;max-width:100%;border-radius:6px}
+.check{display:flex;gap:10px;align-items:flex-start;font-weight:500}
+.check input{width:22px;height:22px;min-height:0;flex:none;margin-top:2px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.stat{background:var(--card);border-radius:8px;padding:16px;border-top:6px solid var(--kraft)}
+.stat .big{font-size:clamp(28px,5vw,40px);display:block}
+.alert{background:var(--card);border-left:6px solid var(--red);border-radius:6px;padding:12px 14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.alert.k{border-color:var(--kraft)}.alert.g{border-color:var(--ok)}
+table{width:100%;border-collapse:collapse;background:var(--card);border-radius:8px;overflow:hidden;font-size:15px}
+th,td{text-align:left;padding:10px;border-bottom:1px solid var(--line);vertical-align:middle}
+th{font-size:13px;color:var(--mute);font-weight:600}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:12px 18px;border-radius:10px;font-weight:600;display:none;max-width:90vw;z-index:20}
+.modal{position:fixed;inset:0;background:#000a;display:none;place-items:center;padding:12px;z-index:10;overflow:auto}
+.modal>div{background:var(--card);border-radius:10px;padding:20px;max-width:560px;width:100%;max-height:92vh;overflow:auto}
+.mgrid{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}.mthumb{position:relative;width:84px;height:84px;border-radius:6px;overflow:hidden;background:var(--bg);flex:none}.mthumb img{width:100%;height:100%;object-fit:cover}.mthumb .v{position:absolute;left:3px;bottom:3px;background:#000b;color:#fff;font-size:11px;padding:1px 5px;border-radius:3px}.mthumb .x{position:absolute;top:3px;right:3px;width:28px;height:28px;border:0;border-radius:50%;background:#000b;color:#fff;font-size:18px;line-height:1;cursor:pointer}
+.etq{display:flex;gap:14px;align-items:center;background:#fff;color:#111;border:2px dashed #111;border-radius:6px;padding:12px;margin:12px 0}
+.etq svg{width:120px;height:120px;flex:none}
+.etq .big{font-size:30px}
+.hist{font-size:14px;margin:0;padding-left:18px}
+.secret{background:var(--bg);border-radius:6px;padding:10px;font-weight:600}
+@media(max-width:600px){table{font-size:13px}.stack thead{display:none}.stack tr{display:grid;padding-block:10px}.stack td{display:flow-root;border:0;padding:3px 10px;padding-inline-start:8em;text-align:start}.stack td::before{content:attr(data-l);float:inline-start;width:7.5em;margin-inline-start:-8em;color:var(--mute)}.stack td:empty{display:none}}
+</style>
+<script>new MutationObserver(()=>{for(const c of document.querySelectorAll('.stack td:not([data-l])')){let i=0,p=c;while(p=p.previousElementSibling)i+=p.colSpan;c.dataset.l=c.closest('table').rows[0].cells[i]?.textContent||''}}).observe(document,{childList:true,subtree:true})</script>
+</head>
+<body>
+<header>
+  <h1>Custodia: buscador de envíos</h1>
+  <p>El cliente describe lo que envió y el sistema dice en qué estante está.</p>
+  <span class="status" id="status">Conectando…</span>
+  <nav role="tablist">
+    <button role="tab" data-t="buscar" aria-selected="true">Buscar</button>
+    <button role="tab" data-t="asistente" aria-selected="false">Asistente IA</button>
+    <button role="tab" data-t="admision" aria-selected="false">Admisión</button>
+    <button role="tab" data-t="registrar" aria-selected="false">Registrar en custodia</button>
+    <button role="tab" data-t="reclamos" aria-selected="false">Reclamos</button>
+    <button role="tab" data-t="inventario" aria-selected="false">Inventario</button>
+    <button role="tab" data-t="conciliar" aria-selected="false">Conciliar guías</button>
+    <button role="tab" data-t="disposicion" aria-selected="false">Disposición</button>
+    <button role="tab" data-t="venta" aria-selected="false">Venta empleados</button>
+    <button role="tab" data-t="tablero" aria-selected="false">Tablero</button>
+  </nav>
+</header>
+<main>
+  <div id="banner"></div>
+
+  <section id="buscar">
+    <form class="bar" id="sform">
+      <input id="q" placeholder="Ej.: tenis negros Nike talla 42 para Medellín" aria-label="Descripción del cliente">
+      <button class="btn">Buscar</button>
+      <button type="button" class="btn alt" id="aiq">Buscar con IA</button>
+    </form>
+    <p class="hint">Escriba lo que dice el cliente: objeto, color, marca, ciudad, peso, o números de la guía. "Buscar con IA" entiende descripciones vagas.</p>
+    <div class="list" id="res"></div>
+  </section>
+
+  <section id="asistente" hidden>
+    <h2>Asistente IA: revisión diaria de la custodia</h2>
+    <p class="meta">Un toque revisa todo: cruza reclamos con paquetes, separa dañados, propone precios de venta y arma la ruta de conteo. Usted solo confirma.</p>
+    <button class="btn red" id="as_go">Revisar la custodia ahora</button>
+    <div id="as_out" style="margin-top:16px"></div>
+  </section>
+
+  <section id="registrar" hidden>
+    <h2>Apertura controlada de paquete</h2>
+    <form class="form" id="rform">
+      <input type="file" id="foto" accept="video/*" capture="environment" hidden><input type="file" id="foto_gal" accept="video/*" hidden>
+      <label class="f">Base legal de la apertura<select id="aper"><option value="exterior">Sin abrir: solo fotos del exterior</option><option value="remitente">Abierto con autorización del remitente</option><option value="destinatario">Abierto con autorización del destinatario</option><option value="rezago">Abierto en rezago: más de 3 meses, con acta</option></select></label>
+      <p class="meta">La ley protege la inviolabilidad de los envíos. Antes de 3 meses abra solo con autorización del remitente o del destinatario.</p>
+      <button type="button" class="drop" id="drop"><span id="prev"><b>Grabar video de 15 segundos del paquete</b><br><span class="meta">Gire alrededor del paquete por fuera: todas las caras, las etiquetas de cerca y cada avería. Buena luz, sin prisa.</span></span></button>
+      <button type="button" class="btn alt sm" id="drop_gal">O subir un video ya grabado</button>
+      <div class="mgrid" id="rm_grid"></div>
+      <p class="meta" id="aistate"></p>
+      <label class="f">¿Qué hay dentro?<textarea id="desc" placeholder="Ej.: licuadora Oster negra nueva en caja, con manual"></textarea></label>
+      <label class="f">Etiquetas de búsqueda (separadas por coma)<input id="tags" placeholder="licuadora, oster, negro, electrodomestico"></label>
+      <div class="row2">
+        <label class="f">Objeto<input id="obj"></label>
+        <label class="f">Marca<input id="marca"></label>
+        <label class="f">Color<input id="color"></label>
+      </div>
+      <label class="f">Texto o números visibles (guía, nombres)<input id="texto"></label>
+      <label class="f">Averías visibles<input id="aver" placeholder="Ej.: esquina aplastada, cinta rota, mojado por un lado"></label>
+      <div class="row2">
+        <label class="f">Peso real (kg)<input id="peso" type="number" step="0.01" inputmode="decimal"></label>
+        <label class="f">Medidas (cm)<input id="med" placeholder="30x20x15"></label>
+        <label class="f">Valor aprox. ($)<input id="valor" type="number" inputmode="numeric"></label>
+      </div>
+      <input type="file" id="fbas" accept="image/*" capture="environment" hidden>
+      <button type="button" class="btn alt" id="bbas">Foto de la báscula: leer peso real</button>
+      <p class="meta" id="basstate">Ponga el paquete en la báscula y tome la foto a la pantalla. La IA lee el número.</p>
+      <div class="row2">
+        <label class="f">Ciudad origen<input id="orig"></label>
+        <label class="f">Ciudad destino<input id="dest"></label>
+      </div>
+      <div class="row2">
+        <label class="f">Estado del empaque<select id="emp"><option>Etiqueta dañada</option><option>Sin guía</option><option>Caja rota</option><option>Mojado</option><option>Bueno</option></select></label>
+        <label class="f">Ubicación<input id="ubi" placeholder="B-3-2 (estante-nivel-caja)"></label>
+      </div>
+      <div class="row2">
+        <label class="f">Estado del producto<select id="cond"><option>Bueno</option><option>Usado</option><option>Dañado parcial</option><option>Dañado total</option><option>Vencido o perecedero</option></select></label>
+        <label class="f">Material principal<select id="mat"><option>Mixto</option><option>Cartón y papel</option><option>Plástico</option><option>Electrónico (RAEE)</option><option>Textil</option><option>Vidrio</option><option>Metal</option><option>Orgánico</option><option>Peligroso</option></select></label>
+      </div>
+      <label class="f">Dato de verificación (lo debe decir el dueño)<input id="ver" placeholder="Ej.: serial termina en 4471"></label>
+      <label class="f">Testigo de la apertura<input id="test" placeholder="Nombre"></label>
+      <label class="check"><input type="checkbox" id="priv"> Contenido sensible (documentos, medicamentos, datos personales): ocultar la foto en búsquedas</label>
+      <label class="check"><input type="checkbox" id="sello"> Paquete resellado con cinta "Abierto en custodia" y etiqueta QR pegada</label>
+      <button class="btn red" id="save">Guardar y generar etiqueta</button>
+    </form>
+  </section>
+
+  <section id="reclamos" hidden>
+    <h2>Reclamos de clientes</h2>
+    <details id="newrec"><summary class="btn alt" style="display:inline-block">Nuevo reclamo</summary>
+    <form class="form" id="cform" style="margin-top:14px">
+      <label class="f">Mensaje del cliente (péguelo de WhatsApp o correo)<textarea id="c_raw" placeholder="Buenas, mandé unos tenis Nike negros talla 42 desde Bogotá a Medellín el 30 de octubre y nunca llegaron, guía terminada en 4471…"></textarea></label>
+      <button type="button" class="btn alt" id="c_fill">Llenar el reclamo con IA</button>
+      <div class="row2"><label class="f">Cliente<input id="c_nom"></label><label class="f">Contacto<input id="c_tel" placeholder="Teléfono o correo"></label></div>
+      <label class="f">¿Qué envió? (palabras del cliente)<textarea id="c_desc"></textarea></label>
+      <input type="file" id="c_foto" accept="image/*" multiple hidden>
+      <button type="button" class="drop" id="c_drop"><span id="c_prev"><b>Fotos que envió el cliente (opcional)</b><br><span class="meta">Las que mandó por WhatsApp o correo: de la compra, de la tienda o de antes de enviarlo. Hasta 10. La IA las compara con los videos de la custodia.</span></span></button>
+      <div class="mgrid" id="cm_grid"></div>
+      <p class="meta" id="c_ai"></p>
+      <div class="row2"><label class="f">Guía (si la tiene)<input id="c_guia"></label><label class="f">Fecha de envío<input id="c_fecha" type="date"></label></div>
+      <div class="row2"><label class="f">Origen<input id="c_orig"></label><label class="f">Destino<input id="c_dest"></label><label class="f">Valor declarado ($)<input id="c_val" type="number"></label></div>
+      <input type="hidden" id="c_cod">
+      <label class="check"><input type="checkbox" id="c_abrir"> El cliente autorizó abrir el paquete con testigo para confirmarlo</label>
+      <button class="btn red">Guardar reclamo y buscar</button>
+    </form></details>
+    <div id="rlist" class="list"></div>
+  </section>
+
+  <section id="inventario" hidden>
+    <h2>Inventario de la custodia</h2>
+    <div id="alerts"></div>
+    <div class="bar" style="margin:14px 0"><input id="f_txt" placeholder="Filtrar por código, estante u objeto"><select id="f_est" style="flex:0 1 200px"><option value="custodia">En custodia</option><option value="separado">Separados para disposición</option><option value="entregado">Entregados</option><option value="dispuesto">Enviados a reciclaje</option><option value="rezago">En rezago</option><option value="donado">Donados</option><option value="venta">En venta a empleados</option><option value="vendido">Vendidos a empleados</option><option value="">Todos</option></select></div>
+    <div style="overflow-x:auto"><table class="stack" id="inv"></table></div>
+  </section>
+
+  <section id="admision" hidden>
+    <h2>Admisión con foto</h2>
+    <p class="meta">En la oficina, al recibir el envío, tome 1 a 3 fotos del paquete cerrado con la guía visible. Si después se pierde la guía, la IA lo reconoce por su empaque en bodegas y cámaras.</p>
+    <form class="form" id="aform">
+      <input type="file" id="ad_foto" accept="image/*" capture="environment" multiple hidden>
+      <button type="button" class="drop" id="ad_drop"><span><b>Tomar fotos del paquete cerrado</b><br><span class="meta">Una de frente con la guía, una de lado, una de arriba.</span></span></button>
+      <div class="mgrid" id="ad_grid"></div><p class="meta" id="ad_st"></p>
+      <div class="row2"><label class="f">Número de guía<input id="ad_guia" inputmode="numeric"></label><label class="f">Oficina<select id="ad_of"></select></label></div>
+      <div class="row2"><label class="f">Origen<input id="ad_orig"></label><label class="f">Destino<input id="ad_dest"></label></div>
+      <label class="f">Contenido declarado por el remitente<input id="ad_cont"></label>
+      <label class="f">Cómo se ve el empaque (la IA lo llena)<input id="ad_desc"></label>
+      <label class="f">Etiquetas de búsqueda<input id="ad_tags"></label>
+      <div class="row2"><label class="f">Peso (kg)<input id="ad_peso" type="number" step="0.01"></label><label class="f">Medidas (cm)<input id="ad_med"></label><label class="f">Valor declarado ($)<input id="ad_val" type="number"></label></div>
+      <button class="btn red">Guardar admisión</button>
+    </form>
+    <h3>Admisiones recientes</h3>
+    <input id="ad_q" placeholder="Buscar por número de guía" inputmode="numeric" style="margin-bottom:10px">
+    <div id="ad_list"></div>
+  </section>
+
+  <section id="conciliar" hidden>
+    <h2>Conciliar con el sistema de la transportadora</h2>
+    <p class="meta">Suba el reporte de guías en novedad o custodia que descarga de su sistema (Excel o CSV). La app lo cruza con lo que hay en la bodega: a qué guía pertenece cada paquete sin identificar, y qué guías dice el sistema que están en custodia pero no aparecen.</p>
+    <input type="file" id="imp_f" accept=".csv,.xlsx,.xls,.txt" hidden>
+    <div class="bar"><button class="btn red" id="imp_b" type="button">Subir reporte de guías</button><button class="btn alt" id="imp_ai" type="button">Afinar cruces con IA</button></div>
+    <p class="meta" id="imp_st"></p>
+    <div id="imp_map"></div>
+    <h3>Paquetes con posible guía</h3><div id="imp_match"></div>
+    <h3>Guías en custodia según el sistema, sin paquete en la bodega</h3><div id="imp_miss"></div>
+  </section>
+
+  <section id="disposicion" hidden>
+    <h2>Disposición final de envíos afectados</h2>
+    <p class="meta">Los paquetes rotos, mojados, dañados o vencidos se separan del resto. A reciclaje van solo los vencidos o dañados sin valor, y lo que en el proceso de rezago no quiso recibir nadie. Lo que aún sirve pasa primero por rezago y donación.</p>
+    <div class="bar" id="plazobox" style="margin:10px 0"></div>
+    <h3>Rezago y donación (Ley 1369 de 2009, art. 52; Res. MinTIC 1822 de 2018)</h3>
+    <p class="meta">Pasados 3 meses sin entrega ni devolución, el envío queda en rezago. Va con acta, se publica 2 meses en la web, se ofrece al ICBF y luego a entidades sin ánimo de lucro. Solo lo que nadie recibe va a disposición ambiental.</p>
+    <div id="rz_eleg"></div><div id="rz_lotes"></div>
+    <h3>Listos para separar</h3><div id="d_sug"></div>
+    <h3>Afectados en espera de plazo</h3><div id="d_wait"></div>
+    <h3>Zona de disposición (separados)</h3><div id="d_sep"></div>
+    <form class="form" id="lform" style="margin-top:12px">
+      <div class="row2"><label class="f">Empresa de reciclaje<input id="l_emp"></label><label class="f">NIT<input id="l_nit"></label></div>
+      <div class="row2"><label class="f">Quién recibe<input id="l_rec"></label><label class="f">N.º certificado o remisión<input id="l_cert"></label></div>
+      <p class="meta">Electrónicos (RAEE), baterías, químicos y medicamentos solo con un gestor autorizado para residuos peligrosos.</p>
+      <button class="btn red">Entregar seleccionados y generar acta</button>
+    </form>
+    <h3>Lotes entregados</h3><div id="d_lotes"></div>
+  </section>
+
+  <section id="venta" hidden>
+    <h2>Venta nacional a empleados</h2>
+    <p class="meta">Paquetes en buen estado cuyo plazo legal se cumplió sin que nadie los reclamara y que ya son propiedad de la transportadora, con el acta que lo respalda.</p>
+    <div class="bar" id="vcfg" style="margin:10px 0"></div>
+    <h3>Cumplieron el plazo legal (buen estado)</h3><div id="v_eleg"></div>
+    <h3>Catálogo en venta</h3><div id="v_cat" class="list"></div>
+    <h3>Mensaje para WhatsApp</h3>
+    <div class="bar"><button class="btn" id="v_copy" type="button">Copiar mensaje</button><a class="btn red" id="v_wa" href="https://wa.me/" target="_blank" rel="noopener">Abrir en WhatsApp</a><button class="btn alt" id="v_ai" type="button">Mejorar texto con IA</button></div>
+    <textarea id="v_msg" style="min-height:240px;margin-top:10px" aria-label="Mensaje de WhatsApp"></textarea>
+    <p class="meta">"Abrir en WhatsApp" le deja escoger el grupo o contacto de empleados. Las fotos se envían aparte desde la ficha de cada producto.</p>
+    <h3>Ventas realizadas</h3><div id="v_sold"></div>
+  </section>
+
+  <section id="tablero" hidden>
+    <h2>Resultados de la custodia</h2>
+    <div class="stats" id="stats"></div>
+    <div id="sedes"></div>
+    <div id="empresa"></div>
+    <div id="personal"></div>
+    <h3>Precisión de la IA</h3><div id="prec"></div>
+    <div id="admin" style="margin-top:24px"></div>
+  </section>
+</main>
+<input type="file" id="add_media" accept="image/*,video/*" multiple hidden>
+<div class="toast" id="toast"></div>
+<div class="modal" id="modal"><div id="mbody"></div></div>
+
+<script>
+{
+const APP_URL='https://claude.ai/artifact/4DfAbYsxbJmyQFXj6wdyJW';
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const norm=s=>String(s??'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+const days=d=>d?Math.max(0,Math.round((Date.now()-new Date(d))/864e5)):0;
+const money=v=>'$'+Math.round(+v||0).toLocaleString('es-CO');
+const fdate=d=>d?new Date(d).toLocaleDateString('es-CO',{day:'numeric',month:'short',year:'numeric'}):'—';
+const toast=m=>{const t=$('#toast');t.textContent=m;t.style.display='block';clearTimeout(toast.h);toast.h=setTimeout(()=>t.style.display='none',3000)};
+const use=n=>{try{return window.claude&&window.claude.use?window.claude.use(n).catch(()=>null):Promise.resolve(null)}catch(e){return Promise.resolve(null)}};
+
+const S={db:null,sample:null,assets:null,user:null,me:null,paq:[],rec:[],lotes:[],rez:[],imp:[],fb:[],cfgP:{},cfgE:{},cfgS:{},adm:[],cfg:{},cfgV:{},loaded:false,canWrite:true,isAdmin:false,names:{}};
+
+/* ---------- búsqueda local ---------- */
+const SYN={zapatos:'tenis',zapatillas:'tenis',calzado:'tenis',telefono:'celular',movil:'celular',smartphone:'celular',computador:'portatil',laptop:'portatil',computadora:'portatil',chamarra:'chaqueta',campera:'chaqueta',auriculares:'audifonos',cascos:'audifonos',marron:'cafe',tv:'televisor',tele:'televisor'};
+const STOP=new Set('de del la el los las un una unos unas para con y en a mi mis que se lo le me envie envio mande paquete caja era es por al como algo tiene tenia muy'.split(' '));
+const BRANDS=['nike','adidas','puma','samsung','apple','iphone','xiaomi','motorola','huawei','lenovo','hp','dell','asus','oster','sony','lg','barbie','carolina herrera','auteco','yamaha','bosch','mabe','totto'];
+const CITIES=['bogota','medellin','cali','barranquilla','cartagena','bucaramanga','pereira','ibague','tunja','popayan','manizales','cucuta','santa marta','villavicencio','pasto','neiva','armenia','monteria','sincelejo','valledupar'];
+function tokens(q){
+  let s=norm(q);const out=[];
+  for(const b of [...BRANDS,...CITIES])if(b.includes(' ')&&s.includes(b)){out.push(b);s=s.split(b).join(' ')}
+  const tm=s.match(/talla\s*(\w+)/);if(tm){out.push('talla '+tm[1]);s=s.replace(tm[0],' ')}
+  for(let w of s.split(/[^a-z0-9.,]+/)){w=w.replace(/[.,]$/,'');if(!w||STOP.has(w))continue;out.push(SYN[w]||w)}
+  return [...new Set(out)];
+}
+const near=(a,b)=>a===b||(a.length>3&&b.length>3&&(a.startsWith(b.slice(0,-1))||b.startsWith(a.slice(0,-1))));
+function score(p,toks){
+  const text=norm([...(p.etiquetas||[]),p.objeto,p.marca,p.color,p.categoria,p.descripcion].join(' '));
+  const words=[...new Set(text.split(/[^a-z0-9]+/).filter(Boolean))];
+  const cities=[norm(p.origen),norm(p.destino)];let s=0,max=0;const hits=[];
+  for(const t of toks){
+    if(/^\d{4,}$/.test(t)){max+=5;if(norm(p.textoVisible+' '+p.codigo).replace(/\D/g,'').includes(t)){s+=5;hits.push(t)}continue}
+    if(/^\d+([.,]\d+)?$/.test(t)){const kg=+t.replace(',','.');if(kg>0&&kg<80&&p.peso){max+=1;if(Math.abs(kg-p.peso)<=Math.max(.5,p.peso*.2))s+=1}continue}
+    if(CITIES.includes(t)){max+=2;if(cities.includes(t)){s+=2;hits.push(t)}continue}
+    const w=BRANDS.includes(t)||t.startsWith('talla')?3:t.length>3?3:1;max+=w;
+    if(text.includes(t)||words.some(x=>near(x,t))){s+=w;hits.push(t)}
+  }
+  return {pct:max?Math.round(100*s/max):0,hits};
+}
+const recuperable=p=>['custodia','separado','rezago'].includes(p.estado);
+const custodia=()=>S.paq.filter(recuperable);
+const ESTADO={custodia:'en custodia',separado:'separado para disposición',entregado:'entregado a su dueño',dispuesto:'enviado a reciclaje',venta:'en venta a empleados',vendido:'vendido a empleado',rezago:'en rezago (proceso legal)',donado:'donado'};
+
+/* ---------- tarjetas ---------- */
+const fotoSrc=p=>p.fotoId?'/_blob/'+encodeURIComponent(p.fotoId):(String(p.fotoMini||'').startsWith('data:image/')?p.fotoMini:'');
+function thumb(p,hide){const src=fotoSrc(p);
+  return `<button class="thumb ${hide&&p.privado?'blur':''}" data-open="${esc(p.id)}" aria-label="Ver paquete">${src?`<img src="${esc(src)}" alt="">`:`<svg viewBox="0 0 100 100" width="100%" height="100%" aria-hidden="true"><rect x="14" y="32" width="72" height="54" rx="3" fill="var(--kraft)"/><path d="M14 32 L30 16 H70 L86 32Z" fill="var(--kraft)" opacity=".7"/><rect x="44" y="32" width="12" height="54" fill="var(--red)" opacity=".8"/></svg>`}</button>`}
+function card(p,r){
+  const hitTag=t=>r&&r.hits&&r.hits.some(h=>near(norm(t),h)||norm(t).includes(h));
+  return `<article class="label">${thumb(p,true)}
+  <div>${r?`<div class="score ${r.pct<50?'low':''}">${r.pct}% de coincidencia</div>`:''}
+  ${r&&r.why?`<div class="why">${esc(r.why)}</div>`:''}
+  <b>${esc(p.codigo)}</b> · ${esc(p.descripcion||p.objeto)}
+  <div class="tags">${(p.etiquetas||[]).slice(0,10).map(t=>`<span class="tag ${hitTag(t)?'hit':''}">${esc(t)}</span>`).join('')}</div>
+  <div class="meta">${esc(p.origen||'¿?')} → ${esc(p.destino||'¿?')}${p.peso?' · '+esc(p.peso)+' kg':''} · ${days(p.ingreso)} días · ${esc(p.empaque||'')}${p.condicion&&!/^(Bueno|Usado)$/.test(p.condicion)?' · '+esc(p.condicion):''}${p.averias?' · averías: '+esc(p.averias):''}${p.estado!=='custodia'?' · <b>'+esc((ESTADO[p.estado]||p.estado).toUpperCase())+'</b>':''}</div></div>
+  <div class="loc"><span class="meta">Estante</span><span class="big">${esc(p.ubicacion)}</span>
+  ${recuperable(p)?`<button class="btn alt sm" data-deliver="${esc(p.id)}">Verificar y entregar</button>`:''}${r&&r.src?fbBtns(r.src,p.id):''}</div></article>`;
+}
+
+/* ---------- buscar ---------- */
+function localSearch(q,target){
+  const toks=tokens(q),el=target||$('#res');
+  if(!toks.length){el.innerHTML='<p class="meta">Escriba una descripción para buscar.</p>';return []}
+  const r=custodia().map(p=>({p,r:score(p,toks)})).filter(x=>x.r.pct>=25).sort((a,b)=>b.r.pct-a.r.pct).slice(0,8);
+  el.innerHTML=r.length?`<p class="meta">${r.length} candidato(s) · búsqueda rápida</p>`+r.map(x=>card(x.p,{...x.r,src:'busqueda'})).join(''):`<p class="meta">Sin coincidencias rápidas. Pruebe "Buscar con IA".</p>`;
+  return r;
+}
+async function aiSearch(q,target,btn){
+  const el=target||$('#res'),E=()=>(el.id&&document.getElementById(el.id))||el;
+  if(!S.sample){toast('La IA no está disponible en esta vista');return}
+  if(!q.trim()){toast('Escriba la descripción del cliente');return}
+  const items=custodia().slice(0,300).map(p=>({id:p.id,obj:p.objeto,desc:p.descripcion,tags:(p.etiquetas||[]).join(','),marca:p.marca,color:p.color,orig:p.origen,dest:p.destino,kg:p.peso,texto:p.textoVisible,ingreso:(p.ingreso||'').slice(0,10)}));
+  if(!items.length){E().innerHTML='<p class="meta">No hay paquetes en custodia todavía.</p>';return}
+  if(btn)btn.disabled=true;E().innerHTML='<p class="meta">La IA está comparando la descripción con '+items.length+' paquetes…</p>';
+  try{
+    const out=await S.sample.json(`Eres el buscador de una bodega de custodia de una empresa de mensajería en Colombia. Un cliente describe un envío perdido. Compáralo con los paquetes en custodia (contenido, marca, color, ciudades, peso, fechas, números de guía parciales). Tolera errores de ortografía, sinónimos y descripciones vagas.
+Responde SOLO con JSON: {"resultados":[{"id":"...","probabilidad":0-100,"razon":"frase corta en español"}]} con máximo 6 resultados, solo los de probabilidad >= 25, ordenados de mayor a menor.
+Descripción del cliente: ${JSON.stringify(q)}
+Paquetes en custodia (JSON): ${JSON.stringify(items)}`,{modelTier:'default'});
+    const res=(out&&Array.isArray(out.resultados)?out.resultados:[]).map(x=>({p:S.paq.find(p=>p.id===String(x.id)),pct:Math.max(0,Math.min(100,Math.round(+x.probabilidad||0))),why:String(x.razon||'')})).filter(x=>x.p);
+    E().innerHTML=res.length?`<p class="meta">${res.length} candidato(s) según la IA</p>`+res.map(x=>card(x.p,{pct:x.pct,why:x.why,hits:tokens(q),src:'busqueda_ia'})).join(''):'<p class="meta">La IA no encontró paquetes parecidos en la custodia.</p>';
+  }catch(e){E().innerHTML='<p class="meta">'+(e&&e.code==='rate_limited'?'Demasiadas búsquedas seguidas. Espere un momento.':e&&e.code==='not_granted'?'La IA no fue autorizada en esta vista.':'La IA no respondió. Use la búsqueda rápida.')+'</p>'}
+  finally{if(btn)btn.disabled=false}
+}
+$('#sform').addEventListener('submit',e=>{e.preventDefault();localSearch($('#q').value)});
+$('#aiq').addEventListener('click',e=>aiSearch($('#q').value,null,e.currentTarget));
+
+/* ---------- escritura ---------- */
+async function write(fn,okMsg){
+  if(!S.db){toast('Sin conexión a la base de datos');return false}
+  try{await fn();if(okMsg)toast(okMsg);return true}
+  catch(e){
+    if(e&&e.code==='invalid_argument'){S.canWrite=false;banner('Su cuenta solo puede consultar. Pida al administrador acceso como Editor para registrar.');}
+    else if(e&&e.code==='quota_exceeded')toast('La base de datos está llena. Borre paquetes entregados antiguos.');
+    else toast('No se pudo guardar. Intente de nuevo.');
+    return false;
+  }
+}
+const ev=(accion)=>({t:new Date().toISOString(),quien:S.me||'',accion});
+const histAdd=(p,a)=>[...(p.historial||[]).slice(-29),ev(a)];
+
+/* ---------- registro ---------- */
+let fotoBlob=null,fotoMini='',aiSug=null;
+const toJpeg=(img,max,q)=>new Promise(r=>{const c=document.createElement('canvas'),k=Math.min(1,max/Math.max(img.width,img.height));c.width=Math.round(img.width*k);c.height=Math.round(img.height*k);c.getContext('2d').drawImage(img,0,0,c.width,c.height);c.toBlob(b=>r({b,url:c.toDataURL('image/jpeg',q)}),'image/jpeg',q)});
+$('#drop').addEventListener('click',()=>$('#foto').click());
+$('#drop_gal').addEventListener('click',()=>$('#foto_gal').click());
+const RM=[],CM=[];
+const onStaffVideo=async e=>{
+  const files=[...e.target.files];e.target.value='';if(!files.length)return;
+  if(await addFiles(files,RM,$('#rm_grid'),'rm',$('#aistate'),'video')){fotoBlob=firstImg(RM);fotoMini=RM[0].mini;analyze()}
+};
+$('#foto').addEventListener('change',onStaffVideo);$('#foto_gal').addEventListener('change',onStaffVideo);
+function suggestShelf(z){
+  const used={};custodia().forEach(p=>{const u=String(p.ubicacion||'');if(u.startsWith(z+'-'))used[u]=(used[u]||0)+1});
+  const list=Object.entries(used).sort((a,b)=>a[1]-b[1]);
+  return list.length&&list[0][1]<15?list[0][0]:z+'-'+(Object.keys(used).length+1)+'-1';
+}
+async function analyze(){
+  const st=$('#aistate');
+  if(!S.sample){st.textContent='IA no disponible en esta vista: llene los datos a mano.';return}
+  try{const lim=await S.sample.limits();if(!lim||!lim.images){st.textContent='Esta cuenta no permite enviar imágenes a la IA: llene los datos a mano.';return}}catch(e){}
+  st.textContent='La IA está mirando la foto…';
+  try{
+    const o=await S.sample.json(`Analiza los cuadros de un video de 15 segundos que recorre por fuera un paquete en la bodega de custodia de una empresa de mensajería en Colombia (combina lo que se ve en todos: caras, etiquetas, sellos, marcas, averías). ${learnText()}${$('#aper').value==='exterior'?'El paquete está CERRADO: describe el empaque, tamaño, marcas, etiquetas y texto visible; no adivines el contenido, usa objeto "paquete cerrado" si no se ve.':'El paquete fue abierto legalmente: describe su contenido.'} Responde SOLO con JSON:
+{"objeto":"nombre corto","categoria":"","marca":"o vacío","color":"","estado":"nuevo|usado|dañado","descripcion":"una frase en español","etiquetas":["8 a 12 palabras clave en español, minúsculas, sin tildes: objeto, sinónimos, marca, modelo, color, material, talla, accesorios"],"texto_visible":"texto o números legibles (guía, nombres, direcciones, seriales) o vacío","averias":"daños visibles del empaque o del contenido (aplastado, roto, mojado, cinta abierta, etc.) o vacío","origen_posible":"ciudad colombiana de donde probablemente salió, deducida SOLO de pistas visibles (dirección del remitente, factura o tienda, indicativo telefónico, sello) o vacío","destino_posible":"ciudad deducida de pistas visibles o vacío","pista_ciudades":"qué pista usaste, frase corta, o vacío","peso_estimado_kg":número aproximado,"peso_bascula_kg":número exacto en kg SOLO si en la foto se ve la pantalla de una báscula, si no null,"zona":"A electrónicos y celulares|B ropa, calzado y accesorios|C hogar, electrodomésticos y cocina|D documentos, alimentos, belleza y otros (responde solo la letra)","condicion":"Bueno|Usado|Dañado parcial|Dañado total|Vencido o perecedero","material":"Mixto|Cartón y papel|Plástico|Electrónico (RAEE)|Textil|Vidrio|Metal|Orgánico|Peligroso (baterías, químicos, medicamentos, aerosoles)","sensible":true/false (documentos de identidad, medicamentos, ropa interior o datos personales)}`,{images:aiImages(RM,8),modelTier:'default'});
+    if(!o){st.textContent='La IA no devolvió datos.';return}
+    const set=(id,v)=>{if(v&&!$(id).value)$(id).value=String(v)};
+    set('#desc',o.descripcion);set('#obj',o.objeto);set('#marca',o.marca);set('#color',o.color);set('#texto',o.texto_visible);set('#aver',o.averias);
+    if(Array.isArray(o.etiquetas))$('#tags').value=o.etiquetas.map(String).join(', ');
+    if(o.sensible===true)$('#priv').checked=true;
+    set('#orig',o.origen_posible);set('#dest',o.destino_posible);
+    const pick=(id,val)=>{if(!val)return;const op=[...$(id).options].find(x=>norm(x.value).startsWith(norm(val).slice(0,6)));if(op)$(id).value=op.value};
+    pick('#cond',o.condicion);pick('#mat',o.material);
+    if(+o.peso_bascula_kg>0&&!$('#peso').value){$('#peso').value=Math.round(+o.peso_bascula_kg*100)/100;$('#basstate').textContent='Peso leído de la báscula en la foto: '+$('#peso').value+' kg.'}
+    if(!$('#ubi').value){const z=String(o.zona||'D').trim().charAt(0).toUpperCase();$('#ubi').value=suggestShelf(/[A-D]/.test(z)?z:'D')}
+    let msg='Listo. Revise y corrija lo que haga falta antes de guardar.';
+    if(o.origen_posible||o.destino_posible)msg+=' Ciudades sugeridas por la IA'+(o.pista_ciudades?' ('+String(o.pista_ciudades)+')':'')+': confírmelas.';
+    if(+o.peso_estimado_kg>0&&!$('#peso').value)msg+=' Peso estimado a ojo: '+(+o.peso_estimado_kg)+' kg. Péselo en la báscula para el dato real.';
+    st.textContent=msg+' Estante sugerido según el tipo de producto.';
+    aiSug=Object.fromEntries(FB_CAMPOS.map(([k,id])=>[k,$(id).value]));
+  }catch(e){st.textContent=e&&e.code==='rate_limited'?'IA ocupada, espere un momento y vuelva a tomar la foto.':'La IA no respondió: llene los datos a mano.'}
+}
+$('#bbas').addEventListener('click',()=>$('#fbas').click());
+$('#fbas').addEventListener('change',async e=>{
+  const f=e.target.files[0],st=$('#basstate');if(!f)return;e.target.value='';
+  if(!S.sample){st.textContent='IA no disponible: escriba el peso a mano.';return}
+  const img=new Image();img.src=URL.createObjectURL(f);await img.decode().catch(()=>{});
+  const j=await toJpeg(img,1000,.85);st.textContent='Leyendo la báscula…';
+  try{
+    const o=await S.sample.json(`Esta es la foto de la pantalla de una báscula con un paquete encima. Lee el número exacto que muestra la pantalla y su unidad. Responde SOLO con JSON: {"valor":número o null si no se lee claro,"unidad":"kg|g|lb"}`,{images:[j.b],modelTier:'quick'});
+    let v=o&&+o.valor;const u=norm(o&&o.unidad);
+    if(!(v>0)){st.textContent='No se leyó claro. Tome otra foto más cerca y sin reflejos, o escriba el peso.';return}
+    if(u==='g')v=v/1000;else if(u==='lb')v=v*0.4536;
+    v=Math.round(v*100)/100;$('#peso').value=v;st.textContent='Peso leído: '+v+' kg. Verifique que coincide con la pantalla.';
+  }catch(err){st.textContent='La IA no respondió: escriba el peso a mano.'}
+});
+$('#rform').addEventListener('submit',async e=>{
+  e.preventDefault();
+  const v=id=>$(id).value.trim();
+  if(!RM.length){toast('Grabe el video de 15 segundos del paquete');return}
+  if(!v('#desc')&&!v('#obj')){toast('Describa el contenido');return}
+  if(!v('#ubi')){toast('Indique la ubicación');return}
+  if($('#aper').value!=='exterior'&&!$('#sello').checked){toast('Confirme que el paquete quedó resellado');return}
+  if($('#aper').value!=='exterior'&&!v('#test')){toast('Una apertura necesita testigo');return}
+  const btn=$('#save');btn.disabled=true;
+  const now=new Date(),code='CST-'+now.toISOString().slice(2,10).replace(/-/g,'')+'-'+Math.random().toString(36).slice(2,6).toUpperCase();
+  const id=code.toLowerCase();
+  let fotoId='';
+  let media=[];if(RM.length){$('#aistate').textContent='Subiendo '+RM.length+' archivo(s)…';const up=await uploadMedia(RM,'personal');media=up.media;fotoId=up.mainId;if(!fotoId&&up.mini)fotoMini=up.mini}
+  const tags=[...new Set([...v('#tags').split(','),v('#obj'),v('#marca'),v('#color')].map(t=>norm(t).trim()).filter(Boolean))];
+  const p={codigo:code,estado:'custodia',descripcion:v('#desc'),objeto:v('#obj'),marca:v('#marca'),color:v('#color'),etiquetas:tags,textoVisible:v('#texto'),averias:v('#aver'),
+    peso:+v('#peso')||0,medidas:v('#med'),valor:+v('#valor')||0,origen:v('#orig'),destino:v('#dest'),empaque:$('#emp').value,ubicacion:v('#ubi').toUpperCase(),apertura:$('#aper').value,condicion:$('#cond').value,material:$('#mat').value,
+    verificacion:v('#ver'),testigo:v('#test'),privado:$('#priv').checked,fotoId,media,fotoMini:fotoId?'':fotoMini,ingreso:now.toISOString(),verificado:now.toISOString(),
+    operario:S.me||'',historial:[ev('Apertura registrada en '+v('#ubi').toUpperCase())]};
+  const fin=Object.fromEntries(FB_CAMPOS.map(([k,id])=>[k,$(id).value]));
+  const ok=await write(()=>S.db.collection('paquetes').doc(id).set(p),'Paquete '+code+' registrado');
+  if(ok&&aiSug){const campos={},corr=[];for(const [k] of FB_CAMPOS){if(!aiSug[k]&&!fin[k])continue;const same=norm(aiSug[k]).trim()===norm(fin[k]).trim();campos[k]=same;if(!same)corr.push({campo:k,ia:String(aiSug[k]).slice(0,80),final:String(fin[k]).slice(0,80)})}
+    fbLog({tipo:'foto',ref:id,ok:!corr.length,campos,corr});aiSug=null}
+  btn.disabled=false;
+  if(ok){e.target.reset();fotoBlob=null;fotoMini='';RM.length=0;$('#rm_grid').innerHTML='';$('#aistate').textContent='';openDetail(id,{...p,id})}
+});
+
+/* ---------- detalle, etiqueta y entrega ---------- */
+const modal=$('#modal'),closeM=()=>{modal.style.display='none';if(location.hash)history.replaceState(null,'',location.pathname+location.search)};
+modal.addEventListener('click',e=>{if(e.target===modal||e.target.dataset.close!==undefined)closeM()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeM()});
+function qrSvg(text){try{if(typeof qrcode!=='function')return '';const q=qrcode(0,'M');q.addData(text);q.make();return q.createSvgTag(4,2)}catch(e){return ''}}
+function openDetail(id,pp){
+  const p=pp||S.paq.find(x=>x.id===id);if(!p){toast('Paquete no encontrado');return}
+  const src=fotoSrc(p);
+  $('#mbody').innerHTML=`<h2>${esc(p.codigo)}</h2>
+  ${src?`<img src="${esc(src)}" alt="Foto del contenido" style="width:100%;max-height:320px;object-fit:contain;border-radius:6px;background:var(--bg)">`:''}
+  <div class="etq">${qrSvg(APP_URL+'#'+p.id)}<div><span class="meta" style="color:#555">Abierto en custodia</span><div class="big">${esc(p.codigo)}</div><div>Estante <b>${esc(p.ubicacion)}</b> · ${fdate(p.ingreso)}</div></div></div>
+  <p class="meta">Haga captura de esta etiqueta para imprimirla. Al escanear el QR con el celular se abre esta ficha.</p>
+  ${gallery(p.media,true)}${recuperable(p)?`<p class="bar"><button class="btn alt sm" data-addm="paquetes|${esc(p.id)}">Agregar otro video</button>${p.guia?(admOf(p.guia)?`<button class="btn alt sm" data-adm="${esc(admOf(p.guia).id)}">Ver foto de admisión</button>`:''):`<button class="btn sm" data-findadm="${esc(p.id)}">Buscar su guía por foto de admisión</button>`}</p><div id="fa_box"></div>`:''}
+  <p><b>${esc(p.descripcion||p.objeto)}</b></p>
+  <div class="tags">${(p.etiquetas||[]).map(t=>`<span class="tag">${esc(t)}</span>`).join('')}</div>
+  <p class="meta">${esc(p.origen||'¿?')} → ${esc(p.destino||'¿?')} · ${p.peso?esc(p.peso)+' kg · ':''}${esc(p.medidas||'')} · empaque: ${esc(p.empaque)} · valor ${money(p.valor)}<br>Texto visible: ${esc(p.textoVisible||'—')}<br>${(()=>{const rc=S.rec.find(x=>x.paqueteId===p.id&&x.autorizaApertura);return rc?'<b>El cliente '+esc(rc.cliente)+' autorizó abrirlo con testigo.</b><br>':''})()}Apertura: ${esc({exterior:'sin abrir',remitente:'autorizó el remitente',destinatario:'autorizó el destinatario',rezago:'en rezago con acta'}[p.apertura]||'no registrada')} · Testigo: ${esc(p.testigo||'—')} · Estado: <b>${esc(ESTADO[p.estado]||p.estado)}</b><br>Producto: ${esc(p.condicion||'—')} · Material: ${esc(p.material||'—')}</p>
+  ${p.estado==='custodia'?`<div class="bar"><input id="mv" placeholder="Nuevo estante" style="flex:1 1 140px"><button class="btn alt sm" data-move="${esc(p.id)}">Mover</button><button class="btn red sm" data-deliver="${esc(p.id)}">Verificar y entregar</button><button class="btn alt sm" data-sep="${esc(p.id)}">Separar para disposición</button></div>`
+   :p.estado==='separado'?`<div class="bar"><button class="btn alt sm" data-back="${esc(p.id)}">Devolver a custodia</button><button class="btn red sm" data-deliver="${esc(p.id)}">Verificar y entregar</button></div>`
+   :p.estado==='rezago'?`<p>En rezago, lote <b>${esc(p.rezagoCodigo||'')}</b>. Aún puede recuperarlo su dueño.</p><div class="bar"><button class="btn red sm" data-deliver="${esc(p.id)}">Verificar y entregar</button></div>`
+   :p.estado==='donado'?`<p>Donado a <b>${esc(p.donacion&&p.donacion.a)}</b> el ${fdate(p.donacion&&p.donacion.fecha)}</p>`
+   :p.estado==='venta'?`<p>En venta: antes ${money(p.venta&&p.venta.base)}, ahora <b>${money(p.venta&&p.venta.precio)}</b> · acta ${esc(p.venta&&p.venta.acta)}</p><div class="bar"><button class="btn red sm" data-sell="${esc(p.id)}">Vender</button><a class="btn alt sm" target="_blank" rel="noopener" href="${esc(waLink(itemMsg(p)))}">Compartir por WhatsApp</a></div>`
+   :p.estado==='vendido'?`<p>Vendido a <b>${esc(p.vendido&&p.vendido.a)}</b> por ${money(p.vendido&&p.vendido.precio)} el ${fdate(p.vendido&&p.vendido.fecha)} · envío a ${esc(p.vendido&&p.vendido.ciudad)}${p.vendido&&p.vendido.guia?' · guía '+esc(p.vendido.guia):''}</p>`
+   :p.estado==='dispuesto'?`<p>Enviado a reciclaje en el lote <b>${esc(p.loteCodigo||p.loteId)}</b></p>`
+   :`<p>Entregado a <b>${esc(p.entrega&&p.entrega.a)}</b> el ${fdate(p.entrega&&p.entrega.fecha)}</p>`}
+  <h3>Historial</h3><ul class="hist">${(p.historial||[]).slice().reverse().map(h=>`<li>${fdate(h.t)} · ${esc(h.accion)} · <span class="who" data-u="${esc(h.quien)}">…</span></li>`).join('')}</ul>
+  <p><button class="btn sm" data-close>Cerrar</button></p>`;
+  modal.style.display='grid';fillNames();
+}
+async function fillNames(){
+  const els=[...document.querySelectorAll('.who[data-u]')],ids=[...new Set(els.map(e=>e.dataset.u).filter(Boolean))];
+  let ps={};if(S.user&&ids.length){try{ps=await S.user.profiles(ids)||{}}catch(e){}}
+  for(const e of els)e.textContent=(ps[e.dataset.u]&&ps[e.dataset.u].name)||'Equipo';
+}
+function deliver(id){
+  const p=S.paq.find(x=>x.id===id);if(!p)return;
+  $('#mbody').innerHTML=`<h2>Verificar propietario · ${esc(p.codigo)}</h2>
+  <p>Pregunte al cliente un detalle que no aparece en la búsqueda (serial, nota, color de un accesorio). Luego compare.</p>
+  <button class="btn alt sm" id="showv">Mostrar respuesta esperada</button>
+  <p class="secret" id="sv" hidden>${esc(p.verificacion||'No se registró dato de verificación: pida factura o foto del producto.')}</p>
+  <label class="f" style="margin-top:12px">Entregado a (nombre de quien recibe)<input id="d_a"></label>
+  <label class="f" style="margin-top:12px">Reclamo vinculado<select id="d_rec"><option value="">Ninguno</option>${S.rec.filter(r=>r.estado!=='cerrado').map(r=>`<option value="${esc(r.id)}" ${p.reclamoId===r.id?'selected':''}>${esc(r.cliente)}: ${esc(String(r.descripcion).slice(0,40))}</option>`).join('')}</select></label>
+  <div class="row2" style="margin-top:14px"><button class="btn" id="okv">Coincide: entregar</button><button class="btn alt" id="nov">No coincide</button></div>`;
+  modal.style.display='grid';
+  $('#showv').onclick=()=>{$('#sv').hidden=false};
+  $('#okv').onclick=async()=>{
+    const a=$('#d_a').value.trim();if(!a){toast('Escriba quién recibe');return}
+    const rid=$('#d_rec').value;
+    const ok=await write(()=>S.db.collection('paquetes').doc(p.id).update({estado:'entregado',reclamoId:rid||p.reclamoId||'',entrega:{a,fecha:new Date().toISOString(),por:S.me||''},historial:histAdd(p,'Entregado a '+a)}),'Entregado. Indemnización evitada.');
+    if(ok&&rid){const r=S.rec.find(x=>x.id===rid);await write(()=>S.db.collection('reclamos').doc(rid).update({estado:'cerrado',paqueteId:p.id,cerrado:new Date().toISOString()}))}
+    if(ok)closeM();
+  };
+  $('#nov').onclick=async()=>{await write(()=>S.db.collection('paquetes').doc(p.id).update({historial:histAdd(p,'Intento de reclamo rechazado: dato no coincide')}),'Entrega bloqueada. Quedó registrado.');closeM()};
+}
+document.addEventListener('click',async e=>{
+  const t=e.target.closest('[data-open],[data-deliver],[data-move],[data-check],[data-match],[data-link],[data-cmp],[data-sep],[data-back],[data-acta],[data-tosale],[data-sell],[data-unsale]');if(!t)return;
+  const d=t.dataset;
+  if(d.sep!==undefined){const p=S.paq.find(x=>x.id===d.sep);if(!p)return;const cl=openClaim(p);
+    if(cl&&!t.dataset.force){t.dataset.force='1';toast('Ojo: se parece al reclamo de '+cl.cliente+'. Toque de nuevo para separar igual.');return}
+    if(await write(()=>S.db.collection('paquetes').doc(p.id).update({estado:'separado',ubicacionAnterior:p.ubicacion,ubicacion:'DISP',separado:new Date().toISOString(),historial:histAdd(p,'Separado para disposición final')}),p.codigo+' pasó a la zona de disposición'))closeM()}
+  else if(d.back!==undefined){const p=S.paq.find(x=>x.id===d.back);if(!p)return;const u=p.ubicacionAnterior||'SIN-UBICAR';
+    if(await write(()=>S.db.collection('paquetes').doc(p.id).update({estado:'custodia',ubicacion:u,historial:histAdd(p,'Devuelto a custodia en '+u)}),'Devuelto a '+u))closeM()}
+  else if(d.acta!==undefined)showActa(d.acta);
+  else if(d.tosale!==undefined)toSale(d.tosale);
+  else if(d.sell!==undefined)sell(d.sell);
+  else if(d.unsale!==undefined){const p=S.paq.find(x=>x.id===d.unsale);if(p)write(()=>S.db.collection('paquetes').doc(p.id).update({estado:'custodia',venta:{__delete__:true},historial:histAdd(p,'Retirado de la venta')}),'Retirado del catálogo')}
+  else if(d.cmp!==undefined){const r=S.rec.find(x=>x.id===d.cmp);if(r)compareFotos(r,$('#m_'+CSS.escape(r.id)),t)}
+  else if(d.open!==undefined)openDetail(d.open);
+  else if(d.deliver!==undefined)deliver(d.deliver);
+  else if(d.move!==undefined){const p=S.paq.find(x=>x.id===d.move),u=$('#mv').value.trim().toUpperCase();if(!u){toast('Escriba el nuevo estante');return}
+    if(await write(()=>S.db.collection('paquetes').doc(p.id).update({ubicacion:u,verificado:new Date().toISOString(),historial:histAdd(p,'Movido a '+u)}),'Movido a '+u))closeM()}
+  else if(d.check!==undefined){const p=S.paq.find(x=>x.id===d.check);if(p)write(()=>S.db.collection('paquetes').doc(p.id).update({verificado:new Date().toISOString(),historial:histAdd(p,'Confirmado en estante '+p.ubicacion)}),'Confirmado en '+p.ubicacion)}
+  else if(d.match!==undefined){const r=S.rec.find(x=>x.id===d.match),box=$('#m_'+CSS.escape(r.id));const q=[r.descripcion,r.origen,r.destino,r.guia].join(' ');
+    if(t.dataset.ai)aiSearch(q,box,t);else localSearch(q,box)}
+  else if(d.link!==undefined){const [rid,pid]=d.link.split('|');write(()=>S.db.collection('reclamos').doc(rid).update({estado:'encontrado',paqueteId:pid}),'Reclamo marcado como encontrado')}
+});
+
+/* ---------- reclamos ---------- */
+$('#c_fill').addEventListener('click',async e=>{
+  const raw=$('#c_raw').value.trim(),b=e.currentTarget;if(!raw){toast('Pegue el mensaje del cliente');return}
+  if(!S.sample){toast('IA no disponible');return}
+  b.disabled=true;b.textContent='Leyendo el mensaje…';
+  try{const o=await S.sample.json(`Extrae los datos de este reclamo de un cliente de una empresa de mensajería en Colombia. Responde SOLO con JSON: {"cliente":"nombre o vacío","contacto":"teléfono o correo o vacío","descripcion":"qué envió, con marca, color, talla y detalles, en una frase","guia":"número o parte de la guía o vacío","fecha_envio":"AAAA-MM-DD o vacío (año actual ${new Date().getFullYear()} si no lo dice)","origen":"ciudad o vacío","destino":"ciudad o vacío","valor":número en pesos o 0,"codigo_reporte":"código tipo REC-XXXXXX o vacío","autoriza_apertura":true si el mensaje dice que autoriza abrir el paquete, si no false,"rol":"remitente|destinatario|vacío"}. No inventes datos.\n\nMensaje: ${JSON.stringify(raw)}`,{modelTier:'quick'});
+    const f=(id,v)=>{if(v&&!$(id).value)$(id).value=String(v)};
+    f('#c_nom',o.cliente);f('#c_tel',o.contacto);f('#c_desc',o.descripcion);f('#c_guia',o.guia);if(/^\d{4}-\d{2}-\d{2}$/.test(o.fecha_envio||''))f('#c_fecha',o.fecha_envio);f('#c_orig',o.origen);f('#c_dest',o.destino);if(+o.valor>0)f('#c_val',+o.valor);if(o.codigo_reporte)$('#c_cod').value=String(o.codigo_reporte).slice(0,20);if(o.autoriza_apertura===true)$('#c_abrir').checked=true;
+    toast('Revise los datos y guarde');
+  }catch(err){toast('La IA no respondió: llene a mano')}finally{b.disabled=false;b.textContent='Llenar el reclamo con IA'}
+});
+let cBlob=null,cMini='';
+$('#c_drop').addEventListener('click',()=>$('#c_foto').click());
+$('#c_foto').addEventListener('change',async e=>{
+  const files=[...e.target.files];e.target.value='';if(!files.length)return;
+  if(await addFiles(files,CM,$('#cm_grid'),'cm',$('#c_ai'),'foto')){cBlob=firstImg(CM);cMini=CM[0].mini;$('#c_ai').textContent=CM.length+' foto(s) del cliente. Al guardar, la IA las compara con los videos de la custodia.'}
+});
+async function describePhoto(blob,imgs){
+  if(!S.sample||!blob)return null;
+  try{return await S.sample.json(`Describe el producto de estas fotos (del mismo envío) para buscarlo en una bodega de paquetes. Responde SOLO con JSON: {"descripcion":"una frase en español","etiquetas":["6 a 10 palabras clave en español, minúsculas, sin tildes: objeto, sinónimos, marca, modelo, color, material"]}`,{images:imgs&&imgs.length?imgs:[blob],modelTier:'quick'})}catch(e){return null}
+}
+$('#cform').addEventListener('submit',async e=>{
+  e.preventDefault();const v=id=>$(id).value.trim();
+  if(!v('#c_nom')||(!v('#c_desc')&&!cBlob)){toast('Falta el cliente o la descripción');return}
+  const ref=S.db?S.db.collection('reclamos').doc():null;if(!ref){toast('Sin conexión');return}
+  const btn=e.target.querySelector('button.red');btn.disabled=true;
+  let fotoId='',fotoTags=[],fotoDesc='',cMedia=[];
+  if(cBlob){
+    $('#c_ai').textContent='Guardando foto y analizándola…';
+    const up=await uploadMedia(CM,'cliente');cMedia=up.media;fotoId=up.mainId;if(!fotoId&&up.mini)cMini=up.mini;
+    const d=await describePhoto(cBlob,aiImages(CM,6));if(d){fotoDesc=String(d.descripcion||'');fotoTags=Array.isArray(d.etiquetas)?d.etiquetas.map(String).slice(0,12):[]}
+  }
+  const r={codigoCliente:$('#c_cod').value,autorizaApertura:$('#c_abrir').checked,cliente:v('#c_nom'),contacto:v('#c_tel'),descripcion:v('#c_desc')||fotoDesc,guia:v('#c_guia'),fechaEnvio:v('#c_fecha'),origen:v('#c_orig'),destino:v('#c_dest'),valor:+v('#c_val')||0,
+    fotoId,media:cMedia,fotoMini:cBlob&&!fotoId?cMini:'',fotoDesc,fotoTags,estado:'abierto',creado:new Date().toISOString(),por:S.me||''};
+  const ok=await write(()=>ref.set(r),'Reclamo guardado');btn.disabled=false;
+  if(ok){const hadFoto=!!cBlob;e.target.reset();$('#c_raw').value='';$('#c_cod').value='';cBlob=null;cMini='';CM.length=0;$('#cm_grid').innerHTML='';$('#c_ai').textContent='';$('#c_prev').innerHTML='<b>Foto del producto que envió el cliente (opcional)</b>';$('#newrec').open=false;
+    setTimeout(()=>{const b=document.querySelector(hadFoto?`[data-cmp="${CSS.escape(ref.id)}"]`:(S.sample?`[data-match="${CSS.escape(ref.id)}"][data-ai]`:`[data-match="${CSS.escape(ref.id)}"]`));if(b)b.click()},500)}
+});
+async function blobOf(src){try{if(!src)return null;const res=await fetch(src);if(!res.ok)return null;const b=await res.blob();return b.type.startsWith('image/')?b:null}catch(e){return null}}
+async function compareFotos(r,box,btn,override){
+  if(!S.sample){toast('La IA no está disponible en esta vista');return}
+  const B=()=>document.getElementById(box.id)||box;btn.disabled=true;B().innerHTML='<p class="meta">Preparando fotos…</p>';
+  try{
+    const cimgs=override||await imagesOf(r,4),client=cimgs[0];
+    if(!client){B().innerHTML='<p class="meta">No se pudo abrir la foto del cliente.</p>';return}
+    const toks=tokens([r.descripcion,r.fotoDesc,...(r.fotoTags||[]),r.origen,r.destino].join(' '));
+    const withFoto=custodia().filter(p=>(fotoSrc(p)||(p.media||[]).length)&&!p.privado);
+    if(!withFoto.length){B().innerHTML='<p class="meta">Aún no hay paquetes con foto en custodia. Uso la búsqueda por texto.</p>';await aiSearch([r.descripcion,r.fotoDesc,r.origen,r.destino].join(' '),box,btn);return}
+    const ranked=withFoto.map(p=>({p,s:score(p,toks).pct})).sort((a,b)=>b.s-a.s||String(b.p.ingreso).localeCompare(String(a.p.ingreso))).slice(0,6);
+    const cands=[];for(const x of ranked.slice(0,5)){const bs=await imagesOf(x.p,2);if(bs.length)cands.push({p:x.p,bs})}
+    if(!cands.length){B().innerHTML='<p class="meta">No se pudieron abrir las fotos de la custodia.</p>';return}
+    B().innerHTML=`<p class="meta">La IA está comparando las fotos del cliente con los videos de ${cands.length} paquetes…</p>`;
+    const out=await S.sample.json(`Eres el verificador visual de una bodega de custodia de mensajería en Colombia. Las primeras ${cimgs.length} imágenes son ${override?'fotos del paquete cerrado tomadas al admitirlo en la oficina':'las fotos que envió el cliente de su envío'}. Después vienen cuadros de los videos que grabó el personal de cada paquete en custodia (casi siempre por fuera: empaque, etiquetas, averías), en este orden: ${JSON.stringify(cands.map(c=>({id:c.p.id,cuadros:c.bs.length})))}.
+Datos de esos paquetes: ${JSON.stringify(cands.map(c=>({id:c.p.id,desc:c.p.descripcion,marca:c.p.marca,color:c.p.color,texto:c.p.textoVisible,averias:c.p.averias,orig:c.p.origen,dest:c.p.destino,kg:c.p.peso})))}
+Lo que dice el cliente: ${JSON.stringify(r.descripcion||'')} (origen ${JSON.stringify(r.origen||'')}, destino ${JSON.stringify(r.destino||'')}).
+Para cada paquete, juzga si es el MISMO envío: si el cliente fotografió el empaque, compara caja, tamaño, color, cintas, logos, etiquetas y textos; si fotografió el producto, compara lo que se alcance a ver o lo declarado (marca, forma, tamaño). Diferencia de ángulo o luz no importa; una caja, logo o etiqueta distinta sí.
+Responde SOLO con JSON: {"resultados":[{"id":"...","probabilidad":0-100,"razon":"frase corta: qué coincide y qué no"}]} ordenado de mayor a menor, solo los de probabilidad >= 20.`,{images:[...cimgs.slice(0,4),...cands.flatMap(c=>c.bs)],modelTier:'complex'});
+    const res=(out&&Array.isArray(out.resultados)?out.resultados:[]).map(x=>({p:S.paq.find(p=>p.id===String(x.id)),pct:Math.max(0,Math.min(100,Math.round(+x.probabilidad||0))),why:String(x.razon||'')})).filter(x=>x.p);
+    B().innerHTML=(res.length?`<p class="meta">Comparación de fotos: ${res.length} posible(s)</p>`+res.map(x=>card(x.p,{pct:x.pct,why:x.why,hits:toks,src:'cruce_foto'})+(x.pct>=60?`<div class="bar"><button class="btn sm" data-link="${esc(r.id)}|${esc(x.p.id)}">Vincular a este reclamo</button></div>`:'')).join('')
+      :'<p class="meta">Ninguna foto de la custodia se parece al producto del cliente.</p>');
+  }catch(e){B().innerHTML='<p class="meta">'+(e&&e.code==='rate_limited'?'IA ocupada, intente en un momento.':'La IA no pudo comparar las fotos.')+'</p>'}
+  finally{btn.disabled=false}
+}
+function renderRec(){
+  const keep={};document.querySelectorAll('#rlist [id^="m_"]').forEach(b=>{if(b.innerHTML)keep[b.id]=b.innerHTML});
+  renderRecList();
+  for(const k in keep){const b=document.getElementById(k);if(b)b.innerHTML=keep[k]}
+}
+function renderRecList(){
+  const order={abierto:0,encontrado:1,cerrado:2};
+  const list=S.rec.slice().sort((a,b)=>order[a.estado]-order[b.estado]||String(b.creado).localeCompare(String(a.creado)));
+  $('#rlist').innerHTML=list.length?list.map(r=>`<div class="alert ${r.estado==='abierto'?'':r.estado==='encontrado'?'g':'k'}" style="display:block">
+   <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><b>${esc(r.cliente)}</b><span class="meta">${esc(r.estado)} · ${fdate(r.creado)} · ${money(r.valor)}</span></div>
+   <div style="display:flex;gap:12px;align-items:flex-start">${fotoSrc(r)?`<img src="${esc(fotoSrc(r))}" alt="Foto del cliente" style="width:84px;height:84px;object-fit:cover;border-radius:4px;flex:none">`:''}<div>${esc(r.descripcion)}${gallery((r.media||[]).filter(m=>m.tipo==='video'||(r.media||[]).length>1))}${r.estado==='abierto'?`<button class="btn alt sm" data-addm="reclamos|${esc(r.id)}">Agregar fotos del cliente</button>`:''}${(r.fotoTags||[]).length?`<div class="tags">${r.fotoTags.map(t=>`<span class="tag">${esc(t)}</span>`).join('')}</div>`:''}</div></div><div class="meta">${esc(r.origen||'¿?')} → ${esc(r.destino||'¿?')}${r.guia?' · guía '+esc(r.guia):''} · ${esc(r.contacto)}</div>
+   <div class="bar" style="margin-top:6px"><button class="btn sm" data-reply="${esc(r.id)}">Responder por WhatsApp</button>${r.estado==='abierto'&&admOf(r.guia)?`<button class="btn red sm" data-cmpadm="${esc(r.id)}">Buscar con la foto de admisión</button>`:''}${(r.respuestas||[]).length?`<span class="meta" style="align-self:center">${r.respuestas.length} respuesta(s) · última ${fdate(r.respuestas.at(-1).t)}</span>`:'<span class="meta" style="align-self:center">Sin responder</span>'}${r.autorizaApertura?'<span class="meta" style="align-self:center">· autorizó apertura</span>':''}${r.codigoCliente?`<span class="meta" style="align-self:center">· ${esc(r.codigoCliente)}</span>`:''}</div>
+   ${r.paqueteId?`<p>Paquete: <button class="btn alt sm" data-open="${esc(r.paqueteId)}">${esc((S.paq.find(p=>p.id===r.paqueteId)||{}).codigo||r.paqueteId)}</button></p>`:''}
+   ${r.estado==='abierto'?`<div class="bar" style="margin-top:8px"><button class="btn sm" data-match="${esc(r.id)}">Buscar coincidencias</button><button class="btn alt sm" data-match="${esc(r.id)}" data-ai="1">Buscar con IA</button>${fotoSrc(r)||(r.media||[]).length?`<button class="btn red sm" data-cmp="${esc(r.id)}">Comparar foto con la custodia</button>`:''}</div><div class="list" id="m_${esc(r.id)}"></div>`:''}
+  </div>`).join(''):'<p class="meta">No hay reclamos registrados.</p>';
+}
+
+/* ---------- inventario y alertas ---------- */
+function renderInv(){
+  const c=custodia();
+  const old=c.filter(p=>days(p.ingreso)>30),stale=c.filter(p=>p.estado==='custodia'&&days(p.verificado||p.ingreso)>15),disp=c.filter(p=>p.estado==='custodia'&&afectado(p)&&(urgente(p)||days(p.ingreso)>=plazo()));
+  const matches=[];for(const r of S.rec.filter(r=>r.estado==='abierto')){const toks=tokens([r.descripcion,r.origen,r.destino,r.guia].join(' '));
+    for(const p of c){const s=score(p,toks);if(s.pct>=60)matches.push({r,p,s})}}
+  $('#alerts').innerHTML=
+    matches.slice(0,10).map(m=>`<div class="alert g"><span>Posible coincidencia: reclamo de <b>${esc(m.r.cliente)}</b> con <b>${esc(m.p.codigo)}</b> (${m.s.pct}%)</span><span class="bar"><button class="btn alt sm" data-open="${esc(m.p.id)}">Ver</button><button class="btn sm" data-link="${esc(m.r.id)}|${esc(m.p.id)}">Vincular</button></span></div>`).join('')+
+    (old.length?`<div class="alert"><span><b>${old.length}</b> paquete(s) con más de 30 días en custodia</span></div>`:'')+
+    (disp.length?`<div class="alert"><span><b>${disp.length}</b> paquete(s) afectados listos para separar (pestaña Disposición)</span></div>`:'')+
+    (stale.length?`<div class="alert k"><span><b>${stale.length}</b> paquete(s) sin confirmar en estante hace más de 15 días</span></div>`:'');
+  const ft=norm($('#f_txt').value),fe=$('#f_est').value;
+  const rows=S.paq.filter(p=>(!fe||p.estado===fe)&&(!ft||norm([p.codigo,p.ubicacion,p.objeto,p.descripcion,...(p.etiquetas||[])].join(' ')).includes(ft)))
+    .sort((a,b)=>String(a.ubicacion).localeCompare(String(b.ubicacion)));
+  $('#inv').innerHTML=`<thead><tr><th>Código</th><th>Contenido</th><th>Estante</th><th>Días</th><th>Confirmado</th><th></th></tr></thead><tbody>`+
+    (rows.length?rows.map(p=>`<tr><td><button class="btn alt sm" data-open="${esc(p.id)}">${esc(p.codigo)}</button></td><td>${esc(p.objeto||p.descripcion)}</td><td><b>${esc(p.ubicacion)}</b></td><td>${days(p.ingreso)}</td><td>${p.estado==='custodia'?'hace '+days(p.verificado||p.ingreso)+' d':esc(ESTADO[p.estado]||p.estado)}</td><td>${p.estado==='custodia'?`<button class="btn sm" data-check="${esc(p.id)}">Está aquí</button>`:''}</td></tr>`).join(''):'<tr><td colspan="6" class="meta">Sin paquetes con ese filtro.</td></tr>')+'</tbody>';
+}
+$('#f_txt').addEventListener('input',renderInv);$('#f_est').addEventListener('change',renderInv);
+
+/* ---------- disposición final ---------- */
+const AFECT=/^(Dañado parcial|Dañado total|Vencido o perecedero)$/;
+const afectado=p=>AFECT.test(p.condicion||'')||p.empaque==='Mojado'||p.empaque==='Caja rota';
+const urgente=p=>p.condicion==='Dañado total'||p.condicion==='Vencido o perecedero';
+function openClaim(p){
+  if(p.reclamoId){const r=S.rec.find(x=>x.id===p.reclamoId&&x.estado!=='cerrado');if(r)return r}
+  for(const r of S.rec.filter(r=>r.estado==='abierto')){if(score(p,tokens([r.descripcion,r.fotoDesc,r.origen,r.destino,r.guia].join(' '))).pct>=60)return r}
+  return null;
+}
+const plazo=()=>Math.max(1,+(S.cfg&&S.cfg.plazoDias)||90);
+const kg=v=>(Math.round((+v||0)*100)/100).toLocaleString('es-CO')+' kg';
+function rowD(p,extra){const cl=openClaim(p);
+  return `<div class="alert ${cl?'':'k'}"><span>${extra||''}<b>${esc(p.codigo)}</b> · ${esc(p.objeto||p.descripcion)} · ${esc(p.condicion||p.empaque)} · ${esc(p.material||'Mixto')}${p.peso?' · '+kg(p.peso):''} · ${days(p.ingreso)} días${cl?`<br><b>Tiene reclamo parecido de ${esc(cl.cliente)}: no disponer todavía</b>`:''}</span>
+  <span class="bar"><button class="btn alt sm" data-open="${esc(p.id)}">Ver</button>${p.estado==='custodia'?`<button class="btn sm" data-sep="${esc(p.id)}">Separar</button>`:`<button class="btn alt sm" data-back="${esc(p.id)}">Devolver</button>`}</span></div>`}
+function renderDisp(){
+  const c=S.paq.filter(p=>p.estado==='custodia'&&afectado(p));
+  const sug=c.filter(p=>urgente(p)||days(p.ingreso)>=plazo()),wait=c.filter(p=>!sug.includes(p));
+  $('#d_sug').innerHTML=sug.length?sug.map(p=>rowD(p)).join(''):'<p class="meta">Nada por separar.</p>';
+  $('#d_wait').innerHTML=wait.length?wait.map(p=>rowD(p,`<span class="meta">Faltan ${plazo()-days(p.ingreso)} días · </span>`)).join(''):'<p class="meta">Ninguno.</p>';
+  const sel=new Set([...document.querySelectorAll('.dsel:checked')].map(x=>x.value));
+  const sep=S.paq.filter(p=>p.estado==='separado');
+  const byMat={};sep.forEach(p=>{const m=p.material||'Mixto';byMat[m]=(byMat[m]||0)+(+p.peso||0)});
+  $('#d_sep').innerHTML=sep.length?`<p class="meta">${sep.length} paquete(s) · ${Object.entries(byMat).map(([m,k])=>esc(m)+': '+kg(k)).join(' · ')}</p>`+
+    sep.map(p=>`<label class="check alert k" style="justify-content:flex-start"><input type="checkbox" class="dsel" value="${esc(p.id)}" ${sel.has(p.id)||!sel.size?'checked':''} ${openClaim(p)?'disabled':''}><span><b>${esc(p.codigo)}</b> · ${esc(p.objeto||p.descripcion)} · ${esc(p.material||'Mixto')}${p.peso?' · '+kg(p.peso):''}${openClaim(p)?' · <b>bloqueado por reclamo abierto</b>':''}</span></label>`).join('')
+    :'<p class="meta">La zona de disposición está vacía.</p>';
+  $('#lform').hidden=!sep.length;
+  $('#d_lotes').innerHTML=S.lotes.length?S.lotes.map(l=>`<div class="alert g"><span><b>${esc(l.codigo)}</b> · ${fdate(l.fecha)} · ${esc(l.empresa)} · ${(l.items||[]).length} paquetes · ${kg(l.pesoTotal)}</span><button class="btn alt sm" data-acta="${esc(l.id)}">Ver acta</button></div>`).join(''):'<p class="meta">Aún no hay entregas a reciclaje.</p>';
+  $('#plazobox').innerHTML=`<span class="meta" style="align-self:center">Plazo de espera antes de disponer: <b>${plazo()} días</b> (confírmelo con su abogado según la norma postal).</span>`+
+    (S.isAdmin?`<input id="plz" type="number" min="1" value="${plazo()}" style="flex:0 1 110px"><button class="btn alt sm" id="plzb">Cambiar</button>`:'');
+  const pb=$('#plzb');if(pb)pb.onclick=()=>{const n=Math.round(+$('#plz').value);if(n>0)write(()=>S.db.doc('config/disposicion').set({plazoDias:n}),'Plazo actualizado a '+n+' días')};
+}
+$('#lform').addEventListener('submit',async e=>{
+  e.preventDefault();const v=id=>$(id).value.trim();
+  const ids=[...document.querySelectorAll('.dsel:checked:not(:disabled)')].map(x=>x.value);
+  const items=S.paq.filter(p=>ids.includes(p.id)&&p.estado==='separado');
+  if(!items.length){toast('Seleccione paquetes de la zona de disposición');return}
+  if(!v('#l_emp')||!v('#l_rec')){toast('Falta la empresa o quién recibe');return}
+  const btn=e.target.querySelector('button');btn.disabled=true;
+  const now=new Date(),codigo='LOTE-'+now.toISOString().slice(2,10).replace(/-/g,'')+'-'+Math.random().toString(36).slice(2,5).toUpperCase(),lid=codigo.toLowerCase();
+  const totales={};items.forEach(p=>{const m=p.material||'Mixto';totales[m]=Math.round(((totales[m]||0)+(+p.peso||0))*100)/100});
+  const lote={codigo,fecha:now.toISOString(),empresa:v('#l_emp'),nit:v('#l_nit'),recibe:v('#l_rec'),certificado:v('#l_cert'),por:S.me||'',
+    items:items.map(p=>({id:p.id,codigo:p.codigo,desc:p.descripcion||p.objeto,material:p.material||'Mixto',peso:+p.peso||0,condicion:p.condicion||'',dias:days(p.ingreso)})),
+    totales,pesoTotal:Math.round(items.reduce((s,p)=>s+(+p.peso||0),0)*100)/100};
+  if(await write(()=>S.db.collection('lotes').doc(lid).set(lote))){
+    for(const p of items)await write(()=>S.db.collection('paquetes').doc(p.id).update({estado:'dispuesto',loteId:lid,loteCodigo:codigo,ubicacion:'RECICLAJE',historial:histAdd(p,'Entregado a '+lote.empresa+' en '+codigo)}));
+    e.target.reset();toast('Lote '+codigo+' registrado');showActa(lid,{...lote,id:lid});
+  }
+  btn.disabled=false;
+});
+function showActa(id,ll){
+  const l=ll||S.lotes.find(x=>x.id===id);if(!l)return;
+  $('#mbody').innerHTML=`<div style="background:#fff;color:#111;padding:16px;border-radius:6px">
+  <h2 style="margin-bottom:4px">Acta de entrega para disposición final</h2><p style="margin:0 0 10px"><b>${esc(l.codigo)}</b> · ${fdate(l.fecha)}</p>
+  <p style="font-size:14px;margin:0 0 10px">Recibe: <b>${esc(l.empresa)}</b>${l.nit?' · NIT '+esc(l.nit):''}<br>Persona que recibe: ${esc(l.recibe)}${l.certificado?' · Certificado/remisión: '+esc(l.certificado):''}</p>
+  <table style="background:#fff;color:#111"><thead><tr><th style="color:#555">Código</th><th style="color:#555">Contenido</th><th style="color:#555">Material</th><th style="color:#555;text-align:right">Peso</th></tr></thead><tbody>
+  ${(l.items||[]).map(i=>`<tr><td>${esc(i.codigo)}</td><td>${esc(i.desc)}${i.condicion?' ('+esc(i.condicion)+')':''}</td><td>${esc(i.material)}</td><td style="text-align:right;white-space:nowrap">${kg(i.peso)}</td></tr>`).join('')}
+  ${Object.entries(l.totales||{}).map(([m,k])=>`<tr><td></td><td><b>Total ${esc(m)}</b></td><td></td><td style="text-align:right;white-space:nowrap"><b>${kg(k)}</b></td></tr>`).join('')}
+  <tr><td></td><td><b>TOTAL</b></td><td><b>${(l.items||[]).length} paquetes</b></td><td style="text-align:right;white-space:nowrap"><b>${kg(l.pesoTotal)}</b></td></tr></tbody></table>
+  <div class="row2" style="margin-top:36px;font-size:14px"><div style="border-top:1px solid #111;padding-top:4px">Entrega (custodia)</div><div style="border-top:1px solid #111;padding-top:4px">Recibe (${esc(l.empresa)})</div></div></div>
+  <p class="meta">Haga captura de esta acta o imprímala para firmarla.</p><p><button class="btn sm" data-close>Cerrar</button></p>`;
+  modal.style.display='grid';
+}
+
+/* ---------- venta a empleados ---------- */
+const desc=()=>Math.min(95,Math.max(0,+(S.cfgV&&S.cfgV.descuento)>=0&&S.cfgV.descuento!==undefined?+S.cfgV.descuento:50));
+const maxMes=()=>Math.max(1,+(S.cfgV&&S.cfgV.maxMes)||3);
+const waLink=t=>'https://wa.me/?text='+encodeURIComponent(t);
+const itemMsg=p=>`*${p.codigo}* · ${p.descripcion||p.objeto} (${p.condicion||'Bueno'})\nAntes ${money(p.venta&&p.venta.base)} → *Ahora ${money(p.venta&&p.venta.precio)}*\nVenta exclusiva para empleados. Responda con el código para apartarlo.`;
+const buenEstado=p=>/^(Bueno|Usado)$/.test(p.condicion||'')&&!afectado(p);
+function toSale(id){
+  const p=S.paq.find(x=>x.id===id);if(!p)return;
+  const base=+p.valor||0;
+  $('#mbody').innerHTML=`<h2>Pasar a venta · ${esc(p.codigo)}</h2><p>${esc(p.descripcion||p.objeto)} · ${days(p.ingreso)} días en custodia</p>
+  <label class="check"><input type="checkbox" id="s_ok"> Confirmo que se cumplió el plazo legal, nadie lo reclamó y la transportadora tiene la propiedad del bien.</label>
+  <label class="f" style="margin-top:12px">N.º del acta o resolución que lo respalda<input id="s_acta"></label>
+  <div class="row2" style="margin-top:12px"><label class="f">Precio de referencia ($)<input id="s_base" type="number" value="${base||''}"></label><label class="f">Descuento (%)<input id="s_desc" type="number" min="0" max="95" value="${desc()}"></label></div>
+  <p class="big" id="s_prec" style="font-size:30px;margin:12px 0"></p>
+  <div class="row2"><button class="btn red" id="s_go">Publicar en el catálogo</button><button class="btn alt" data-close>Cancelar</button></div>`;
+  modal.style.display='grid';
+  const calc=()=>{const b=+$('#s_base').value||0,d=Math.min(95,Math.max(0,+$('#s_desc').value||0));$('#s_prec').textContent='Precio empleado: '+money(Math.round(b*(1-d/100)/100)*100);return {b,d,pr:Math.round(b*(1-d/100)/100)*100}};
+  $('#s_base').oninput=calc;$('#s_desc').oninput=calc;calc();
+  $('#s_go').onclick=async()=>{
+    if(!$('#s_ok').checked){toast('Debe confirmar la propiedad legal');return}
+    if(!$('#s_acta').value.trim()){toast('Escriba el número del acta');return}
+    const {b,d,pr}=calc();if(!(b>0)){toast('Ponga un precio de referencia');return}
+    if(await write(()=>S.db.collection('paquetes').doc(p.id).update({estado:'venta',venta:{base:b,descuento:d,precio:pr,acta:$('#s_acta').value.trim(),desde:new Date().toISOString(),por:S.me||''},historial:histAdd(p,'Publicado en venta a empleados por '+money(pr))}),'Publicado en el catálogo'))closeM();
+  };
+}
+function sell(id){
+  const p=S.paq.find(x=>x.id===id);if(!p)return;
+  $('#mbody').innerHTML=`<h2>Vender ${esc(p.codigo)}</h2><p>${esc(p.descripcion||p.objeto)} · <b>${money(p.venta&&p.venta.precio)}</b></p>
+  <label class="f">Empleado que compra<input id="v_a"></label>
+  <div class="row2" style="margin-top:12px"><label class="f">Ciudad de entrega<input id="v_c"></label><label class="f">Forma de pago<select id="v_p"><option>Descuento por nómina</option><option>Transferencia</option><option>Efectivo</option></select></label></div>
+  <label class="f" style="margin-top:12px">Guía del envío nacional<input id="v_g" placeholder="Si ya se despachó"></label>
+  <p class="meta" id="v_warn"></p>
+  <div class="row2" style="margin-top:12px"><button class="btn red" id="v_go">Registrar venta</button><button class="btn alt" data-close>Cancelar</button></div>`;
+  modal.style.display='grid';let forced=false;
+  $('#v_go').onclick=async()=>{
+    const a=$('#v_a').value.trim();if(!a){toast('Escriba quién compra');return}
+    const n=S.paq.filter(x=>x.estado==='vendido'&&x.vendido&&norm(x.vendido.a)===norm(a)&&days(x.vendido.fecha)<=30).length;
+    if(n>=maxMes()&&!forced){forced=true;$('#v_warn').textContent=a+' ya compró '+n+' producto(s) este mes (máximo '+maxMes()+'). Toque de nuevo para registrar igual.';return}
+    const v={a,ciudad:$('#v_c').value.trim(),pago:$('#v_p').value,guia:$('#v_g').value.trim(),precio:+(p.venta&&p.venta.precio)||0,fecha:new Date().toISOString(),por:S.me||''};
+    if(await write(()=>S.db.collection('paquetes').doc(p.id).update({estado:'vendido',vendido:v,ubicacion:'VENDIDO',historial:histAdd(p,'Vendido a '+a+' por '+money(v.precio))}),'Venta registrada'))closeM();
+  };
+}
+let msgEdited=false;
+function buildMsg(){
+  const cat=S.paq.filter(p=>p.estado==='venta').slice(0,40);
+  if(!cat.length)return '';
+  return `*VENTA EXCLUSIVA PARA EMPLEADOS*\nProductos de nuestra custodia con hasta ${Math.max(...cat.map(p=>+(p.venta&&p.venta.descuento)||0))}% de descuento. Envío a todo el país.\n\n`+
+    cat.map((p,i)=>`${i+1}. *${p.codigo}* · ${p.descripcion||p.objeto} (${p.condicion||'Bueno'})\n   Antes ${money(p.venta&&p.venta.base)} → *Ahora ${money(p.venta&&p.venta.precio)}*`).join('\n\n')+
+    `\n\nPara comprar responda con el código. Se vende por orden de llegada, máximo ${maxMes()} por empleado al mes. Pago por nómina o transferencia. Pida las fotos de cualquier producto.`;
+}
+function renderVenta(){
+  if(!ventaOn()){
+    $('#v_eleg').innerHTML=`<div class="banner"><b>Venta bloqueada.</b> El procedimiento de rezago (Res. MinTIC 1822 de 2018, art. 5) ordena ofrecer los envíos no reclamados al ICBF y luego a entidades sin ánimo de lucro; no contempla venderlos. Use "Rezago y donación" en la pestaña Disposición. Solo habilite la venta si su abogado emite un concepto que la permita.</div>`+(S.isAdmin?`<div class="bar"><input id="cv_con" placeholder="N.º o referencia del concepto jurídico" style="flex:1 1 240px"><button class="btn alt sm" data-venta-on>Habilitar venta con este concepto</button></div>`:'');
+    $('#v_cat').innerHTML='';$('#v_sold').innerHTML='';$('#vcfg').innerHTML='';$('#v_msg').value='';return;
+  }
+  const elig=S.paq.filter(p=>p.estado==='custodia'&&buenEstado(p)&&days(p.ingreso)>=plazo());
+  $('#v_eleg').innerHTML=elig.length?elig.map(p=>{const cl=openClaim(p);return `<div class="alert ${cl?'':'g'}"><span><b>${esc(p.codigo)}</b> · ${esc(p.descripcion||p.objeto)} · ${days(p.ingreso)} días · ref. ${money(p.valor)}${cl?`<br><b>Tiene reclamo parecido de ${esc(cl.cliente)}: no vender</b>`:''}</span><span class="bar"><button class="btn alt sm" data-open="${esc(p.id)}">Ver</button>${cl?'':`<button class="btn sm" data-tosale="${esc(p.id)}">Pasar a venta</button>`}</span></div>`}).join(''):`<p class="meta">Ningún paquete en buen estado ha cumplido el plazo de ${plazo()} días.</p>`;
+  const cat=S.paq.filter(p=>p.estado==='venta');
+  $('#v_cat').innerHTML=cat.length?cat.map(p=>`<article class="label">${thumb(p,true)}<div><b>${esc(p.codigo)}</b> · ${esc(p.descripcion||p.objeto)}<div class="meta">${esc(p.condicion||'')} · ${p.peso?kg(p.peso)+' · ':''}acta ${esc(p.venta&&p.venta.acta)}</div><div class="meta"><s>${money(p.venta&&p.venta.base)}</s> −${esc(p.venta&&p.venta.descuento)}%</div></div>
+    <div class="loc"><span class="big">${money(p.venta&&p.venta.precio)}</span><span class="bar"><button class="btn red sm" data-sell="${esc(p.id)}">Vender</button><a class="btn alt sm" target="_blank" rel="noopener" href="${esc(waLink(itemMsg(p)))}">WhatsApp</a><button class="btn alt sm" data-unsale="${esc(p.id)}">Retirar</button></span></div></article>`).join(''):'<p class="meta">El catálogo está vacío.</p>';
+  if(!msgEdited)$('#v_msg').value=buildMsg();
+  $('#v_wa').href=waLink($('#v_msg').value||'');
+  const sold=S.paq.filter(p=>p.estado==='vendido').sort((a,b)=>String(b.vendido&&b.vendido.fecha).localeCompare(String(a.vendido&&a.vendido.fecha)));
+  const tot=sold.reduce((s,p)=>s+(+(p.vendido&&p.vendido.precio)||0),0);
+  $('#v_sold').innerHTML=sold.length?`<p class="meta">${sold.length} venta(s) · total ${money(tot)}</p><div style="overflow-x:auto"><table class="stack"><thead><tr><th>Fecha</th><th>Código</th><th>Producto</th><th>Empleado</th><th>Ciudad</th><th>Pago</th><th style="text-align:right">Precio</th></tr></thead><tbody>`+
+    sold.map(p=>`<tr><td>${fdate(p.vendido.fecha)}</td><td>${esc(p.codigo)}</td><td>${esc(p.objeto||p.descripcion)}</td><td>${esc(p.vendido.a)}</td><td>${esc(p.vendido.ciudad)}</td><td>${esc(p.vendido.pago)}</td><td style="text-align:right;white-space:nowrap">${money(p.vendido.precio)}</td></tr>`).join('')+'</tbody></table></div>':'<p class="meta">Aún no hay ventas.</p>';
+  $('#vcfg').innerHTML=`<span class="meta" style="align-self:center">Descuento por defecto <b>${desc()}%</b> · máximo <b>${maxMes()}</b> compras por empleado al mes · plazo legal <b>${plazo()} días</b> (se cambia en Disposición).</span>`+
+    (S.isAdmin?`<input id="cv_d" type="number" min="0" max="95" value="${desc()}" style="flex:0 1 90px" aria-label="Descuento"><input id="cv_m" type="number" min="1" value="${maxMes()}" style="flex:0 1 90px" aria-label="Máximo al mes"><button class="btn alt sm" id="cv_b">Guardar</button>`:'');
+  const cb=$('#cv_b');if(cb)cb.onclick=()=>{const d=Math.round(+$('#cv_d').value),m=Math.round(+$('#cv_m').value);if(d>=0&&d<=95&&m>0)write(()=>S.db.doc('config/venta').set({descuento:d,maxMes:m}),'Condiciones de venta guardadas')};
+}
+$('#v_msg').addEventListener('input',()=>{msgEdited=true;$('#v_wa').href=waLink($('#v_msg').value)});
+$('#v_copy').addEventListener('click',async()=>{const t=$('#v_msg').value;try{await navigator.clipboard.writeText(t);toast('Mensaje copiado. Péguelo en WhatsApp.')}catch(e){$('#v_msg').select();toast('Selección lista: mantenga presionado y copie')}});
+$('#v_ai').addEventListener('click',async e=>{
+  const b=e.currentTarget;if(!S.sample){toast('IA no disponible');return}
+  const t=$('#v_msg').value;if(!t.trim()){toast('El catálogo está vacío');return}
+  b.disabled=true;
+  try{const r=await S.sample(`Mejora este mensaje de WhatsApp para vender a los empleados de una transportadora en Colombia productos que quedaron en custodia. Hazlo atractivo, claro y corto, en español colombiano, con formato de WhatsApp (*negrita*), máximo 3 emojis. NO cambies ningún código de producto, precio, porcentaje ni condición de venta. Devuelve solo el mensaje.\n\n${t}`,{modelTier:'quick'});
+    if(r&&r.text){$('#v_msg').value=r.text.trim();msgEdited=true;$('#v_wa').href=waLink($('#v_msg').value);toast('Revise que precios y códigos sigan iguales')}}
+  catch(err){toast('La IA no respondió')}finally{b.disabled=false}
+});
+
+/* ---------- asistente IA ---------- */
+let AS={dispo:[],venta:[],matches:[],precios:{},ruta:[]};
+async function review(btn){
+  const out=$('#as_out');btn.disabled=true;out.innerHTML='<p class="meta">Revisando con reglas locales…</p>';
+  const c=S.paq.filter(p=>p.estado==='custodia');
+  AS.dispo=c.filter(p=>afectado(p)&&(urgente(p)||days(p.ingreso)>=plazo())&&!openClaim(p));
+  AS.venta=c.filter(p=>buenEstado(p)&&days(p.ingreso)>=plazo()&&!openClaim(p));
+  AS.ruta=c.filter(p=>days(p.verificado||p.ingreso)>15).sort((a,b)=>String(a.ubicacion).localeCompare(String(b.ubicacion)));
+  AS.matches=[];AS.precios={};
+  const open=S.rec.filter(r=>r.estado==='abierto'),pool=custodia();
+  let note='';
+  if(S.sample&&open.length&&pool.length){
+    out.innerHTML='<p class="meta">La IA está cruzando '+open.length+' reclamo(s) con '+pool.length+' paquete(s)…</p>';
+    try{const o=await S.sample.json(`Eres el analista de una bodega de custodia de mensajería en Colombia. Cruza los reclamos abiertos con los paquetes en custodia y encuentra los que probablemente son el mismo envío (contenido, marca, color, ciudades, fechas, guía parcial). Responde SOLO con JSON: {"coincidencias":[{"reclamo":"id","paquete":"id","probabilidad":0-100,"razon":"frase corta"}]} solo con probabilidad >= 55.
+Reclamos: ${JSON.stringify(open.slice(0,60).map(r=>({id:r.id,desc:[r.descripcion,r.fotoDesc].filter(Boolean).join('. '),orig:r.origen,dest:r.destino,guia:r.guia,fecha:r.fechaEnvio})))}
+Paquetes: ${JSON.stringify(pool.slice(0,250).map(p=>({id:p.id,desc:p.descripcion,tags:(p.etiquetas||[]).join(','),orig:p.origen,dest:p.destino,texto:p.textoVisible,ingreso:(p.ingreso||'').slice(0,10)})))}`,{modelTier:'default'});
+      AS.matches=(o&&Array.isArray(o.coincidencias)?o.coincidencias:[]).map(m=>({r:S.rec.find(x=>x.id===String(m.reclamo)),p:S.paq.find(x=>x.id===String(m.paquete)),pct:Math.round(+m.probabilidad||0),why:String(m.razon||'')})).filter(m=>m.r&&m.p);
+    }catch(e){note+='No se pudo hacer el cruce con IA. '}
+  }
+  if(S.sample&&AS.venta.length&&ventaOn()){
+    out.innerHTML='<p class="meta">La IA está estimando precios de venta…</p>';
+    try{const o=await S.sample.json(`Estima el precio de reventa en Colombia, en pesos colombianos, de estos productos según su estado (precio de mercado de segunda mano o de liquidación, no de tienda nueva). Responde SOLO con JSON: {"precios":[{"id":"...","precio":número redondeado a miles,"razon":"frase corta"}]}.
+Productos: ${JSON.stringify(AS.venta.slice(0,60).map(p=>({id:p.id,desc:p.descripcion||p.objeto,marca:p.marca,estado:p.condicion,valor_declarado:p.valor||null})))}`,{modelTier:'quick'});
+      (o&&Array.isArray(o.precios)?o.precios:[]).forEach(x=>{if(+x.precio>0)AS.precios[String(x.id)]={v:Math.round(+x.precio),why:String(x.razon||'')}});
+    }catch(e){note+='No se pudieron estimar precios. '}
+  }
+  btn.disabled=false;renderAS(note);
+}
+function renderAS(note){
+  const out=$('#as_out');const sec=(t,body)=>`<h3>${t}</h3>${body}`;
+  out.innerHTML=(note?`<div class="banner">${esc(note)}</div>`:'')+
+  sec('1. Reclamos que la IA encontró ('+AS.matches.length+')',AS.matches.length?AS.matches.map(m=>`<div class="alert g"><span><b>${m.pct}%</b> · reclamo de <b>${esc(m.r.cliente)}</b> ↔ <b>${esc(m.p.codigo)}</b> en ${esc(m.p.ubicacion)}<br><span class="meta">${esc(m.why)}</span></span><span class="bar"><button class="btn alt sm" data-open="${esc(m.p.id)}">Ver</button><button class="btn sm" data-link="${esc(m.r.id)}|${esc(m.p.id)}">Vincular</button>${fbBtns('asistente',m.p.id+'~'+m.r.id)}</span></div>`).join(''):'<p class="meta">Sin coincidencias nuevas.</p>')+
+  sec('2. Dañados para separar ('+AS.dispo.length+')',AS.dispo.length?`<p class="meta">${AS.dispo.map(p=>esc(p.codigo)+' ('+esc(p.condicion||p.empaque)+')').join(' · ')}</p><button class="btn sm" id="as_sep">Separar los ${AS.dispo.length} para disposición</button>`:'<p class="meta">Ninguno.</p>')+
+  (!ventaOn()?sec('3. Para declarar en rezago ('+S.paq.filter(p=>(p.estado==='custodia'||p.estado==='separado')&&days(p.ingreso)>=90&&!openClaim(p)).length+')','<p class="meta">Envíos con más de 3 meses sin entrega ni devolución. Créelos como lote en la pestaña Disposición, sección Rezago y donación.</p>'):'')+
+  (!ventaOn()?'':sec('3. Listos para venta a empleados ('+AS.venta.length+')',AS.venta.length?AS.venta.map(p=>{const pr=AS.precios[p.id];return `<div class="alert k"><span><b>${esc(p.codigo)}</b> · ${esc(p.descripcion||p.objeto)}<br><span class="meta">Precio sugerido ${pr?money(pr.v)+' · '+esc(pr.why):money(p.valor)+' (valor declarado)'}</span></span></div>`}).join('')+
+    `<p class="meta">Al publicar confirma que el plazo legal se cumplió y que la transportadora tiene la propiedad de estos bienes.</p><div class="bar"><input id="as_acta" placeholder="N.º de acta de propiedad (para todos)" style="flex:1 1 220px"><button class="btn sm" id="as_sale">Publicar todos con ${desc()}% de descuento</button></div>`:'<p class="meta">Ninguno.</p>'))+
+  sec('4. Ruta de conteo: sin confirmar hace más de 15 días ('+AS.ruta.length+')',AS.ruta.length?`<p class="meta">Recorra en este orden y toque "Está aquí":</p>`+AS.ruta.map(p=>`<div class="alert k"><span><b>${esc(p.ubicacion)}</b> · ${esc(p.codigo)} · ${esc(p.objeto||p.descripcion)}</span><button class="btn sm" data-check="${esc(p.id)}">Está aquí</button></div>`).join(''):'<p class="meta">Todo confirmado.</p>');
+  const sb=$('#as_sep');if(sb)sb.onclick=async()=>{sb.disabled=true;let n=0;for(const p of AS.dispo){if(await write(()=>S.db.collection('paquetes').doc(p.id).update({estado:'separado',ubicacionAnterior:p.ubicacion,ubicacion:'DISP',separado:new Date().toISOString(),historial:histAdd(p,'Separado para disposición (asistente IA)')})))n++}AS.dispo=[];renderAS();toast(n+' paquete(s) separados')};
+  const vb=$('#as_sale');if(vb)vb.onclick=async()=>{const acta=$('#as_acta').value.trim();if(!acta){toast('Escriba el número del acta de propiedad');return}
+    vb.disabled=true;let n=0;const d=desc();
+    for(const p of AS.venta){const b=(AS.precios[p.id]&&AS.precios[p.id].v)||+p.valor||0;if(!(b>0))continue;const pr=Math.round(b*(1-d/100)/100)*100;
+      if(await write(()=>S.db.collection('paquetes').doc(p.id).update({estado:'venta',venta:{base:b,descuento:d,precio:pr,acta,desde:new Date().toISOString(),por:S.me||'',precioIA:!!AS.precios[p.id]},historial:histAdd(p,'Publicado en venta por '+money(pr)+' (asistente IA)')})))n++}
+    AS.venta=[];renderAS();toast(n+' producto(s) publicados. El mensaje de WhatsApp ya está listo.')};
+}
+$('#as_go').addEventListener('click',e=>review(e.currentTarget));
+$('#add_media').addEventListener('change',e=>onAddMedia(e));
+
+/* ---------- conciliación con el sistema de la transportadora ---------- */
+const COLS={guia:['guia','numero de guia','numero','tracking','remesa'],contenido:['contenido','dice contener','descripcion','producto','mercancia'],peso:['peso','kilos','kg'],origen:['origen'],destino:['destino'],valor:['valor declarado','valor'],fecha:['fecha'],estado:['estado','novedad']};
+function mapHeaders(hs){const m={},used=new Set();for(const k of Object.keys(COLS)){const i=hs.findIndex((h,j)=>!used.has(j)&&COLS[k].some(a=>norm(h).includes(a)));if(i>=0){m[k]=i;used.add(i)}}return m}
+function parseCSV(t){const first=t.split(/\r?\n/)[0]||'',d=(first.match(/;/g)||[]).length>(first.match(/,/g)||[]).length?';':(first.includes('\t')?'\t':',');
+  const rows=[];let row=[],cur='',q=false;for(let i=0;i<t.length;i++){const c=t[i];if(q){if(c==='"'){if(t[i+1]==='"'){cur+='"';i++}else q=false}else cur+=c}else if(c==='"')q=true;else if(c===d){row.push(cur);cur=''}else if(c==='\n'){row.push(cur.replace(/\r$/,''));rows.push(row);row=[];cur=''}else cur+=c}
+  if(cur||row.length){row.push(cur);rows.push(row)}return rows.filter(r=>r.some(x=>String(x).trim()))}
+$('#imp_b').addEventListener('click',()=>$('#imp_f').click());
+$('#imp_f').addEventListener('change',async e=>{
+  const f=e.target.files[0];if(!f)return;e.target.value='';const st=$('#imp_st');st.textContent='Leyendo '+f.name+'…';
+  let rows=[];
+  try{if(/\.xlsx?$/i.test(f.name)){if(typeof XLSX==='undefined'){st.textContent='No se pudo cargar el lector de Excel. Guarde el archivo como CSV.';return}
+      const wb=XLSX.read(await f.arrayBuffer(),{type:'array'});rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,raw:false,defval:''})}
+    else rows=parseCSV(await f.text())}catch(err){st.textContent='No se pudo leer el archivo.';return}
+  let hi=rows.findIndex(r=>{const m=mapHeaders(r.map(String));return m.guia!==undefined&&Object.keys(m).length>=2});
+  if(hi<0){st.textContent='No encontré la columna de número de guía. Revise que el archivo tenga encabezados (guía, contenido, peso, origen, destino).';return}
+  const m=mapHeaders(rows[hi].map(String)),cell=(r,k)=>m[k]===undefined?'':String(r[m[k]]??'').trim();
+  const filas=rows.slice(hi+1).map(r=>({g:cell(r,'guia'),c:cell(r,'contenido'),p:+cell(r,'peso').replace(',','.')||0,o:cell(r,'origen'),d:cell(r,'destino'),v:+cell(r,'valor').replace(/[^\d]/g,'')||0,f:cell(r,'fecha'),e:cell(r,'estado')})).filter(x=>x.g).slice(0,4000);
+  if(!filas.length){st.textContent='El archivo no trae guías.';return}
+  $('#imp_map').innerHTML=`<p class="meta">Columnas reconocidas: ${Object.keys(m).map(k=>esc(k)+' = "'+esc(rows[hi][m[k]])+'"').join(' · ')}</p>`;
+  st.textContent='Guardando '+filas.length+' guías…';
+  const id='imp-'+Date.now().toString(36);let ok=true;
+  for(let i=0;i<filas.length&&ok;i+=400){ok=await write(()=>S.db.collection('importes').doc(id+'-'+(i/400)).set({fecha:new Date().toISOString(),archivo:f.name,parte:i/400,filas:filas.slice(i,i+400),por:S.me||''}))}
+  st.textContent=ok?filas.length+' guías importadas de '+f.name+'. Cruce listo abajo.':'La importación quedó incompleta.';
+});
+let CONC={ai:[]};
+function concMatches(){
+  const pool=S.paq.filter(p=>p.estado==='custodia'&&!p.guia),used=new Set(S.paq.map(p=>p.guia).filter(Boolean));
+  const G=S.imp.filter(g=>!used.has(g.g)).map(g=>({g,t:tokens([g.c,g.o,g.d].join(' ')),gd:String(g.g).replace(/\D/g,'')}));
+  const out=[];
+  for(const p of pool){const digits=String(p.textoVisible||'').match(/\d{4,}/g)||[];let best=null;
+    for(const x of G){let sc=0;const why=[];if(digits.some(d=>x.gd.includes(d))){sc+=60;why.push('números visibles de la guía')}
+      const s=score(p,x.t).pct;sc+=s*.6;if(s>=50)why.push('contenido y ciudades');
+      if(p.peso&&x.g.p&&Math.abs(p.peso-x.g.p)<=Math.max(.3,x.g.p*.15)){sc+=10;why.push('peso')}
+      if(!best||sc>best.sc)best={g:x.g,sc,why}}
+    if(best&&best.sc>=45)out.push({p,g:best.g,pct:Math.min(99,Math.round(best.sc)),why:best.why.join(', ')})}
+  return out.sort((a,b)=>b.pct-a.pct);
+}
+const guiaRow=(m,ai)=>`<div class="alert g"><span><b>${m.pct}%</b> · ${esc(m.p.codigo)} (${esc(m.p.objeto||m.p.descripcion)}, estante ${esc(m.p.ubicacion)}) ↔ guía <b>${esc(m.g.g)}</b><br><span class="meta">Declarado: ${esc(m.g.c||'—')} · ${esc(m.g.o||'¿?')} → ${esc(m.g.d||'¿?')}${m.g.p?' · '+esc(m.g.p)+' kg':''} · ${esc(m.why)}${ai?' (IA)':''}</span></span><span class="bar"><button class="btn alt sm" data-open="${esc(m.p.id)}">Ver</button><button class="btn sm" data-asg="${esc(m.p.id)}|${esc(m.g.g)}">Asignar guía</button>${fbBtns(ai?'conciliacion_ia':'conciliacion',m.p.id+'~'+m.g.g)}</span></div>`;
+function renderConc(){
+  if($('#conciliar').hidden&&!CONC.force)return;CONC.force=false;
+  if(!S.imp.length){$('#imp_match').innerHTML='<p class="meta">Suba un reporte para ver los cruces.</p>';$('#imp_miss').innerHTML='';return}
+  const ms=concMatches();
+  $('#imp_match').innerHTML=(CONC.ai.length?CONC.ai.map(m=>guiaRow(m,true)).join(''):'')+(ms.length?ms.slice(0,60).map(m=>guiaRow(m)).join(''):(CONC.ai.length?'':'<p class="meta">Sin cruces claros. Pruebe "Afinar cruces con IA".</p>'));
+  const assigned=new Set(S.paq.map(p=>p.guia).filter(Boolean));
+  const miss=S.imp.filter(g=>/custod|bodeg|novedad/i.test(g.e)&&!assigned.has(g.g));
+  $('#imp_miss').innerHTML=miss.length?`<p class="meta">${miss.length} guía(s). Búsquelas físicamente o márquelas como perdidas en su sistema.</p>`+miss.slice(0,50).map(g=>`<div class="alert"><span>Guía <b>${esc(g.g)}</b> · ${esc(g.c||'sin contenido declarado')} · ${esc(g.o||'¿?')} → ${esc(g.d||'¿?')} · ${esc(g.e)}</span></div>`).join(''):'<p class="meta">El archivo no trae columna de estado o todas las guías en custodia tienen paquete.</p>';
+}
+$('#imp_ai').addEventListener('click',async e=>{
+  const b=e.currentTarget;if(!S.sample){toast('IA no disponible');return}if(!S.imp.length){toast('Primero suba un reporte');return}
+  const done=new Set(concMatches().filter(m=>m.pct>=70).map(m=>m.p.id));
+  const pool=S.paq.filter(p=>p.estado==='custodia'&&!p.guia&&!done.has(p.id)).slice(0,25);
+  if(!pool.length){toast('No hay paquetes pendientes por cruzar');return}
+  const G=S.imp.map(g=>({g,t:tokens([g.c,g.o,g.d].join(' '))}));
+  const cands=pool.map(p=>({id:p.id,desc:p.descripcion,texto:p.textoVisible,kg:p.peso,orig:p.origen,dest:p.destino,guias:G.map(x=>({x,s:score(p,x.t).pct})).sort((a,b)=>b.s-a.s).slice(0,6).map(y=>({guia:y.x.g.g,contenido:y.x.g.c,kg:y.x.g.p,orig:y.x.g.o,dest:y.x.g.d}))}));
+  b.disabled=true;$('#imp_st').textContent='La IA está comparando '+pool.length+' paquetes con sus guías candidatas…';
+  try{const o=await S.sample.json(`Eres analista de una bodega de custodia de mensajería en Colombia. Para cada paquete físico sin guía, elige cuál de sus guías candidatas (del sistema de la transportadora, con el contenido que declaró el remitente) es la misma, comparando contenido, números visibles, peso y ciudades. Si ninguna encaja, no lo incluyas. Responde SOLO con JSON: {"cruces":[{"id":"paquete","guia":"número","probabilidad":0-100,"razon":"frase corta"}]} solo con probabilidad >= 55.\nDatos: ${JSON.stringify(cands)}`,{modelTier:'default'});
+    CONC.ai=(o&&Array.isArray(o.cruces)?o.cruces:[]).map(c=>({p:S.paq.find(p=>p.id===String(c.id)),g:S.imp.find(g=>g.g===String(c.guia)),pct:Math.round(+c.probabilidad||0),why:String(c.razon||'')})).filter(m=>m.p&&m.g);
+    $('#imp_st').textContent='La IA propuso '+CONC.ai.length+' cruce(s). Revíselos antes de asignar.';CONC.force=true;renderConc();
+  }catch(err){$('#imp_st').textContent='La IA no respondió.'}finally{b.disabled=false}
+});
+
+/* ---------- rezago y donación ---------- */
+const addMonths=(d,n)=>{const x=new Date(d);x.setMonth(x.getMonth()+n);return x.toISOString()};
+const addDays=(d,n)=>new Date(new Date(d).getTime()+n*864e5).toISOString();
+const addBizDays=(d,n)=>{const x=new Date(d);let k=0;while(k<n){x.setDate(x.getDate()+1);const w=x.getDay();if(w!==0&&w!==6)k++}return x.toISOString()};
+const PASOS=[['comite','Comité de Rezagos reunido (preside el representante legal)'],['acta','Acta de apertura firmada'],['web','Acta publicada en la web del operador'],['procuraduria','Procuraduría notificada de fecha, hora y lugar'],['icbf','Ofrecido al ICBF']];
+function renderRezago(){
+  const el=S.paq.filter(p=>(p.estado==='custodia'||p.estado==='separado')&&days(p.ingreso)>=90&&!openClaim(p));
+  $('#rz_eleg').innerHTML=el.length?`<div class="alert k"><span><b>${el.length}</b> envío(s) con más de 3 meses sin entrega ni devolución: ${el.slice(0,8).map(p=>esc(p.codigo)).join(', ')}${el.length>8?'…':''}</span><button class="btn sm" id="rz_new">Declarar en rezago</button></div>`:'<p class="meta">Ningún envío cumple 3 meses sin reclamo.</p>';
+  const nb=$('#rz_new');if(nb)nb.onclick=async()=>{nb.disabled=true;const now=new Date().toISOString(),cod='REZ-'+now.slice(2,10).replace(/-/g,'')+'-'+Math.random().toString(36).slice(2,5).toUpperCase(),id=cod.toLowerCase();
+    const pubHasta=addMonths(now,2);
+    if(await write(()=>S.db.collection('rezagos').doc(id).set({codigo:cod,fecha:now,items:el.map(p=>p.id),publicacionHasta:pubHasta,recuperacionHasta:addDays(pubHasta,30),pasos:{},por:S.me||''}))){
+      for(const p of el)await write(()=>S.db.collection('paquetes').doc(p.id).update({estado:'rezago',rezagoId:id,rezagoCodigo:cod,historial:histAdd(p,'Declarado en rezago, lote '+cod)}));toast('Lote '+cod+' creado')}};
+  $('#rz_lotes').innerHTML=S.rez.map(r=>{const items=S.paq.filter(p=>p.rezagoId===r.id),vivos=items.filter(p=>p.estado==='rezago'),ps=r.pasos||{};
+    const recOk=Date.now()>Date.parse(r.recuperacionHasta),icbfLim=ps.icbf&&ps.icbf.limite,icbfOk=icbfLim&&Date.now()>Date.parse(icbfLim);
+    return `<div class="alert k" style="display:block"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><b>${esc(r.codigo)}</b><span class="meta">${fdate(r.fecha)} · ${items.length} envíos · ${vivos.length} pendientes</span></div>
+    <p class="meta" style="margin:6px 0">Publicación hasta ${fdate(r.publicacionHasta)} · recuperación por el usuario hasta ${fdate(r.recuperacionHasta)} (interpretación a confirmar con su abogado)${icbfLim?' · respuesta del ICBF hasta '+fdate(icbfLim):''}</p>
+    ${PASOS.map(([k,t])=>`<label class="check"><input type="checkbox" data-paso="${esc(r.id)}|${k}" ${ps[k]?'checked disabled':''}> ${esc(t)}${ps[k]&&ps[k].fecha?' · '+fdate(ps[k].fecha):''}</label>`).join('')}
+    ${vivos.length?`<div class="bar" style="margin-top:10px"><input placeholder="Entidad que recibe" data-ent="${esc(r.id)}" style="flex:1 1 180px"><input placeholder="NIT" data-nit="${esc(r.id)}" style="flex:0 1 140px"><input type="date" title="Fecha de constitución" data-cons="${esc(r.id)}" style="flex:0 1 160px"></div>
+     <div class="bar" style="margin-top:8px"><button class="btn sm" data-don="${esc(r.id)}|ICBF" ${recOk&&ps.icbf?'':'disabled'}>Entregar al ICBF</button><button class="btn alt sm" data-don="${esc(r.id)}|ESAL" ${recOk&&icbfOk?'':'disabled'}>Entregar a entidad sin ánimo de lucro</button><button class="btn alt sm" data-amb="${esc(r.id)}" ${recOk&&icbfOk?'':'disabled'}>Lo no recibido a disposición ambiental</button></div>
+     <p class="meta">${!recOk?'Los botones se activan cuando termine el plazo de recuperación.':!ps.icbf?'Primero marque "Ofrecido al ICBF".':!icbfOk?'Esperando los 15 días hábiles del ICBF.':'Listo para donar o disponer.'}</p>`:'<p class="meta">Lote cerrado.</p>'}
+    <details><summary class="meta" style="cursor:pointer">Ver envíos</summary>${items.map(p=>`<div class="meta">${esc(p.codigo)} · ${esc(p.objeto||p.descripcion)} · ${esc(ESTADO[p.estado]||p.estado)}${p.donacion?' → '+esc(p.donacion.a):''}</div>`).join('')}</details></div>`}).join('');
+}
+document.addEventListener('change',async e=>{const t=e.target;if(!t.dataset||!t.dataset.paso)return;const [rid,k]=t.dataset.paso.split('|');const r=S.rez.find(x=>x.id===rid);if(!r)return;
+  const now=new Date().toISOString(),v={fecha:now,por:S.me||''};if(k==='icbf')v.limite=addBizDays(now,15);
+  if(k==='web'){await write(()=>S.db.collection('rezagos').doc(rid).update({pasos:{[k]:v},publicacionHasta:addMonths(now,2),recuperacionHasta:addDays(addMonths(now,2),30)}),'Publicación registrada; plazos recalculados');return}
+  write(()=>S.db.collection('rezagos').doc(rid).update({pasos:{[k]:v}}),'Paso registrado')});
+document.addEventListener('click',async e=>{const t=e.target.closest('[data-don],[data-amb],[data-asg],[data-venta-on]');if(!t)return;
+  if(t.dataset.asg){const [pid,g]=t.dataset.asg.split('|');const p=S.paq.find(x=>x.id===pid),gr=S.imp.find(x=>x.g===g);if(!p||!gr)return;
+    const up={guia:g,guiaContenido:gr.c||'',historial:histAdd(p,'Guía '+g+' asignada por conciliación')};if(!p.origen&&gr.o)up.origen=gr.o;if(!p.destino&&gr.d)up.destino=gr.d;if(!p.valor&&gr.v)up.valor=gr.v;
+    if(await write(()=>S.db.collection('paquetes').doc(pid).update(up),'Guía '+g+' asignada a '+p.codigo)){CONC.ai=CONC.ai.filter(m=>m.p.id!==pid);CONC.force=true;renderConc()}return}
+  if(t.dataset.don){const [rid,tipo]=t.dataset.don.split('|');const items=S.paq.filter(p=>p.rezagoId===rid&&p.estado==='rezago');
+    let a='ICBF',nit='';if(tipo==='ESAL'){a=(document.querySelector(`[data-ent="${CSS.escape(rid)}"]`)||{}).value||'';nit=(document.querySelector(`[data-nit="${CSS.escape(rid)}"]`)||{}).value||'';const c=(document.querySelector(`[data-cons="${CSS.escape(rid)}"]`)||{}).value;
+      const r=S.rez.find(x=>x.id===rid);if(!a.trim()||!nit.trim()||!c){toast('Escriba entidad, NIT y fecha de constitución');return}
+      if((Date.parse(r.fecha)-Date.parse(c))/864e5<730){toast('La entidad debe tener al menos 2 años de constituida al publicar el acta');return}}
+    t.disabled=true;let n=0;for(const p of items){if(await write(()=>S.db.collection('paquetes').doc(p.id).update({estado:'donado',ubicacion:'DONADO',donacion:{a:a.trim(),nit:nit.trim(),tipo,fecha:new Date().toISOString(),por:S.me||''},historial:histAdd(p,'Donado a '+a.trim())})))n++}
+    toast(n+' envío(s) entregados a '+a.trim()+'. Guarde el recibo firmado por su representante legal o contador.');return}
+  if(t.dataset.amb){const items=S.paq.filter(p=>p.rezagoId===t.dataset.amb&&p.estado==='rezago');t.disabled=true;
+    for(const p of items)await write(()=>S.db.collection('paquetes').doc(p.id).update({estado:'separado',ubicacionAnterior:p.ubicacion,ubicacion:'DISP',separado:new Date().toISOString(),historial:histAdd(p,'Sin interesados en donación: a disposición ambiental')}));
+    toast('Pasaron a la zona de disposición. Entréguelos con acta de reciclaje.');return}
+  if(t.dataset.ventaOn!==undefined){const c=($('#cv_con')||{}).value||'';if(!c.trim()){toast('Escriba el número o referencia del concepto jurídico');return}
+    write(()=>S.db.doc('config/venta').set({...S.cfgV,habilitada:true,concepto:c.trim(),habilitadaPor:S.me||'',habilitadaEn:new Date().toISOString()}),'Venta habilitada con concepto '+c.trim())}
+});
+const ventaOn=()=>!!(S.cfgV&&S.cfgV.habilitada);
+
+/* ---------- fotos y videos ---------- */
+const MAXV=20*1024*1024;
+const loadImg=src=>new Promise(r=>{const i=new Image();i.onload=()=>r(i);i.onerror=()=>r(null);i.src=src});
+async function videoFrames(file,n){
+  const url=URL.createObjectURL(file),v=document.createElement('video');v.muted=true;v.playsInline=true;v.preload='auto';v.src=url;
+  try{await new Promise((ok,ko)=>{v.onloadeddata=ok;v.onerror=ko;setTimeout(ko,15000)})}catch(e){return {frames:[],dur:0}}
+  const dur=isFinite(v.duration)&&v.duration>0?v.duration:1,out=[];
+  for(let i=1;i<=n;i++){v.currentTime=Math.min(dur-0.05,dur*i/(n+1));await new Promise(r=>{v.onseeked=r;setTimeout(r,4000)});
+    if(!v.videoWidth)continue;const c=document.createElement('canvas'),k=Math.min(1,1000/Math.max(v.videoWidth,v.videoHeight));c.width=Math.round(v.videoWidth*k);c.height=Math.round(v.videoHeight*k);
+    c.getContext('2d').drawImage(v,0,0,c.width,c.height);const b=await new Promise(r=>c.toBlob(r,'image/jpeg',.8));if(b)out.push(b)}
+  URL.revokeObjectURL(url);return {frames:out,dur};
+}
+async function compressVideo(file,st){
+  if(typeof MediaRecorder==='undefined')return null;
+  const mime=['video/mp4;codecs=avc1','video/mp4','video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'].find(m=>{try{return MediaRecorder.isTypeSupported(m)}catch(e){return false}});if(!mime)return null;
+  const url=URL.createObjectURL(file),v=document.createElement('video');v.muted=true;v.playsInline=true;v.src=url;
+  try{await new Promise((ok,ko)=>{v.onloadeddata=ok;v.onerror=ko;setTimeout(ko,15000)})}catch(e){return null}
+  const k=Math.min(1,720/Math.max(v.videoWidth,v.videoHeight)),c=document.createElement('canvas');c.width=Math.round(v.videoWidth*k/2)*2;c.height=Math.round(v.videoHeight*k/2)*2;const g=c.getContext('2d');
+  let rec,chunks=[];try{rec=new MediaRecorder(c.captureStream(24),{mimeType:mime,videoBitsPerSecond:2000000})}catch(e){return null}
+  rec.ondataavailable=ev=>{if(ev.data&&ev.data.size)chunks.push(ev.data)};
+  const done=new Promise(r=>{rec.onstop=r});rec.start(500);
+  let alive=true;const draw=()=>{if(!alive)return;g.drawImage(v,0,0,c.width,c.height);if(st)st.textContent='Comprimiendo video… '+Math.round(100*v.currentTime/(v.duration||1))+'%';requestAnimationFrame(draw)};
+  try{await v.play()}catch(e){rec.stop();return null}
+  draw();await new Promise(r=>{v.onended=r;setTimeout(r,(v.duration+5)*1000)});alive=false;rec.stop();await done;URL.revokeObjectURL(url);
+  const out=new Blob(chunks,{type:mime.split(';')[0]});return out.size>10000?out:null;
+}
+async function prepMedia(file,st){
+  if(file.type.startsWith('video/')){
+    const {frames,dur}=await videoFrames(file,6);if(!frames.length)throw new Error('No se pudo leer el video. Pruebe con otro formato (MP4).');
+    if(dur>20)throw new Error('El video dura '+Math.round(dur)+' segundos. Debe durar unos 15 segundos.');
+    if(dur<4)throw new Error('El video es muy corto. Grabe unos 15 segundos mostrando todo el paquete.');
+    if(file.size>8*1024*1024){const cv=await compressVideo(file,st);if(cv&&cv.size<file.size)file=cv;}
+    if(file.size>MAXV)throw new Error('El video pesa más de 20 MB y no se pudo comprimir. Grabe en calidad 720p.');
+    const img=await loadImg(URL.createObjectURL(frames[0])),mini=img?await toJpeg(img,360,.6):{url:''};
+    return {kind:'video',file,frames,poster:frames[0],mini:mini.url,dur};
+  }
+  const img=await loadImg(URL.createObjectURL(file));if(!img)throw new Error('No se pudo leer la imagen.');
+  const big=await toJpeg(img,1200,.8),mini=await toJpeg(img,360,.6);return {kind:'foto',blob:big.b,mini:mini.url};
+}
+const aiImages=(list,max)=>list.flatMap(m=>m.kind==='foto'?[m.blob]:m.frames).slice(0,max);
+const firstImg=list=>{const m=list[0];return m?(m.kind==='foto'?m.blob:m.poster):null};
+function renderGrid(list,el,tag){
+  el.innerHTML=list.map((m,i)=>`<div class="mthumb"><img src="${m.mini}" alt="">${m.kind==='video'?'<span class="v">video</span>':''}<button type="button" class="x" data-rm="${tag}|${i}" aria-label="Quitar">×</button></div>`).join('');
+}
+async function addFiles(files,list,el,tag,st,want){
+  if(!canUpload()){toast('Solo el personal autorizado puede subir archivos');return false}
+  let added=0;for(const f of [...files].slice(0,10)){if(list.length>=(want==='video'?3:10)){toast(want==='video'?'Máximo 3 videos por paquete':'Máximo 10 fotos');break}
+    if(want&&!f.type.startsWith(want==='video'?'video/':'image/')){toast(want==='video'?'El personal sube solo videos de 15 segundos':'El cliente sube solo fotos');continue}
+    st.textContent='Preparando '+f.name+'…';try{list.push(await prepMedia(f,st));added++}catch(err){toast(err.message||'No se pudo leer '+f.name)}}
+  renderGrid(list,el,tag);st.textContent=added?list.length+' archivo(s) listos.':'';return added>0;
+}
+async function uploadMedia(list,origen){
+  const media=[];let mainId='',mini='';const now=new Date().toISOString(),base={origen,por:S.me||'',t:now};
+  for(const m of list){
+    if(!S.assets){if(m.kind==='foto'&&media.length<3)media.push({...base,tipo:'foto',mini:m.mini});if(!mini)mini=m.mini;continue}
+    try{if(m.kind==='foto'){const a=await S.assets.upload(m.blob);media.push({...base,tipo:'foto',id:a.id});if(!mainId)mainId=a.id}
+      else{const a=await S.assets.upload(m.file),fr=[];for(const b of m.frames.slice(0,3)){try{fr.push((await S.assets.upload(b)).id)}catch(e){}}
+        media.push({...base,tipo:'video',id:a.id,posterId:fr[0]||'',frames:fr});if(!mainId&&fr[0])mainId=fr[0]}}
+    catch(e){toast(e&&e.code==='quota_exceeded'?'Se llenó el espacio de archivos':'No se pudo subir un archivo')}
+  }
+  if(!S.assets&&list.some(m=>m.kind==='video'))toast('Los videos necesitan acceso de Editor para guardarse');
+  return {media,mainId,mini:mainId?'':mini};
+}
+const blobUrl=id=>'/_blob/'+encodeURIComponent(id);
+const mThumbSrc=m=>m.tipo==='foto'?(m.id?blobUrl(m.id):(String(m.mini||'').startsWith('data:image/')?m.mini:'')):(m.posterId?blobUrl(m.posterId):'');
+async function imagesOf(ent,max){
+  const urls=[];for(const m of (ent.media||[])){if(m.tipo==='foto')urls.push(mThumbSrc(m));else(m.frames||[]).forEach(f=>urls.push(blobUrl(f)))}
+  if(!urls.length&&fotoSrc(ent))urls.push(fotoSrc(ent));
+  const out=[];for(const u of urls.filter(Boolean).slice(0,max)){const b=await blobOf(u);if(b)out.push(b)}return out;
+}
+function gallery(list,big){
+  if(!list||!list.length)return '';
+  return `<div class="mgrid">${list.map(m=>{const src=mThumbSrc(m),who=({cliente:'cliente',admision:'admisión',camara:'cámara'})[m.origen]||'personal';
+    if(big&&m.tipo==='video'&&m.id)return `<div style="width:100%"><video controls playsinline preload="metadata" src="${esc(blobUrl(m.id))}" ${m.posterId?`poster="${esc(blobUrl(m.posterId))}"`:''} style="width:100%;max-height:320px;border-radius:6px;background:#000"></video><span class="meta">Video · subido por ${who} · ${fdate(m.t)}</span></div>`;
+    return `<div class="mthumb" title="${who}">${src?`<img src="${esc(src)}" alt="">`:''}<span class="v">${m.tipo==='video'?'video · ':''}${who}</span></div>`}).join('')}</div>`;
+}
+/* agregar a un paquete o reclamo existente */
+let addTarget=null;
+document.addEventListener('click',e=>{const t=e.target.closest('[data-addm]');if(!t)return;if(!canUpload()){toast('Solo el personal autorizado puede subir fotos y videos');return}addTarget=t.dataset.addm;$('#add_media').accept=addTarget.startsWith('paquetes')?'video/*':'image/*';$('#add_media').click()});
+async function onAddMedia(e){
+  const files=[...e.target.files];e.target.value='';if(!files.length||!addTarget)return;
+  const [col,id]=addTarget.split('|'),ent=(col==='paquetes'?S.paq:S.rec).find(x=>x.id===id);if(!ent)return;
+  const list=[];toast('Preparando '+files.length+' archivo(s)…');
+  const want=col==='paquetes'?'video':'foto';for(const f of files.slice(0,10)){if(!f.type.startsWith(want==='video'?'video/':'image/')){toast(want==='video'?'El personal sube solo videos':'El cliente sube solo fotos');continue}try{list.push(await prepMedia(f,null))}catch(err){toast(err.message||'No se pudo leer '+f.name)}}
+  if(!list.length)return;
+  const up=await uploadMedia(list,col==='reclamos'?'cliente':'personal');if(!up.media.length)return;
+  const upd={media:[...(ent.media||[]),...up.media].slice(-30)};if(!ent.fotoId&&up.mainId)upd.fotoId=up.mainId;
+  if(S.sample){try{const o=await S.sample.json(`Estas imágenes (fotos y cuadros de video) son ${col==='reclamos'?'del producto que un cliente perdió':'de un paquete en custodia'}. Responde SOLO con JSON: {"etiquetas":["6 a 10 palabras clave en español, minúsculas, sin tildes: objeto, marca, modelo, color, material, detalles"],"texto_visible":"texto o números legibles o vacío"}`,{images:aiImages(list,6),modelTier:'quick'});
+    if(o&&Array.isArray(o.etiquetas)){const tags=o.etiquetas.map(t=>norm(t).trim()).filter(Boolean);
+      if(col==='paquetes'){upd.etiquetas=[...new Set([...(ent.etiquetas||[]),...tags])].slice(0,30);if(o.texto_visible)upd.textoVisible=[ent.textoVisible,String(o.texto_visible)].filter(Boolean).join(' · ').slice(0,300)}
+      else upd.fotoTags=[...new Set([...(ent.fotoTags||[]),...tags])].slice(0,20)}}catch(err){}}
+  if(col==='paquetes')upd.historial=histAdd(ent,up.media.length+' archivo(s) agregados');
+  if(await write(()=>S.db.collection(col).doc(id).update(upd),up.media.length+' archivo(s) agregados'+(S.sample?' y analizados':''))&&col==='paquetes')setTimeout(()=>openDetail(id),300);
+}
+/* personal autorizado */
+const canUpload=()=>!(S.cfgP&&S.cfgP.restringir)||S.isAdmin||(S.cfgP.autorizados||[]).includes(S.me);
+async function renderPersonal(){
+  const el=$('#personal');if(!el)return;if(!S.isAdmin){el.innerHTML=canUpload()?'':'<p class="meta">Su cuenta no está autorizada para subir fotos ni videos.</p>';return}
+  const ids=S.cfgP.autorizados||[];let ps={};if(S.user&&ids.length){try{ps=await S.user.profiles(ids)||{}}catch(e){}}
+  el.innerHTML=`<h3>Personal autorizado para subir fotos y videos</h3>
+  <label class="check"><input type="checkbox" id="pp_on" ${S.cfgP.restringir?'checked':''}> Solo el personal de esta lista (y los administradores) puede subir archivos</label>
+  ${ids.length?ids.map(i=>`<div class="alert k"><span class="pp-name" data-u="${esc(i)}">${esc((ps[i]&&ps[i].name)||'Persona del equipo')}</span><button class="btn alt sm" data-pp-del="${esc(i)}">Quitar</button></div>`).join(''):'<p class="meta">Nadie en la lista todavía.</p>'}
+  ${S.user&&S.user.search?`<div class="bar"><input id="pp_q" placeholder="Buscar persona por nombre" style="flex:1 1 220px"><button class="btn alt sm" id="pp_s">Buscar</button></div><div id="pp_r"></div>`:'<p class="meta">La búsqueda de personas no está disponible en esta vista.</p>'}`;
+  $('#pp_on').onchange=e=>write(()=>S.db.doc('config/personal').set({...S.cfgP,restringir:e.target.checked,autorizados:ids}),e.target.checked?'Subida restringida al personal autorizado':'Todo el equipo puede subir archivos');
+  const sb=$('#pp_s');if(sb)sb.onclick=async()=>{let hits=[];try{hits=await S.user.search($('#pp_q').value.trim())||[]}catch(e){}
+    $('#pp_r').innerHTML=hits.length?hits.slice(0,8).map(h=>`<div class="alert g"><span class="pp-hit"></span><button class="btn sm" data-pp-add="${esc(h.id)}">Autorizar</button></div>`).join(''):'<p class="meta">Sin resultados.</p>';
+    document.querySelectorAll('#pp_r .pp-hit').forEach((s,i)=>{s.textContent=hits[i].name||'Persona'})};
+}
+document.addEventListener('click',e=>{const a=e.target.closest('[data-pp-add],[data-pp-del]');if(!a)return;const ids=S.cfgP.autorizados||[];
+  const next=a.dataset.ppAdd?[...new Set([...ids,a.dataset.ppAdd])]:ids.filter(x=>x!==a.dataset.ppDel);
+  write(()=>S.db.doc('config/personal').set({...S.cfgP,autorizados:next}),a.dataset.ppAdd?'Persona autorizada':'Autorización retirada')});
+document.addEventListener('click',e=>{const t=e.target.closest('[data-rm]');if(!t)return;const [tag,i]=t.dataset.rm.split('|');const list=tag==='rm'?RM:tag==='am'?AM:CM;list.splice(+i,1);
+  renderGrid(list,tag==='rm'?$('#rm_grid'):tag==='am'?$('#ad_grid'):$('#cm_grid'),tag);if(tag==='am')return;if(tag==='rm'){fotoBlob=firstImg(RM);fotoMini=RM[0]?RM[0].mini:''}else{cBlob=firstImg(CM);cMini=CM[0]?CM[0].mini:''}});
+
+/* ---------- admisión con foto, avistamientos de cámaras y sedes ---------- */
+const AM=[];
+const sedes=()=>Array.isArray(S.cfgS.lista)?S.cfgS.lista:[];
+const sedeOpts=(tipo,sel)=>sedes().filter(x=>!tipo||x.tipo===tipo).map(x=>`<option ${x.nombre===sel?'selected':''}>${esc(x.nombre)}</option>`).join('')||'<option value="">Configure las sedes en Tablero</option>';
+const admTokens=a=>tokens([a.descripcion,a.contenido,...(a.etiquetas||[]),a.origen,a.destino].join(' '));
+const admOf=g=>{const d=String(g||'').replace(/\D/g,'');if(d.length<4)return null;return S.adm.find(a=>a.guia===d)||S.adm.find(a=>a.guia.endsWith(d))||null};
+function renderAdm(){
+  const sel=$('#ad_of');if(sel&&!sel.dataset.done){sel.innerHTML=sedeOpts('Oficina');}
+  const q=String(($('#ad_q')||{}).value||'').replace(/\D/g,'');
+  const list=S.adm.filter(a=>!q||a.guia.includes(q)).slice(0,30);
+  $('#ad_list').innerHTML=list.length?list.map(a=>{const src=(a.media||[]).length?mThumbSrc(a.media[0]):'';return `<div class="alert k"><span style="display:flex;gap:10px;align-items:center">${src?`<img src="${esc(src)}" alt="" style="width:56px;height:56px;object-fit:cover;border-radius:4px">`:''}<span><b>Guía ${esc(a.guia)}</b> · ${esc(a.oficina||'')} · ${fdate(a.fecha)}<br><span class="meta">${esc(a.descripcion||a.contenido||'')} · ${esc(a.origen)} → ${esc(a.destino)}${(a.avistamientos||[]).length?' · '+a.avistamientos.length+' avistamiento(s)':''}</span></span></span><button class="btn alt sm" data-adm="${esc(a.id)}">Ver</button></div>`}).join(''):'<p class="meta">Sin admisiones registradas.</p>';
+}
+$('#ad_q').addEventListener('input',renderAdm);
+const onAdmFoto=async e=>{const files=[...e.target.files];e.target.value='';if(!files.length)return;
+  if(await addFiles(files,AM,$('#ad_grid'),'am',$('#ad_st'),'foto')){
+    if(!S.sample)return;$('#ad_st').textContent='La IA está describiendo el empaque…';
+    try{const o=await S.sample.json(`Estas fotos muestran un paquete CERRADO en el momento de admitirlo en una oficina de mensajería en Colombia. Describe solo lo que se ve por fuera, para reconocerlo después en cámaras y bodegas. Responde SOLO con JSON: {"descripcion":"una frase: tipo de empaque, tamaño aparente, color, cintas, logos, marcas","etiquetas":["8 a 12 palabras clave en español, minúsculas, sin tildes: empaque, colores, cinta, logos, textos, forma"],"texto_visible":"texto o números legibles o vacío","averias":"daños visibles o vacío"}`,{images:aiImages(AM,4),modelTier:'quick'});
+      if(o){if(!$('#ad_desc').value)$('#ad_desc').value=String(o.descripcion||'');$('#ad_tags').value=Array.isArray(o.etiquetas)?o.etiquetas.map(String).join(', '):'';$('#ad_st').textContent='Listo. Revise y guarde.'+(o.averias?' Averías: '+o.averias:'');AM.ai=o}}
+    catch(err){$('#ad_st').textContent='La IA no respondió; describa el empaque a mano.'}}};
+$('#ad_foto').addEventListener('change',onAdmFoto);$('#ad_drop').addEventListener('click',()=>$('#ad_foto').click());
+$('#aform').addEventListener('submit',async e=>{
+  e.preventDefault();const v=id=>$(id).value.trim(),g=v('#ad_guia').replace(/\D/g,'');
+  if(g.length<6){toast('Escriba el número de guía completo');return}if(!AM.length){toast('Tome al menos una foto del paquete cerrado');return}
+  if(S.adm.some(a=>a.guia===g)){toast('Esa guía ya tiene admisión con foto');return}
+  const b=e.target.querySelector('button.red');b.disabled=true;$('#ad_st').textContent='Subiendo fotos…';
+  const up=await uploadMedia(AM,'admision');
+  const a={guia:g,fecha:new Date().toISOString(),oficina:$('#ad_of').value,origen:v('#ad_orig'),destino:v('#ad_dest'),contenido:v('#ad_cont'),descripcion:v('#ad_desc'),
+    etiquetas:[...new Set(v('#ad_tags').split(',').map(t=>norm(t).trim()).filter(Boolean))],textoVisible:String((AM.ai&&AM.ai.texto_visible)||''),averias:String((AM.ai&&AM.ai.averias)||''),
+    peso:+v('#ad_peso')||0,medidas:v('#ad_med'),valor:+v('#ad_val')||0,media:up.media,avistamientos:[],por:S.me||''};
+  const ok=await write(()=>S.db.collection('admisiones').doc('adm-'+g).set(a),'Admisión de la guía '+g+' guardada');b.disabled=false;
+  if(ok){e.target.reset();AM.length=0;AM.ai=null;$('#ad_grid').innerHTML='';$('#ad_st').textContent=''}
+});
+function openAdm(id){
+  const a=S.adm.find(x=>x.id===id);if(!a)return;const av=(a.avistamientos||[]).slice().sort((x,y)=>String(x.t).localeCompare(String(y.t)));
+  const p=S.paq.find(x=>x.guia===a.guia);
+  $('#mbody').innerHTML=`<h2>Guía ${esc(a.guia)}</h2><p class="meta">Admitida en ${esc(a.oficina||'—')} el ${fdate(a.fecha)} · ${esc(a.origen)} → ${esc(a.destino)}${a.peso?' · '+esc(a.peso)+' kg':''}${a.medidas?' · '+esc(a.medidas):''}</p>
+  ${gallery(a.media,true)}<p><b>${esc(a.descripcion)}</b><br><span class="meta">Contenido declarado: ${esc(a.contenido||'—')}${a.averias?' · averías al admitir: '+esc(a.averias):''}</span></p>
+  ${p?`<p>Está en custodia: <button class="btn alt sm" data-open="${esc(p.id)}">${esc(p.codigo)}</button></p>`:''}
+  <h3>Recorrido visto en cámaras (${av.length})</h3>
+  ${av.length?`<ol class="hist">${av.map(x=>`<li>${fdate(x.t)} ${esc(String(x.t).slice(11,16))} · <b>${esc(x.sede)}</b>${x.camara?' · cámara '+esc(x.camara):''} · ${x.pct}%${x.ok?' · confirmado':''}${x.foto?` · <a href="${esc(blobUrl(x.foto))}" target="_blank" rel="noopener">ver</a>`:''}</li>`).join('')}</ol>`:'<p class="meta">Sin avistamientos todavía.</p>'}
+  <div class="banner" style="margin-top:10px"><b>Registrar avistamiento</b><p class="meta" style="margin:4px 0 8px">Suba una captura de la cámara de una oficina o bodega donde crea que aparece este paquete. La IA la compara con las fotos de admisión.</p>
+  <div class="row2"><label class="f">Sede<select id="av_s">${sedeOpts('',a.oficina)}</select></label><label class="f">Cámara<input id="av_c" placeholder="Ej.: muelle 2"></label><label class="f">Hora vista<input id="av_h" type="datetime-local"></label></div>
+  <input type="file" id="av_f" accept="image/*" hidden><div class="bar" style="margin-top:8px"><button class="btn sm" id="av_b">Subir captura y comparar</button></div><p class="meta" id="av_st"></p></div>
+  <p><button class="btn sm" data-close>Cerrar</button></p>`;
+  modal.style.display='grid';
+  $('#av_b').onclick=()=>{if(!canUpload()){toast('Solo el personal autorizado puede subir archivos');return}$('#av_f').click()};
+  $('#av_f').onchange=async e=>{const f=e.target.files[0];if(!f)return;const st=$('#av_st');
+    if(!$('#av_s').value){toast('Elija la sede');return}
+    let m;try{m=await prepMedia(f,st)}catch(err){toast(err.message);return}
+    let pct=0,why='';if(S.sample){st.textContent='Comparando con las fotos de admisión…';
+      try{const ref=await imagesOf(a,3);const o=await S.sample.json(`La primera imagen es una captura de una cámara de seguridad de una sede de mensajería. Las siguientes ${ref.length} son fotos de un paquete al admitirlo. ¿Aparece ese mismo paquete en la captura? Compara empaque, tamaño, color, cintas, logos y etiquetas; la calidad de cámara será menor. Responde SOLO con JSON: {"probabilidad":0-100,"razon":"frase corta"}`,{images:[m.blob,...ref],modelTier:'default'});
+        pct=Math.round(+o.probabilidad||0);why=String(o.razon||'')}catch(err){}}
+    const up=await uploadMedia([m],'camara');const h=$('#av_h').value;
+    const x={t:h?new Date(h).toISOString():new Date().toISOString(),sede:$('#av_s').value,camara:$('#av_c').value.trim(),pct,razon:why,foto:(up.media[0]&&up.media[0].id)||'',ok:false,por:S.me||''};
+    if(await write(()=>S.db.collection('admisiones').doc(a.id).update({avistamientos:[...(a.avistamientos||[]),x].slice(-60)}),`Avistamiento guardado: ${pct}% de coincidencia`))setTimeout(()=>openAdm(a.id),400);
+  };
+}
+async function findAdmission(pid,btn){
+  const p=S.paq.find(x=>x.id===pid),box=$('#fa_box');if(!p||!box)return;
+  if(!S.adm.length){box.innerHTML='<p class="meta">Aún no hay admisiones con foto.</p>';return}
+  const toks=tokens([p.descripcion,p.objeto,p.marca,p.color,...(p.etiquetas||[]),p.textoVisible].join(' '));const digits=String(p.textoVisible||'').match(/\d{4,}/g)||[];
+  const ranked=S.adm.filter(a=>!S.paq.some(x=>x.guia===a.guia)).map(a=>{let s=0;const at=norm([a.descripcion,...(a.etiquetas||[]),a.textoVisible].join(' '));s+=toks.filter(t=>at.includes(t)).length*10;
+    if(digits.some(d=>a.guia.includes(d)))s+=60;if(norm(a.origen)===norm(p.origen)&&p.origen)s+=8;if(norm(a.destino)===norm(p.destino)&&p.destino)s+=8;if(p.peso&&a.peso&&Math.abs(p.peso-a.peso)<=Math.max(.3,a.peso*.15))s+=10;return {a,s}})
+    .sort((x,y)=>y.s-x.s).slice(0,5);
+  if(!S.sample){box.innerHTML=ranked.map(x=>admRow(p,x.a,Math.min(99,x.s),'coincidencia por texto')).join('');return}
+  btn.disabled=true;box.innerHTML='<p class="meta">Comparando el video de este paquete con las fotos de admisión…</p>';
+  try{const mine=await imagesOf(p,3),c=[];for(const x of ranked){const im=await imagesOf(x.a,1);if(im.length)c.push({a:x.a,im:im[0]})}
+    if(!mine.length||!c.length){box.innerHTML='<p class="meta">Faltan imágenes para comparar.</p>';return}
+    const o=await S.sample.json(`Las primeras ${mine.length} imágenes son cuadros del video de un paquete en custodia (sin guía legible). Las siguientes ${c.length} son fotos de paquetes al admitirlos, en este orden de guías: ${JSON.stringify(c.map(x=>x.a.guia))}. ¿Cuál es el mismo paquete? Compara empaque, tamaño, color, cintas, logos, etiquetas y averías. Responde SOLO con JSON: {"resultados":[{"guia":"...","probabilidad":0-100,"razon":"frase corta"}]} con probabilidad >= 20, de mayor a menor.`,{images:[...mine,...c.map(x=>x.im)],modelTier:'complex'});
+    const res=(o&&Array.isArray(o.resultados)?o.resultados:[]).map(r=>({a:S.adm.find(a=>a.guia===String(r.guia)),pct:Math.round(+r.probabilidad||0),why:String(r.razon||'')})).filter(r=>r.a);
+    box.innerHTML=res.length?res.map(r=>admRow(p,r.a,r.pct,r.why)).join(''):'<p class="meta">Ninguna admisión se parece a este paquete.</p>';
+  }catch(e){box.innerHTML='<p class="meta">La IA no respondió.</p>'}finally{btn.disabled=false}
+}
+const admRow=(p,a,pct,why)=>`<div class="alert g"><span><b>${pct}%</b> · guía <b>${esc(a.guia)}</b> · ${esc(a.oficina||'')} ${fdate(a.fecha)}<br><span class="meta">${esc(a.descripcion)} · ${esc(why)}</span></span><span class="bar"><button class="btn alt sm" data-adm="${esc(a.id)}">Ver admisión</button><button class="btn sm" data-asgadm="${esc(p.id)}|${esc(a.id)}">Asignar guía</button>${fbBtns('admision',p.id+'~'+a.guia)}</span></div>`;
+document.addEventListener('click',async e=>{const t=e.target.closest('[data-adm],[data-findadm],[data-asgadm],[data-cmpadm],[data-sede-del]');if(!t)return;const d=t.dataset;
+  if(d.adm)openAdm(d.adm);
+  else if(d.findadm)findAdmission(d.findadm,t);
+  else if(d.asgadm){const [pid,aid]=d.asgadm.split('|'),p=S.paq.find(x=>x.id===pid),a=S.adm.find(x=>x.id===aid);if(!p||!a)return;
+    const up={guia:a.guia,guiaContenido:a.contenido||'',historial:histAdd(p,'Guía '+a.guia+' asignada por foto de admisión')};if(!p.origen)up.origen=a.origen;if(!p.destino)up.destino=a.destino;if(!p.valor&&a.valor)up.valor=a.valor;
+    if(await write(()=>S.db.collection('paquetes').doc(pid).update(up),'Guía '+a.guia+' asignada a '+p.codigo)){fbDone.add('admision|'+pid+'~'+a.guia);fbLog({tipo:'admision',ref:pid+'~'+a.guia,ok:true,implicito:true});closeM()}}
+  else if(d.cmpadm){const r=S.rec.find(x=>x.id===d.cmpadm),a=r&&admOf(r.guia);if(!a)return;const imgs=await imagesOf(a,3);if(!imgs.length){toast('La admisión no tiene fotos');return}compareFotos(r,$('#m_'+CSS.escape(r.id)),t,imgs)}
+  else if(d.sedeDel){write(()=>S.db.doc('config/sedes').set({lista:sedes().filter(x=>x.nombre!==d.sedeDel)}),'Sede quitada')}
+});
+function renderSedes(){
+  const el=$('#sedes');if(!el)return;if(!S.isAdmin){el.innerHTML='';return}
+  el.innerHTML=`<h3>Oficinas y bodegas autorizadas</h3><p class="meta">Se usan al admitir envíos y al registrar avistamientos de cámaras.</p>
+  ${sedes().map(x=>`<div class="alert k"><span><b>${esc(x.nombre)}</b> · ${esc(x.tipo)}</span><button class="btn alt sm" data-sede-del="${esc(x.nombre)}">Quitar</button></div>`).join('')||'<p class="meta">Sin sedes.</p>'}
+  <div class="bar"><input id="sd_n" placeholder="Nombre, ej. Oficina Chapinero" style="flex:1 1 200px"><select id="sd_t" style="flex:0 1 140px"><option>Oficina</option><option>Bodega</option></select><button class="btn alt sm" id="sd_b">Agregar</button></div>`;
+  $('#sd_b').onclick=()=>{const n=$('#sd_n').value.trim();if(!n)return;if(sedes().some(x=>x.nombre===n)){toast('Ya existe');return}write(()=>S.db.doc('config/sedes').set({lista:[...sedes(),{nombre:n,tipo:$('#sd_t').value}]}),'Sede agregada')};
+}
+
+/* ---------- WhatsApp: formulario de clientes y respuestas ---------- */
+const FORM_URL='https://claude.ai/artifact/BAiMtJfmiKdPprtB8fpiB5';
+const waNum=t=>{let d=String(t||'').replace(/\D/g,'');if(d.length===10&&d.startsWith('3'))d='57'+d;return d.length>=11&&d.length<=15?d:''};
+function renderEmpresa(){
+  const el=$('#empresa');if(!el)return;if(!S.isAdmin){el.innerHTML='';return}
+  const n=S.cfgE.whatsapp||'',link=n?FORM_URL+'#w'+n:'';
+  el.innerHTML=`<h3>WhatsApp de la empresa y formulario para clientes</h3>
+  <p class="meta">Los clientes no entran a esta app. Llenan un formulario aparte que les llega a ustedes por WhatsApp; ustedes responden a su WhatsApp desde cada reclamo.</p>
+  <div class="bar"><input id="emp_wa" inputmode="tel" placeholder="WhatsApp de atención, ej. 3001234567" value="${esc(n)}" style="flex:1 1 220px"><button class="btn alt sm" id="emp_b">Guardar número</button></div>
+  ${link?`<p class="meta" style="margin-top:10px">Enlace para sus clientes (compártalo en la web, redes y respuestas automáticas). Antes, publíquelo desde el menú Compartir del formulario:</p><p class="secret" style="word-break:break-all">${esc(link)}</p><div class="bar"><button class="btn sm" id="emp_copy">Copiar enlace</button><a class="btn alt sm" href="${esc(link)}" target="_blank" rel="noopener">Ver formulario</a></div>`:''}`;
+  $('#emp_b').onclick=()=>{const w=waNum($('#emp_wa').value);if(!w){toast('Revise el número');return}write(()=>S.db.doc('config/empresa').set({...S.cfgE,whatsapp:w}),'Número guardado')};
+  const cb=$('#emp_copy');if(cb)cb.onclick=async()=>{try{await navigator.clipboard.writeText(link);toast('Enlace copiado')}catch(e){toast('Mantenga presionado el enlace para copiarlo')}};
+}
+function replyTemplate(r){
+  const nom=String(r.cliente||'').split(' ')[0]||'',ref=r.codigoCliente?' '+r.codigoCliente:'';
+  if(r.estado==='cerrado')return `Hola ${nom}. Su reclamo${ref} quedó cerrado: el envío fue entregado. Gracias por su paciencia.`;
+  if(r.estado==='encontrado')return `Hola ${nom}. Buenas noticias: encontramos en bodega un paquete que coincide con su reporte${ref}. Para confirmar que es suyo, por favor díganos un detalle que solo usted conozca (por ejemplo un número de serie, una nota adentro o el color de un accesorio). Luego le indicamos cómo recibirlo.`;
+  return `Hola ${nom}. Recibimos su reporte${ref}. Ya estamos buscando su envío en nuestras bodegas. Le escribiremos por aquí apenas tengamos novedades.`;
+}
+async function openReply(id){
+  const r=S.rec.find(x=>x.id===id);if(!r)return;const to=waNum(r.contacto);
+  $('#mbody').innerHTML=`<h2>Responder a ${esc(r.cliente)}</h2>
+  <p class="meta">${to?'WhatsApp: +'+esc(to):'Este reclamo no tiene un WhatsApp válido en "Contacto".'} · Estado: ${esc(r.estado)}</p>
+  <textarea id="rp_t" style="min-height:160px">${esc(replyTemplate(r))}</textarea>
+  <p class="meta">No incluya datos internos: estantes, otros paquetes ni la respuesta de verificación.</p>
+  <div class="bar"><button class="btn alt sm" id="rp_ai" ${S.sample?'':'hidden'}>Redactar con IA</button><a class="btn red sm" id="rp_go" target="_blank" rel="noopener" href="#">Abrir WhatsApp del cliente</a><button class="btn alt sm" data-close>Cerrar</button></div>
+  ${(r.respuestas||[]).length?`<h3>Respuestas enviadas</h3><ul class="hist">${r.respuestas.slice().reverse().map(x=>`<li>${fdate(x.t)} · ${esc(String(x.texto).slice(0,140))}</li>`).join('')}</ul>`:''}`;
+  modal.style.display='grid';
+  const sync=()=>{$('#rp_go').href=to?'https://wa.me/'+to+'?text='+encodeURIComponent($('#rp_t').value):'#'};sync();$('#rp_t').oninput=sync;
+  $('#rp_go').onclick=e=>{if(!to){e.preventDefault();toast('Corrija el WhatsApp del cliente en el reclamo');return}
+    write(()=>S.db.collection('reclamos').doc(r.id).update({respuestas:[...(r.respuestas||[]),{t:new Date().toISOString(),texto:$('#rp_t').value.slice(0,1000),por:S.me||''}].slice(-30)}),'Respuesta registrada')};
+  const ab=$('#rp_ai');if(ab)ab.onclick=async()=>{ab.disabled=true;try{const p=r.paqueteId?S.paq.find(x=>x.id===r.paqueteId):null;
+    const o=await S.sample(`Redacta un mensaje corto de WhatsApp (máximo 5 líneas, español colombiano, cordial y claro, sin emojis) de una transportadora a un cliente sobre su reclamo de envío perdido. Estado del reclamo: ${r.estado}. Cliente: ${JSON.stringify(r.cliente)}. Lo que reportó: ${JSON.stringify(r.descripcion)}. Número de reporte: ${JSON.stringify(r.codigoCliente||'')}. ${p?'Hay un paquete en bodega que coincide; pídele un detalle que solo el dueño conozca para confirmarlo, sin revelar cuál.':'Aún no se encuentra; dile que se sigue buscando.'} Si faltan fotos, pídele foto de la caja como la envió y de la guía. NO incluyas estantes, códigos internos, datos de otros clientes ni la respuesta de verificación. Devuelve solo el mensaje.`,{modelTier:'quick'});
+    if(o&&o.text){$('#rp_t').value=o.text.trim();sync()}}catch(e){toast('La IA no respondió')}finally{ab.disabled=false}};
+}
+document.addEventListener('click',e=>{const t=e.target.closest('[data-reply]');if(t)openReply(t.dataset.reply)});
+
+/* ---------- precisión y aprendizaje de la IA ---------- */
+const FB_CAMPOS=[['descripcion','#desc'],['averias','#aver'],['objeto','#obj'],['marca','#marca'],['color','#color'],['condicion','#cond'],['material','#mat'],['origen','#orig'],['destino','#dest'],['peso','#peso'],['estante','#ubi']];
+const FB_TIPOS={admision:'Cruce con fotos de admisión',foto:'Lectura de fotos al registrar',busqueda:'Búsqueda rápida',busqueda_ia:'Búsqueda con IA',cruce_foto:'Comparación de fotos de reclamos',asistente:'Cruces del asistente diario',conciliacion:'Conciliación de guías',conciliacion_ia:'Conciliación de guías con IA'};
+const fbDone=new Set();
+const fbBtns=(src,ref)=>{const k=src+'|'+ref;if(fbDone.has(k))return `<span class="meta">Gracias</span>`;
+  return `<span class="bar" data-fbbox="${esc(k)}"><span class="meta" style="align-self:center">¿Acertó?</span><button class="btn alt sm" data-fb="${esc(k)}|1">Sí</button><button class="btn alt sm" data-fb="${esc(k)}|0">No</button></span>`};
+let fbQ=Promise.resolve();
+function fbLog(ev){
+  if(!S.db)return;const day=new Date().toISOString().slice(0,10),id=day+'-'+(String(S.me||'anon').replace(/[^\w-]/g,'').slice(0,60)||'anon');
+  const e={...ev,t:new Date().toISOString()};
+  fbQ=fbQ.then(async()=>{try{const ref=S.db.collection('feedback').doc(id);const cur=await ref.get();const evs=cur.exists&&Array.isArray(cur.data().eventos)?cur.data().eventos:[];
+    await ref.set({dia:day,uid:S.me||'',eventos:[...evs,e].slice(-400)})}catch(err){}});
+}
+function learnText(){
+  const corr=S.fb.filter(e=>e.tipo==='foto'&&Array.isArray(e.corr)).flatMap(e=>e.corr).filter(c=>c.campo!=='estante'&&c.campo!=='peso').slice(-12);
+  if(!corr.length)return '';
+  return 'Correcciones recientes que hizo el equipo de esta bodega a tus respuestas (aprende de ellas y no repitas esos errores): '+corr.map(c=>`${c.campo}: dijiste "${c.ia}" y era "${c.final}"`).join('; ')+'. ';
+}
+document.addEventListener('click',e=>{const t=e.target.closest('[data-fb]');if(!t)return;
+  const parts=t.dataset.fb.split('|'),ok=parts.pop()==='1',k=parts.join('|'),[src,ref]=[parts[0],parts.slice(1).join('|')];
+  if(fbDone.has(k))return;fbDone.add(k);fbLog({tipo:src,ref,ok});
+  const box=t.closest('[data-fbbox]');if(box)box.innerHTML='<span class="meta">'+(ok?'Gracias':'Anotado: la IA falló aquí')+'</span>';
+});
+document.addEventListener('click',e=>{const t=e.target.closest('[data-asg]');if(!t)return;const k=(t.dataset.asg.includes('|')?'conciliacion|'+t.dataset.asg.replace('|','~'):'');if(k&&!fbDone.has(k)&&!fbDone.has('conciliacion_ia|'+k.split('|')[1])){fbDone.add(k);fbLog({tipo:'conciliacion',ref:k.split('|')[1],ok:true,implicito:true})}},true);
+function renderPrec(){
+  const el=$('#prec');if(!el)return;const since=Date.now()-30*864e5,ev=S.fb.filter(e=>Date.parse(e.t)>=since);
+  if(!ev.length){el.innerHTML='<p class="meta">Aún no hay calificaciones. Toque "¿Acertó? Sí / No" en los resultados; al registrar con foto la app mide sola cuánto corrigió el operario.</p>';return}
+  const by={};ev.forEach(e=>{(by[e.tipo]=by[e.tipo]||{n:0,ok:0}).n++;if(e.ok)by[e.tipo].ok++});
+  const fc={};ev.filter(e=>e.tipo==='foto'&&e.campos).forEach(e=>Object.entries(e.campos).forEach(([k,v])=>{(fc[k]=fc[k]||{n:0,ok:0}).n++;if(v)fc[k].ok++}));
+  const row=(name,n,ok)=>{const p=Math.round(100*ok/n);return `<tr><td>${esc(name)}</td><td style="text-align:right">${n}</td><td style="text-align:right"><b style="color:${p>=80?'var(--ok)':p>=60?'var(--ink)':'var(--red)'}">${p}%</b></td><td><div style="height:8px;background:var(--line);border-radius:4px"><div style="height:8px;width:${p}%;background:${p>=80?'var(--ok)':p>=60?'var(--kraft)':'var(--red)'};border-radius:4px"></div></div></td></tr>`};
+  const worst=Object.entries(fc).filter(([,v])=>v.n>=3).sort((a,b)=>a[1].ok/a[1].n-b[1].ok/b[1].n).at(0);
+  el.innerHTML=`<p class="meta">Últimos 30 días · ${ev.length} calificaciones${worst?` · el campo que más corrigen: <b>${esc(worst[0])}</b> (${Math.round(100*worst[1].ok/worst[1].n)}% de acierto)`:''}.</p>
+  <div style="overflow-x:auto"><table class="stack"><thead><tr><th>Qué hizo la IA</th><th style="text-align:right">Veces</th><th style="text-align:right">Acierto</th><th></th></tr></thead><tbody>${Object.entries(by).map(([k,v])=>row(FB_TIPOS[k]||k,v.n,v.ok)).join('')}</tbody></table></div>
+  ${Object.keys(fc).length?`<h3>Lectura de fotos, campo por campo</h3><div style="overflow-x:auto"><table class="stack"><thead><tr><th>Campo</th><th style="text-align:right">Veces</th><th style="text-align:right">Sin corregir</th><th></th></tr></thead><tbody>${Object.entries(fc).map(([k,v])=>row(k,v.n,v.ok)).join('')}</tbody></table></div>`:''}
+  <p class="meta">La IA usa las últimas correcciones del equipo como ejemplo cada vez que lee una foto nueva.</p>`;
+}
+
+/* ---------- tablero ---------- */
+
+
+function renderStats(){
+  const c=custodia(),ent=S.paq.filter(p=>p.estado==='entregado'),kgRec=S.lotes.reduce((s,l)=>s+(+l.pesoTotal||0),0);
+  const recov=ent.reduce((s,p)=>s+(+p.valor||0),0);
+  const prom=c.length?c.reduce((s,p)=>s+days(p.ingreso),0)/c.length:0;
+  const recT=S.rec.length,recOk=S.rec.filter(r=>r.estado!=='abierto').length;
+  $('#stats').innerHTML=[['En custodia',c.length],['Entregados a su dueño',ent.length],['Valor recuperado',money(recov)],['Días promedio en custodia',Math.round(prom)],['Reclamos abiertos',recT-recOk],['Reclamos resueltos',recT?Math.round(100*recOk/recT)+'%':'—'],['Separados para disposición',S.paq.filter(p=>p.estado==='separado').length],['Entregado a reciclaje',kg(kgRec)],['Ventas a empleados',S.paq.filter(p=>p.estado==='vendido').length],['Ingresos por ventas',money(S.paq.filter(p=>p.estado==='vendido').reduce((s,p)=>s+(+(p.vendido&&p.vendido.precio)||0),0))]]
+    .map(([k,v])=>`<div class="stat"><span class="big">${esc(v)}</span><span class="meta">${esc(k)}</span></div>`).join('');
+  const demo=S.paq.filter(p=>p.muestra).length+S.rec.filter(r=>r.muestra).length;
+  $('#admin').innerHTML=S.isAdmin&&demo?`<p class="meta">Hay ${demo} registros de ejemplo para demostraciones.</p><button class="btn alt sm" id="deldemo">Borrar datos de ejemplo</button>`:'';
+  const b=$('#deldemo');if(b)b.onclick=async()=>{b.disabled=true;for(const p of S.paq.filter(p=>p.muestra))await write(()=>S.db.collection('paquetes').doc(p.id).delete());for(const r of S.rec.filter(r=>r.muestra))await write(()=>S.db.collection('reclamos').doc(r.id).delete());toast('Datos de ejemplo borrados')};
+}
+
+function renderAll(){renderRec();renderInv();renderDisp();renderRezago();renderVenta();renderConc();renderStats();renderPrec();const q=$('#q').value;if(q&&!$('#res').querySelector('.why'))localSearch(q)}
+function banner(m){$('#banner').innerHTML=m?`<div class="banner">${esc(m)}</div>`:''}
+
+/* ---------- pestañas y QR ---------- */
+document.querySelector('nav').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+  document.querySelectorAll('nav button').forEach(x=>x.setAttribute('aria-selected',x===b));
+  document.querySelectorAll('main>section').forEach(s=>s.hidden=s.id!==b.dataset.t);if(b.dataset.t==='conciliar')renderConc()});
+function routeHash(){const h=location.hash.slice(1);if(/^cst-[a-z0-9-]+$/.test(h)&&S.loaded)openDetail(h)}
+window.addEventListener('hashchange',routeHash);
+
+/* ---------- arranque ---------- */
+(async()=>{
+  const [db,sample,assets,user]=await Promise.all(['db','sample','assets','user'].map(use));
+  Object.assign(S,{db,sample,assets,user});
+  if(user){try{S.me=await user.id()||''}catch(e){}try{S.isAdmin=!!(await user.canEdit())}catch(e){}try{const cw=await user.can('data.write');if(cw===false){S.canWrite=false;banner('Su cuenta solo puede consultar. Pida acceso como Editor para registrar paquetes.')}}catch(e){}}
+  if(!sample){$('#aiq').hidden=true}
+  if(!db){$('#status').textContent='Sin conexión';banner('Abra esta aplicación con una cuenta autorizada para ver y registrar paquetes.');return}
+  $('#status').textContent='Cargando datos…';
+  const timer=setTimeout(()=>{$('#status').textContent='Los datos tardan en llegar; pueden estar desactualizados'},10000);
+  let got=0;const done=()=>{if(++got>=2){S.loaded=true;routeHash()}};let first1=true,first2=true;
+  db.collection('paquetes').orderBy('ingreso','desc').limit(1000).onSnapshot(s=>{
+    S.paq=s.docs.map(d=>({...d.data(),id:d.id}));if(!s.metadata.fromCache){clearTimeout(timer);$('#status').textContent='En línea · '+custodia().length+' en custodia'}
+    renderAll();if(first1){first1=false;done()}
+  },e=>{clearTimeout(timer);$('#status').textContent='Sin acceso a los datos';banner('No se pudieron leer los paquetes. Verifique que tiene acceso a esta aplicación.')});
+  db.collection('reclamos').orderBy('creado','desc').limit(500).onSnapshot(s=>{
+    S.rec=s.docs.map(d=>({...d.data(),id:d.id}));renderAll();if(first2){first2=false;done()}
+  },()=>{});
+  db.collection('lotes').orderBy('fecha','desc').limit(200).onSnapshot(s=>{S.lotes=s.docs.map(d=>({...d.data(),id:d.id}));renderAll()},()=>{});
+  db.collection('rezagos').orderBy('fecha','desc').limit(100).onSnapshot(s=>{S.rez=s.docs.map(d=>({...d.data(),id:d.id}));renderAll()},()=>{});
+  db.collection('importes').orderBy('fecha','desc').limit(20).onSnapshot(s=>{S.imp=s.docs.flatMap(d=>Array.isArray(d.data().filas)?d.data().filas:[]);renderConc()},()=>{});
+  db.collection('feedback').orderBy('dia','desc').limit(300).onSnapshot(s=>{S.fb=s.docs.flatMap(d=>Array.isArray(d.data().eventos)?d.data().eventos:[]).sort((a,b)=>String(a.t).localeCompare(String(b.t)));renderPrec()},()=>{});
+  db.doc('config/personal').onSnapshot(s=>{S.cfgP=s.exists?s.data():{};renderPersonal()},()=>{});
+  db.doc('config/sedes').onSnapshot(s=>{S.cfgS=s.exists?s.data():{};const o=$('#ad_of');if(o)o.innerHTML=sedeOpts('Oficina');renderSedes()},()=>{});
+  db.collection('admisiones').orderBy('fecha','desc').limit(1000).onSnapshot(s=>{S.adm=s.docs.map(d=>({...d.data(),id:d.id}));renderAdm()},()=>{});
+  db.doc('config/empresa').onSnapshot(s=>{S.cfgE=s.exists?s.data():{};renderEmpresa()},()=>{});
+  db.doc('config/venta').onSnapshot(s=>{S.cfgV=s.exists?s.data():{};renderAll()},()=>{});
+  db.doc('config/disposicion').onSnapshot(s=>{S.cfg=s.exists?s.data():{};renderAll()},()=>{});
+})();
+renderAll();
+}
+</script>
+</body>
+</html>
