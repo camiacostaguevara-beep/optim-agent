@@ -385,9 +385,87 @@ $('#sform').addEventListener('submit',e=>{e.preventDefault();localSearch($('#q')
 $('#aiq').addEventListener('click',e=>aiSearch($('#q').value,null,e.currentTarget));
 
 /* ---------- escritura ---------- */
+/* ---------- modo sin conexión ----------
+   Con la app abierta y sin señal, cada escritura y cada archivo se guardan en el dispositivo (IndexedDB)
+   y se envían en orden cuando vuelve la conexión. Los datos se muestran al instante como si ya estuvieran guardados. */
+const OFF={db:null,pend:[],blobs:0,enviando:false,fallidos:0,banner:false};
+function idb(){if(OFF.db)return OFF.db;OFF.db=new Promise((ok,ko)=>{try{const r=indexedDB.open('custodia-offline',1);r.onupgradeneeded=()=>{const d=r.result;for(const n of ['cola','blobs','snap'])if(!d.objectStoreNames.contains(n))d.createObjectStore(n,{keyPath:'k'})};r.onsuccess=()=>ok(r.result);r.onerror=()=>ko(r.error)}catch(e){ko(e)}});OFF.db.catch(()=>{});return OFF.db}
+async function idbDo(store,mode,fn){const d=await idb();return new Promise((ok,ko)=>{const tx=d.transaction(store,mode);const r=fn(tx.objectStore(store));tx.oncomplete=()=>ok(r?r.result:undefined);tx.onerror=()=>ko(tx.error);tx.onabort=()=>ko(tx.error)})}
+const idbPut=(st,v)=>idbDo(st,'readwrite',o=>o.put(v));
+const idbDel=(st,k)=>idbDo(st,'readwrite',o=>o.delete(k)).catch(()=>{});
+const idbAll=st=>idbDo(st,'readonly',o=>o.getAll()).catch(()=>[]);
+const idbGet=(st,k)=>idbDo(st,'readonly',o=>o.get(k)).catch(()=>null);
+const esRed=e=>!navigator.onLine||!e||e.code==='unavailable'||e.code==='timeout'||e.name==='TypeError'||e.name==='NetworkError';
+const conTiempo=(pr,ms)=>Promise.race([pr,new Promise((_,ko)=>setTimeout(()=>ko({code:'timeout'}),ms))]);
+const clave=()=>Date.now().toString().padStart(14,'0')+'-'+Math.random().toString(36).slice(2,8);
+const fusion=(a,b)=>{const o={...(a||{})};for(const [k,v] of Object.entries(b||{})){if(v===null)delete o[k];else if(v&&typeof v==='object'&&!Array.isArray(v)&&o[k]&&typeof o[k]==='object'&&!Array.isArray(o[k]))o[k]=fusion(o[k],v);else o[k]=v}return o};
+const LISTAS={paquetes:'paq',reclamos:'rec',admisiones:'adm',lotes:'lotes',rezagos:'rez'};
+function aplicarLocal(it){
+  const [col,id]=it.path.split('/'),key=LISTAS[col];if(!key||!id)return;const arr=S[key]||[],i=arr.findIndex(x=>x.id===id);
+  if(it.op==='delete'){if(i>=0)arr.splice(i,1)}
+  else if(it.op==='set'){const v={...it.data,id};if(i>=0)arr[i]=v;else arr.unshift(v)}
+  else if(i>=0)arr[i]={...fusion(arr[i],it.data),id};
+  S[key]=arr;
+}
+const reaplicar=col=>{for(const it of OFF.pend)if(!col||it.path.startsWith(col+'/'))aplicarLocal(it)};
+function estadoConexion(){
+  const n=OFF.pend.length+OFF.blobs,st=$('#status');if(!st)return;
+  const txt=[OFF.pend.length?OFF.pend.length+' registro(s)':'',OFF.blobs?OFF.blobs+' archivo(s)':''].filter(Boolean).join(' y ');
+  if(!navigator.onLine)st.textContent='Sin conexión'+(n?' · '+txt+' guardados en este dispositivo':'');
+  else if(OFF.enviando)st.textContent='Enviando '+txt+'…';
+  else if(n)st.textContent=txt+' por enviar';
+  else if(/Sin conexión|por enviar|Enviando/.test(st.textContent))st.textContent='En línea · '+custodia().length+' en custodia';
+  if(!navigator.onLine&&!OFF.banner){OFF.banner=true;banner('Sin conexión. Puede seguir registrando: los cambios quedan guardados en este dispositivo y se envían solos cuando vuelva la señal. No recargue la página sin señal, porque la app no abriría. Si la cierra, los cambios se envían la próxima vez que la abra con señal.')}
+  else if(navigator.onLine&&OFF.banner&&!n){OFF.banner=false;banner('')}
+}
+async function encolar(it){try{await idbPut('cola',it)}catch(e){toast('No se pudo guardar en este dispositivo: '+(e&&e.name==='QuotaExceededError'?'memoria llena':'almacenamiento bloqueado'));throw {code:'unavailable'}}OFF.pend.push(it);aplicarLocal(it);estadoConexion()}
+async function escribir(col,ref,op,data){
+  const path=ref.path||(col+'/'+ref.id);
+  if(navigator.onLine&&!OFF.pend.length){try{return await conTiempo(op==='delete'?ref.delete():ref[op](data),15000)}catch(e){if(!esRed(e))throw e}}
+  await encolar({k:clave(),t:new Date().toISOString(),path,op,data});
+  try{renderAll();renderAdm()}catch(e){}
+  return {encolado:true};
+}
+function dbConCola(real){
+  const doc=(col,ref)=>({id:ref.id,path:ref.path||(col+'/'+ref.id),get:()=>ref.get(),onSnapshot:(...a)=>ref.onSnapshot(...a),
+    set:d=>escribir(col,ref,'set',d),update:d=>escribir(col,ref,'update',d),delete:()=>escribir(col,ref,'delete',null)});
+  const q=(x,col)=>({where:(...a)=>q(x.where(...a),col),orderBy:(...a)=>q(x.orderBy(...a),col),limit:n=>q(x.limit(n),col),onSnapshot:(...a)=>x.onSnapshot(...a),get:()=>x.get(),doc:id=>doc(col,id?x.doc(id):x.doc())});
+  return {collection:n=>q(real.collection(n),n),doc:path=>doc(path.split('/')[0],real.doc(path))};
+}
+const cambiaId=(id,m)=>(id&&m[id])||id;
+const parcheMedia=(med,m)=>(med||[]).map(x=>{const {pend,...r}=x;const n={...r,id:cambiaId(r.id,m),posterId:r.posterId?cambiaId(r.posterId,m):r.posterId,frames:(r.frames||[]).map(f=>cambiaId(f,m))};
+  if(n.id&&!String(n.id).startsWith('pend-')&&n.tipo==='video')delete n.mini;if(String(n.id||'').startsWith('pend-'))n.pend=true;return n});
+async function sincronizar(){
+  if(OFF.enviando||!navigator.onLine||!S.realDb)return;if(!OFF.pend.length&&!OFF.blobs){estadoConexion();return}
+  OFF.enviando=true;estadoConexion();let enviados=0;
+  try{
+    const cola=(await idbAll('cola')).sort((a,b)=>a.k<b.k?-1:1);
+    for(const it of cola){const ref=S.realDb.doc(it.path);
+      try{await conTiempo(it.op==='delete'?ref.delete():ref[it.op](it.data),20000);enviados++}
+      catch(e){if(esRed(e))break;OFF.fallidos++}
+      await idbDel('cola',it.k);OFF.pend=OFF.pend.filter(x=>x.k!==it.k);estadoConexion()}
+    if(!OFF.pend.length&&S.assets){
+      const porDoc={};for(const b of await idbAll('blobs'))(porDoc[b.path]=porDoc[b.path]||[]).push(b);
+      for(const [path,bs] of Object.entries(porDoc)){const m={};let corte=false;
+        for(const b of bs){try{m[b.k]=(await conTiempo(S.assets.upload(b.blob),120000)).id}catch(e){if(esRed(e)){corte=true;break}m[b.k]=''}}
+        if(corte)break;
+        try{const ref=S.realDb.doc(path),sn=await ref.get();if(sn.exists){const d=sn.data(),media=parcheMedia(d.media,m),up={media};
+          if(!d.fotoId){const f=media.find(x=>x.tipo==='foto'&&x.id&&!x.pend)||media.find(x=>x.posterId&&!String(x.posterId).startsWith('pend-'));if(f)up.fotoId=f.tipo==='foto'?f.id:f.posterId}
+          await conTiempo(ref.update(up),20000)}}catch(e){if(esRed(e))break}
+        for(const b of bs){await idbDel('blobs',b.k);OFF.blobs--}enviados++;estadoConexion()}
+    }
+  }finally{OFF.enviando=false;OFF.blobs=Math.max(0,OFF.blobs);estadoConexion()}
+  if(enviados&&!OFF.pend.length&&!OFF.blobs)toast('Conexión recuperada: se enviaron los cambios guardados en este dispositivo'+(OFF.fallidos?' ('+OFF.fallidos+' no se pudieron aplicar)':''));
+}
+window.addEventListener('online',()=>{estadoConexion();sincronizar()});
+window.addEventListener('offline',estadoConexion);
+setInterval(()=>{if(OFF.pend.length||OFF.blobs)sincronizar()},30000);
+async function guardarCopia(){try{await idbPut('snap',{k:'datos',t:new Date().toISOString(),paq:S.paq,rec:S.rec,adm:S.adm})}catch(e){}}
+let copiaTimer=null;const programarCopia=()=>{clearTimeout(copiaTimer);copiaTimer=setTimeout(guardarCopia,3000)};
+
 async function write(fn,okMsg){
   if(!S.db){toast('Sin conexión a la base de datos');return false}
-  try{await fn();if(okMsg)toast(okMsg);return true}
+  try{const r=await fn();if(okMsg)toast(okMsg+(r&&r.encolado?' · sin señal: se enviará al volver la conexión':''));return true}
   catch(e){
     if(e&&(e.code==='invalid_argument'||e.code==='transform_error')){
       if(S.writeOk===true)toast('No se pudo guardar: el registro tiene datos no válidos o es muy grande. Avise al administrador.');
@@ -480,6 +558,10 @@ $('#guiado').addEventListener('click',grabarGuiado);
 
 async function analyze(){
   const st=$('#aistate');
+  if(!navigator.onLine){let barras=[];try{barras=[...new Set([...(regAI.vivo||[]),...await leerCodigos(imgsDe(RM))])]}catch(e){}
+    regAI.barras=barras;regAI.guias=barras.slice();const h=barras.find(g=>S.adm.some(a=>a.guia===g));regAI.guia=h||'';regAI.sinIA=true;
+    if(!$('#ubi').value)$('#ubi').value=suggestShelf('D');
+    st.textContent='Sin conexión: llene los datos a mano. El paquete se guarda en este dispositivo y la IA lo puede revisar cuando vuelva la señal.'+(barras.length?' Código de barras leído (exacto): '+barras[0]+'.'+(h?' Coincide con una admisión: se asignará al guardar.':''):'');return}
   if(!S.sample){st.textContent='IA no disponible en esta vista: llene los datos a mano.';return}
   try{const lim=await S.sample.limits();if(!lim||!lim.images){st.textContent='Esta cuenta no permite enviar imágenes a la IA: llene los datos a mano.';return}}catch(e){}
   st.textContent='La IA está mirando la foto…';
@@ -546,20 +628,21 @@ $('#rform').addEventListener('submit',async e=>{
   const now=new Date(),code='CST-'+now.toISOString().slice(2,10).replace(/-/g,'')+'-'+Math.random().toString(36).slice(2,6).toUpperCase();
   const id=code.toLowerCase();
   let fotoId='';
-  let media=[];if(RM.length){$('#aistate').textContent='Subiendo '+RM.length+' archivo(s)…';const up=await uploadMedia(RM,'personal');media=up.media;fotoId=up.mainId;if(!fotoId&&up.mini)fotoMini=up.mini}
+  let media=[];if(RM.length){$('#aistate').textContent='Subiendo '+RM.length+' archivo(s)…';const up=await uploadMedia(RM,'personal','paquetes/'+id);media=up.media;fotoId=up.mainId;if(!fotoId&&up.mini)fotoMini=up.mini}
   const tags=[...new Set([...v('#tags').split(','),v('#obj'),v('#marca'),v('#color')].map(t=>norm(t).trim()).filter(Boolean))];
   const p={codigo:code,estado:'custodia',descripcion:v('#desc'),objeto:v('#obj'),marca:v('#marca'),color:v('#color'),etiquetas:tags,textoVisible:v('#texto'),averias:v('#aver'),
     peso:+v('#peso')||0,medidas:v('#med'),valor:+v('#valor')||0,origen:v('#orig'),destino:v('#dest'),empaque:$('#emp').value,ubicacion:v('#ubi').toUpperCase(),sede:$('#sede_reg').value||'',apertura:$('#aper').value,condicion:$('#cond').value,material:$('#mat').value,
     verificacion:v('#ver'),testigo:v('#test'),privado:$('#priv').checked,fotoId,media,fotoMini:fotoId?'':fotoMini,ingreso:now.toISOString(),verificado:now.toISOString(),
     operario:S.me||'',historial:[ev('Apertura registrada en '+($('#sede_reg').value?$('#sede_reg').value+', estante ':'')+v('#ubi').toUpperCase())]};
   if(regAI.huella)p.huella=regAI.huella;if(regAI.guias.length)p.guiasLeidas=regAI.guias;if(regAI.barras.length)p.guiaCodigoBarras=regAI.barras[0];
+  if(regAI.sinIA)p.iaPendiente=true;
   if(regAI.guia&&!S.paq.some(x=>x.guia===regAI.guia)){p.guia=regAI.guia;p.historial.push(ev('Guía '+regAI.guia+(regAI.barras.includes(regAI.guia)?' leída del código de barras':' leída del video por la IA')))}
   const fin=Object.fromEntries(FB_CAMPOS.map(([k,id])=>[k,$(id).value]));
   const ok=await write(()=>S.db.collection('paquetes').doc(id).set(p),'Paquete '+code+' registrado');
   if(ok&&aiSug){const campos={},corr=[];for(const [k] of FB_CAMPOS){if(!aiSug[k]&&!fin[k])continue;const same=norm(aiSug[k]).trim()===norm(fin[k]).trim();campos[k]=same;if(!same)corr.push({campo:k,ia:String(aiSug[k]).slice(0,80),final:String(fin[k]).slice(0,80)})}
     fbLog({tipo:'foto',ref:id,ok:!corr.length,campos,corr});aiSug=null}
   btn.disabled=false;
-  if(ok){e.target.reset();fotoBlob=null;fotoMini='';regAI={huella:null,guias:[],guia:'',barras:[],vivo:[]};RM.length=0;$('#rm_grid').innerHTML='';$('#aistate').textContent='';openDetail(id,{...p,id})}
+  if(ok){e.target.reset();fotoBlob=null;fotoMini='';regAI={huella:null,guias:[],guia:'',barras:[],vivo:[],sinIA:false};RM.length=0;$('#rm_grid').innerHTML='';$('#aistate').textContent='';openDetail(id,{...p,id})}
 });
 
 /* ---------- detalle, etiqueta y entrega ---------- */
@@ -589,6 +672,7 @@ function openDetail(id,pp){
    :p.estado==='vendido'?`<p>Vendido a <b>${esc(p.vendido&&p.vendido.a)}</b> por ${money(p.vendido&&p.vendido.precio)} el ${fdate(p.vendido&&p.vendido.fecha)} · envío a ${esc(p.vendido&&p.vendido.ciudad)}${p.vendido&&p.vendido.guia?' · guía '+esc(p.vendido.guia):''}</p>`
    :p.estado==='dispuesto'?`<p>Enviado a reciclaje en el lote <b>${esc(p.loteCodigo||p.loteId)}</b></p>`
    :`<p>Entregado a <b>${esc(p.entrega&&p.entrega.a)}</b> el ${fdate(p.entrega&&p.entrega.fecha)}</p>`}
+  ${p.iaPendiente?`<div class="banner">Se registró sin conexión y la IA aún no lo revisa.<div class="bar" style="margin-top:8px"><button class="btn sm" data-ia="${esc(p.id)}">Revisar con IA ahora</button></div></div>`:''}
   <h3>Historial</h3><ul class="hist">${(p.historial||[]).slice().reverse().map(h=>`<li>${fdate(h.t)} · ${esc(h.accion)} · <span class="who" data-u="${esc(h.quien)}">…</span></li>`).join('')}</ul>
   <p><button class="btn sm" data-close>Cerrar</button></p>`;
   modal.style.display='grid';fillNames();
@@ -659,6 +743,14 @@ function recibir(id){
   $('#rc_ok').onclick=async()=>{const u=$('#rc_u').value.trim().toUpperCase();if(!u){toast('Escriba el estante');return}const a=p.traslado.a;
     if(await write(()=>S.db.collection('paquetes').doc(p.id).update({sede:a,ubicacion:u,traslado:null,verificado:new Date().toISOString(),historial:histAdd(p,'Recibido en '+a+', estante '+u)}),'Recibido en '+a))closeM()};
 }
+document.addEventListener('click',async e=>{const t=e.target.closest('[data-ia]');if(!t)return;const p=S.paq.find(x=>x.id===t.dataset.ia);if(!p)return;
+  if(!navigator.onLine){toast('Necesita conexión');return}if(!S.sample){toast('IA no disponible');return}
+  const imgs=await imagesOf(p,6);if(!imgs.length){toast('Las fotos y videos aún se están enviando: intente en un momento');return}t.disabled=true;
+  try{const o=await S.sample.json(`Estas imágenes (cuadros de video y fotos) son de un paquete en la bodega de custodia de una empresa de mensajería en Colombia. Responde SOLO con JSON: {"descripcion":"una frase en español","etiquetas":["8 a 12 palabras clave en español, minúsculas, sin tildes"],"texto_visible":"texto o números legibles o vacío","averias":"daños visibles o vacío","huella":{"empaque":"","color_principal":"","cinta":"","logos":[],"etiquetas":[],"marcas_distintivas":[],"tamano":""}}`,{images:imgs,modelTier:'complex'});
+    const up={iaPendiente:null,historial:histAdd(p,'Revisado por la IA después de registrarse sin conexión')};
+    if(o){if(Array.isArray(o.etiquetas))up.etiquetas=[...new Set([...(p.etiquetas||[]),...o.etiquetas.map(x=>norm(x).trim()).filter(Boolean)])].slice(0,30);if(o.texto_visible)up.textoVisible=[p.textoVisible,String(o.texto_visible)].filter(Boolean).join(' · ').slice(0,400);if(!p.descripcion&&o.descripcion)up.descripcion=String(o.descripcion);if(!p.averias&&o.averias)up.averias=String(o.averias);if(o.huella&&typeof o.huella==='object')up.huella=o.huella}
+    if(await write(()=>S.db.collection('paquetes').doc(p.id).update(up),'Paquete revisado por la IA'))setTimeout(()=>openDetail(p.id),300)}
+  catch(err){toast('La IA no respondió')}finally{t.disabled=false}});
 document.addEventListener('click',async e=>{const t=e.target.closest('[data-trasl],[data-recibir],[data-cancelt]');if(!t)return;const d=t.dataset;
   if(d.trasl)trasladar(d.trasl);else if(d.recibir)recibir(d.recibir);
   else if(d.cancelt){const p=S.paq.find(x=>x.id===d.cancelt);if(p&&await write(()=>S.db.collection('paquetes').doc(p.id).update({traslado:null,ubicacion:p.ubicacionAnterior||'SIN-UBICAR',historial:histAdd(p,'Traslado cancelado: sigue en '+sedeNom(p))}),'Traslado cancelado'))closeM()}});
@@ -692,7 +784,7 @@ $('#cform').addEventListener('submit',async e=>{
   let fotoId='',fotoTags=[],fotoDesc='',cMedia=[];
   if(cBlob){
     $('#c_ai').textContent='Guardando foto y analizándola…';
-    const up=await uploadMedia(CM,'cliente');cMedia=up.media;fotoId=up.mainId;if(!fotoId&&up.mini)cMini=up.mini;
+    const up=await uploadMedia(CM,'cliente','reclamos/'+ref.id);cMedia=up.media;fotoId=up.mainId;if(!fotoId&&up.mini)cMini=up.mini;
     const d=await describePhoto(cBlob,aiImages(CM,6));if(d){fotoDesc=String(d.descripcion||'');fotoTags=Array.isArray(d.etiquetas)?d.etiquetas.map(String).slice(0,12):[]}
   }
   const r={codigoCliente:$('#c_cod').value,autorizaApertura:$('#c_abrir').checked,cliente:v('#c_nom'),contacto:v('#c_tel'),descripcion:v('#c_desc')||fotoDesc,guia:v('#c_guia'),fechaEnvio:v('#c_fecha'),origen:v('#c_orig'),destino:v('#c_dest'),valor:+v('#c_val')||0,
@@ -1083,20 +1175,29 @@ async function addFiles(files,list,el,tag,st,want){
     st.textContent='Preparando '+f.name+'…';try{const m=await prepMedia(f,st);list.push(m);added++;const w=calidadTxt(m.q);if(w)toast(w)}catch(err){lastErr=err.message||'No se pudo leer '+f.name;toast(lastErr)}}
   renderGrid(list,el,tag);st.textContent=added?list.length+' archivo(s) listos.':lastErr;return added>0;
 }
-async function uploadMedia(list,origen){
+async function guardarPendiente(m,base,destino,media){
+  const k=()=>'pend-'+clave();
+  if(m.kind==='foto'){const id=k();await idbPut('blobs',{k:id,blob:m.blob,path:destino});OFF.blobs++;media.push({...base,tipo:'foto',id,pend:true,mini:m.mini})}
+  else{const id=k();await idbPut('blobs',{k:id,blob:m.file,path:destino});OFF.blobs++;const fr=[];for(const b of m.frames.slice(0,4)){const f=k();await idbPut('blobs',{k:f,blob:b,path:destino});OFF.blobs++;fr.push(f)}
+    media.push({...base,tipo:'video',id,posterId:fr[0]||'',frames:fr,pend:true,mini:m.mini})}
+  estadoConexion();
+}
+async function uploadMedia(list,origen,destino){
   const media=[];let mainId='',mini='';const now=new Date().toISOString(),base={origen,por:S.me||'',t:now};
   for(const m of list){
     if(!S.assets){if(m.kind==='foto'&&media.length<3)media.push({...base,tipo:'foto',mini:m.mini});if(!mini)mini=m.mini;continue}
+    if(!navigator.onLine||OFF.blobs){if(!destino){toast('Sin conexión: este archivo necesita internet');continue}
+      try{await guardarPendiente(m,base,destino,media);if(!mini)mini=m.mini}catch(e){toast('No se pudo guardar el archivo en este dispositivo')}continue}
     try{if(m.kind==='foto'){const a=await S.assets.upload(m.blob);media.push({...base,tipo:'foto',id:a.id});if(!mainId)mainId=a.id}
       else{const a=await S.assets.upload(m.file),fr=[];for(const b of m.frames.slice(0,4)){try{fr.push((await S.assets.upload(b)).id)}catch(e){}}
         media.push({...base,tipo:'video',id:a.id,posterId:fr[0]||'',frames:fr});if(!mainId&&fr[0])mainId=fr[0]}}
-    catch(e){toast(e&&e.code==='quota_exceeded'?'Se llenó el espacio de archivos':'No se pudo subir un archivo')}
+    catch(e){if(esRed(e)&&destino){try{await guardarPendiente(m,base,destino,media);if(!mini)mini=m.mini;continue}catch(err){}}toast(e&&e.code==='quota_exceeded'?'Se llenó el espacio de archivos':'No se pudo subir un archivo')}
   }
   if(!S.assets&&list.some(m=>m.kind==='video'))toast('Los videos necesitan acceso de Editor para guardarse');
   return {media,mainId,mini:mainId?'':mini};
 }
 const blobUrl=id=>'/_blob/'+encodeURIComponent(id);
-const mThumbSrc=m=>m.tipo==='foto'?(m.id?blobUrl(m.id):(String(m.mini||'').startsWith('data:image/')?m.mini:'')):(m.posterId?blobUrl(m.posterId):'');
+const mThumbSrc=m=>(m.pend||String(m.id||'').startsWith('pend-'))?(String(m.mini||'').startsWith('data:image/')?m.mini:''):m.tipo==='foto'?(m.id?blobUrl(m.id):(String(m.mini||'').startsWith('data:image/')?m.mini:'')):(m.posterId?blobUrl(m.posterId):'');
 async function imagesOf(ent,max){
   const urls=[];for(const m of (ent.media||[])){if(m.tipo==='foto')urls.push(mThumbSrc(m));else(m.frames||[]).forEach(f=>urls.push(blobUrl(f)))}
   if(!urls.length&&fotoSrc(ent))urls.push(fotoSrc(ent));
@@ -1105,7 +1206,7 @@ async function imagesOf(ent,max){
 function gallery(list,big){
   if(!list||!list.length)return '';
   return `<div class="mgrid">${list.map(m=>{const src=mThumbSrc(m),who=({cliente:'cliente',admision:'admisión',camara:'cámara'})[m.origen]||'personal';
-    if(big&&m.tipo==='video'&&m.id)return `<div style="width:100%"><video controls playsinline preload="metadata" src="${esc(blobUrl(m.id))}" ${m.posterId?`poster="${esc(blobUrl(m.posterId))}"`:''} style="width:100%;max-height:320px;border-radius:6px;background:#000"></video><span class="meta">Video · subido por ${who} · ${fdate(m.t)}</span></div>`;
+    if(big&&m.tipo==='video'&&m.id&&!m.pend)return `<div style="width:100%"><video controls playsinline preload="metadata" src="${esc(blobUrl(m.id))}" ${m.posterId?`poster="${esc(blobUrl(m.posterId))}"`:''} style="width:100%;max-height:320px;border-radius:6px;background:#000"></video><span class="meta">Video · subido por ${who} · ${fdate(m.t)}</span></div>`;
     return `<div class="mthumb" title="${who}">${src?`<img src="${esc(src)}" alt="">`:''}<span class="v">${m.tipo==='video'?'video · ':''}${who}</span></div>`}).join('')}</div>`;
 }
 /* agregar a un paquete o reclamo existente */
@@ -1117,7 +1218,7 @@ async function onAddMedia(e){
   const list=[];toast('Preparando '+files.length+' archivo(s)…');
   const want=col==='paquetes'?'video':'foto';for(const f of files.slice(0,10)){if(!f.type.startsWith(want==='video'?'video/':'image/')){toast(want==='video'?'El personal sube solo videos':'El cliente sube solo fotos');continue}try{list.push(await prepMedia(f,null))}catch(err){toast(err.message||'No se pudo leer '+f.name)}}
   if(!list.length)return;
-  const up=await uploadMedia(list,col==='reclamos'?'cliente':'personal');if(!up.media.length)return;
+  const up=await uploadMedia(list,col==='reclamos'?'cliente':'personal',col+'/'+id);if(!up.media.length)return;
   const upd={media:[...(ent.media||[]),...up.media].slice(-30)};if(!ent.fotoId&&up.mainId)upd.fotoId=up.mainId;
   if(S.sample){try{const o=await S.sample.json(`Estas imágenes (fotos y cuadros de video) son ${col==='reclamos'?'del producto que un cliente perdió':'de un paquete en custodia'}. Responde SOLO con JSON: {"etiquetas":["6 a 10 palabras clave en español, minúsculas, sin tildes: objeto, marca, modelo, color, material, detalles"],"texto_visible":"texto o números legibles o vacío"}`,{images:aiImages(list,6),modelTier:'quick'});
     if(o&&Array.isArray(o.etiquetas)){const tags=o.etiquetas.map(t=>norm(t).trim()).filter(Boolean);
@@ -1172,7 +1273,7 @@ $('#aform').addEventListener('submit',async e=>{
   if(g.length<6){toast('Escriba el número de guía completo');return}if(!AM.length){toast('Tome al menos una foto del paquete cerrado');return}
   if(S.adm.some(a=>a.guia===g)){toast('Esa guía ya tiene admisión con foto');return}
   const b=e.target.querySelector('button.red');b.disabled=true;$('#ad_st').textContent='Subiendo fotos…';
-  const up=await uploadMedia(AM,'admision');
+  const up=await uploadMedia(AM,'admision','admisiones/adm-'+g);
   const a={guia:g,fecha:new Date().toISOString(),oficina:$('#ad_of').value,origen:v('#ad_orig'),destino:v('#ad_dest'),contenido:v('#ad_cont'),descripcion:v('#ad_desc'),
     etiquetas:[...new Set(v('#ad_tags').split(',').map(t=>norm(t).trim()).filter(Boolean))],textoVisible:String((AM.ai&&AM.ai.texto_visible)||''),averias:String((AM.ai&&AM.ai.averias)||''),
     peso:+v('#ad_peso')||0,medidas:v('#ad_med'),valor:+v('#ad_val')||0,media:up.media,avistamientos:[],por:S.me||''};if(AM.ai&&AM.ai.huella&&typeof AM.ai.huella==='object')a.huella=AM.ai.huella;
@@ -1370,24 +1471,27 @@ window.addEventListener('hashchange',routeHash);
 /* ---------- arranque ---------- */
 (async()=>{
   const [db,sample,assets,user]=await Promise.all(['db','sample','assets','user'].map(use));
-  Object.assign(S,{db,sample,assets,user});
+  Object.assign(S,{db:db?dbConCola(db):null,realDb:db,sample,assets,user});
+  try{OFF.pend=(await idbAll('cola')).sort((a,b)=>a.k<b.k?-1:1);OFF.blobs=(await idbAll('blobs')).length}catch(e){}
   if(user){try{S.me=await user.id()||''}catch(e){}try{S.isAdmin=!!(await user.canEdit())}catch(e){}try{const cw=await user.can('data.write');S.writeOk=cw;if(cw===false){S.canWrite=false;banner('Su cuenta solo puede consultar. Pida acceso como Editor para registrar paquetes.')}}catch(e){}}
   if(!sample){$('#aiq').hidden=true}
   if(!db){$('#status').textContent='Sin conexión';banner('Abra esta aplicación con una cuenta autorizada para ver y registrar paquetes.');return}
   $('#status').textContent='Cargando datos…';
+  setTimeout(async()=>{if(S.loaded||S.paq.length)return;const c=await idbGet('snap','datos');if(!c||S.paq.length)return;S.paq=c.paq||[];S.rec=c.rec||[];S.adm=c.adm||[];reaplicar();renderAll();renderAdm();$('#status').textContent='Datos guardados en este dispositivo el '+fdate(c.t)+' '+String(c.t).slice(11,16)+' UTC';estadoConexion()},4000);
+  if(OFF.pend.length||OFF.blobs){estadoConexion();setTimeout(sincronizar,2000)}
   const timer=setTimeout(()=>{$('#status').textContent='Los datos tardan en llegar; pueden estar desactualizados'},10000);
   let got=0;const done=()=>{if(++got>=2){S.loaded=true;routeHash()}};let first1=true,first2=true;
   const PQ={rec:new Map(),act:new Map()};
-  const mergePaq=()=>{S.paq=[...new Map([...PQ.rec,...PQ.act]).values()].sort((a,b)=>String(b.ingreso).localeCompare(String(a.ingreso)))};
+  const mergePaq=()=>{S.paq=[...new Map([...PQ.rec,...PQ.act]).values()].sort((a,b)=>String(b.ingreso).localeCompare(String(a.ingreso)));reaplicar('paquetes');programarCopia()};
   db.collection('paquetes').where('estado','in',['custodia','separado','rezago','venta']).limit(1000).onSnapshot(s=>{
     PQ.act=new Map(s.docs.map(d=>[d.id,{...d.data(),id:d.id}]));mergePaq();renderAll();renderAdm();
   },()=>{});
   db.collection('paquetes').orderBy('ingreso','desc').limit(1000).onSnapshot(s=>{
-    PQ.rec=new Map(s.docs.map(d=>[d.id,{...d.data(),id:d.id}]));mergePaq();if(!s.metadata.fromCache){clearTimeout(timer);$('#status').textContent='En línea · '+custodia().length+' en custodia'}
+    PQ.rec=new Map(s.docs.map(d=>[d.id,{...d.data(),id:d.id}]));mergePaq();if(!s.metadata.fromCache){clearTimeout(timer);$('#status').textContent='En línea · '+custodia().length+' en custodia';estadoConexion()}
     renderAll();if(first1){first1=false;done()}
   },e=>{clearTimeout(timer);$('#status').textContent='Sin acceso a los datos';banner('No se pudieron leer los paquetes. Verifique que tiene acceso a esta aplicación.')});
   db.collection('reclamos').orderBy('creado','desc').limit(500).onSnapshot(s=>{
-    S.rec=s.docs.map(d=>({...d.data(),id:d.id}));renderAll();if(first2){first2=false;done()}
+    S.rec=s.docs.map(d=>({...d.data(),id:d.id}));reaplicar('reclamos');programarCopia();renderAll();if(first2){first2=false;done()}
   },()=>{});
   db.collection('lotes').orderBy('fecha','desc').limit(200).onSnapshot(s=>{S.lotes=s.docs.map(d=>({...d.data(),id:d.id}));renderAll()},()=>{});
   db.collection('rezagos').orderBy('fecha','desc').limit(100).onSnapshot(s=>{S.rez=s.docs.map(d=>({...d.data(),id:d.id}));renderAll()},()=>{});
@@ -1395,7 +1499,7 @@ window.addEventListener('hashchange',routeHash);
   db.collection('feedback').orderBy('dia','desc').limit(300).onSnapshot(s=>{S.fb=s.docs.flatMap(d=>Array.isArray(d.data().eventos)?d.data().eventos:[]).sort((a,b)=>String(a.t).localeCompare(String(b.t)));renderPrec()},()=>{});
   db.doc('config/personal').onSnapshot(s=>{S.cfgP=s.exists?s.data():{};renderPersonal()},()=>{});
   db.doc('config/sedes').onSnapshot(s=>{S.cfgS=s.exists?s.data():{};const o=$('#ad_of');if(o)o.innerHTML=sedeOpts('Oficina');renderSedes();renderMiSede();renderAll()},()=>{});
-  db.collection('admisiones').orderBy('fecha','desc').limit(1000).onSnapshot(s=>{S.adm=s.docs.map(d=>({...d.data(),id:d.id}));renderAdm()},()=>{});
+  db.collection('admisiones').orderBy('fecha','desc').limit(1000).onSnapshot(s=>{S.adm=s.docs.map(d=>({...d.data(),id:d.id}));reaplicar('admisiones');programarCopia();renderAdm()},()=>{});
   db.doc('config/empresa').onSnapshot(s=>{S.cfgE=s.exists?s.data():{};renderEmpresa()},()=>{});
   db.doc('config/disposicion').onSnapshot(s=>{S.cfg=s.exists?s.data():{};renderAll()},()=>{});
 })();
