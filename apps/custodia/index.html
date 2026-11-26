@@ -203,8 +203,9 @@ th{font-size:13px;color:var(--mute);font-weight:600}
     <h2>Admisión con foto</h2>
     <p class="meta">En la oficina, al recibir el envío, tome 1 a 3 fotos del paquete cerrado con la guía visible. Si después se pierde la guía, la IA lo reconoce por su empaque en bodegas y cámaras.</p>
     <form class="form" id="aform">
-      <input type="file" id="ad_foto" accept="image/*" capture="environment" multiple hidden>
+      <input type="file" id="ad_foto" accept="image/*" capture="environment" multiple hidden><input type="file" id="ad_foto_gal" accept="image/*" multiple hidden>
       <button type="button" class="drop" id="ad_drop"><span><b>Tomar fotos del paquete cerrado</b><br><span class="meta">Una de frente con la guía, una de lado, una de arriba.</span></span></button>
+      <button type="button" class="btn alt sm" id="ad_drop_gal">O subir fotos ya tomadas (galería o computador)</button>
       <div class="mgrid" id="ad_grid"></div><p class="meta" id="ad_st"></p>
       <div class="row2"><label class="f">Número de guía<input id="ad_guia" inputmode="numeric"></label><label class="f">Oficina<select id="ad_of"></select></label></div>
       <div class="row2"><label class="f">Origen<input id="ad_orig"></label><label class="f">Destino<input id="ad_dest"></label></div>
@@ -1028,7 +1029,7 @@ const onAdmFoto=async e=>{const files=[...e.target.files];e.target.value='';if(!
     try{const o=await S.sample.json(`Estas fotos muestran un paquete CERRADO en el momento de admitirlo en una oficina de mensajería en Colombia. Describe solo lo que se ve por fuera, para reconocerlo después en cámaras y bodegas. Responde SOLO con JSON: {"descripcion":"una frase: tipo de empaque, tamaño aparente, color, cintas, logos, marcas","etiquetas":["8 a 12 palabras clave en español, minúsculas, sin tildes: empaque, colores, cinta, logos, textos, forma"],"texto_visible":"texto o números legibles o vacío","averias":"daños visibles o vacío","huella":{"empaque":"caja de cartón|bolsa plástica de mensajería|sobre|bolsa de tela|otro","color_principal":"","cinta":"tipo y color o vacío","logos":[],"etiquetas":["cada etiqueta pegada: color, formato, posición"],"marcas_distintivas":[],"tamano":"pequeño|mediano|grande"}}`,{images:aiImages(AM,4),modelTier:'quick'});
       if(o){if(!$('#ad_desc').value)$('#ad_desc').value=String(o.descripcion||'');$('#ad_tags').value=Array.isArray(o.etiquetas)?o.etiquetas.map(String).join(', '):'';$('#ad_st').textContent='Listo. Revise y guarde.'+(o.averias?' Averías: '+o.averias:'');AM.ai=o}}
     catch(err){$('#ad_st').textContent='La IA no respondió; describa el empaque a mano.'}}};
-$('#ad_foto').addEventListener('change',onAdmFoto);$('#ad_drop').addEventListener('click',()=>$('#ad_foto').click());
+$('#ad_foto').addEventListener('change',onAdmFoto);$('#ad_foto_gal').addEventListener('change',onAdmFoto);$('#ad_drop').addEventListener('click',()=>$('#ad_foto').click());$('#ad_drop_gal').addEventListener('click',()=>$('#ad_foto_gal').click());
 $('#aform').addEventListener('submit',async e=>{
   e.preventDefault();const v=id=>$(id).value.trim(),g=v('#ad_guia').replace(/\D/g,'');
   if(g.length<6){toast('Escriba el número de guía completo');return}if(!AM.length){toast('Tome al menos una foto del paquete cerrado');return}
