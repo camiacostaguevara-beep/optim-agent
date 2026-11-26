@@ -184,6 +184,8 @@ th{font-size:13px;color:var(--mute);font-weight:600}
 
   <section id="reclamos" hidden>
     <h2>Reclamos de clientes</h2>
+    <p class="meta">Cada reclamo se busca solo en todas las sedes por guía, contenido, ciudades y fechas. Con la opción de abajo, la IA además compara las fotos del cliente con los videos de todas las bodegas y deja el resultado para todas las sedes.</p>
+    <label class="check" style="margin:8px 0 14px"><input type="checkbox" id="auto_ia"> En este dispositivo, buscar con IA automáticamente los reclamos con fotos (usa la IA de esta cuenta; conviene activarlo en un solo computador de la oficina principal)</label>
     <details id="newrec"><summary class="btn alt" style="display:inline-block">Nuevo reclamo</summary>
     <form class="form" id="cform" style="margin-top:14px">
       <label class="f">Mensaje del cliente (péguelo de WhatsApp o correo)<textarea id="c_raw" placeholder="Buenas, mandé unos tenis Nike negros talla 42 desde Bogotá a Medellín el 30 de octubre y nunca llegaron, guía terminada en 4471…"></textarea></label>
@@ -794,22 +796,84 @@ $('#cform').addEventListener('submit',async e=>{
     setTimeout(()=>{const b=document.querySelector(hadFoto?`[data-cmp="${CSS.escape(ref.id)}"]`:(S.sample?`[data-match="${CSS.escape(ref.id)}"][data-ai]`:`[data-match="${CSS.escape(ref.id)}"]`));if(b)b.click()},500)}
 });
 async function blobOf(src){try{if(!src)return null;const res=await fetch(src);if(!res.ok)return null;const b=await res.blob();return b.type.startsWith('image/')?b:null}catch(e){return null}}
+/* ---------- búsqueda nacional de un reclamo ---------- */
+const digitosGuia=r=>String(r.guia||'').replace(/\D/g,'');
+function candidatosLocales(r,n){
+  const toks=tokens([r.descripcion,r.fotoDesc,...(r.fotoTags||[]),r.origen,r.destino].join(' ')),g=digitosGuia(r),envio=Date.parse(r.fechaEnvio||'');
+  const out=[];
+  for(const p of custodia()){
+    if(envio&&Date.parse(p.ingreso||'')<envio-864e5)continue;
+    let sc=0;const why=[];
+    if(g.length>=4){const gs=[p.guia,p.guiaCodigoBarras,...(p.guiasLeidas||[])].map(x=>String(x||'').replace(/\D/g,'')).filter(Boolean);
+      if(gs.includes(g)){sc+=100;why.push('misma guía')}else if(gs.some(x=>x.endsWith(g)||g.endsWith(x)&&x.length>=6)){sc+=60;why.push('guía parcial')}
+      else if(String(p.textoVisible||'').replace(/\D/g,'').includes(g)){sc+=50;why.push('número visible en la etiqueta')}}
+    const t=score(p,toks).pct;if(t>=40)why.push('contenido');sc+=t*.7;
+    if(r.destino&&norm(r.destino)===norm(p.destino)){sc+=8;why.push('destino')}
+    if(r.origen&&norm(r.origen)===norm(p.origen)){sc+=8;why.push('origen')}
+    if(sc>=30)out.push({p,pct:Math.min(99,Math.round(sc)),why:why.join(', ')});
+  }
+  return out.sort((a,b)=>b.pct-a.pct).slice(0,n||5);
+}
+async function buscarPorFotos(r,override){
+  const cimgs=override||await imagesOf(r,4);if(!cimgs.length)throw {code:'sin_fotos'};
+  const toks=tokens([r.descripcion,r.fotoDesc,...(r.fotoTags||[]),r.origen,r.destino].join(' '));
+  const locales=candidatosLocales(r,40).filter(x=>(fotoSrc(x.p)||(x.p.media||[]).length)&&!x.p.privado).map(x=>x.p);
+  const resto=custodia().filter(p=>(fotoSrc(p)||(p.media||[]).length)&&!p.privado&&!locales.includes(p)).sort((a,b)=>score(b,toks).pct-score(a,toks).pct||String(b.ingreso).localeCompare(String(a.ingreso)));
+  const orden=[...locales,...resto].slice(0,8);if(!orden.length)throw {code:'sin_custodia'};
+  const cands=[];for(const p of orden){const bs=await imagesOf(p,2);if(bs.length)cands.push({id:p.id,imgs:bs,datos:{sede:sedeNom(p),desc:p.descripcion,marca:p.marca,color:p.color,texto:p.textoVisible,averias:p.averias,orig:p.origen,dest:p.destino,kg:p.peso,huella:p.huella||null}})}
+  if(!cands.length)throw {code:'sin_custodia'};
+  const vm=await visualMatch(cimgs,override?'fotos del paquete cerrado tomadas al admitirlo en la oficina':'las fotos que envió el cliente de su envío',cands,`Lo que dice el cliente: ${JSON.stringify(r.descripcion||'')} (origen ${JSON.stringify(r.origen||'')}, destino ${JSON.stringify(r.destino||'')}).`);
+  return {toks,comparados:cands.length,res:vm.filter(x=>x.pct>=20).map(x=>({...x,p:S.paq.find(p=>p.id===x.id)})).filter(x=>x.p)};
+}
+const guardarBusquedaIA=(r,out,auto)=>write(()=>S.db.collection('reclamos').doc(r.id).update({busquedaIA:{fecha:new Date().toISOString(),por:S.me||'',auto:!!auto,comparados:out.comparados,candidatos:out.res.slice(0,5).map(x=>({id:x.id,pct:x.pct,why:String(x.why).slice(0,200)}))},busquedaIAEnProceso:null}));
+/* búsqueda automática con IA: un reclamo a la vez, solo en el dispositivo que la activó */
+const AUTO={corriendo:false,hechos:[]};
+const autoOn=()=>{try{return localStorage.getItem('auto_ia')==='1'}catch(e){return false}};
+function pendienteIA(r){
+  if(r.estado!=='abierto'||!(fotoSrc(r)||(r.media||[]).some(m=>!m.pend)))return false;
+  const en=r.busquedaIAEnProceso;if(en&&Date.now()-Date.parse(en.t)<15*60000&&en.por!==S.me)return false;
+  const b=r.busquedaIA;if(!b)return true;
+  if(Date.now()-Date.parse(b.fecha)<6*3600000)return false;
+  return S.paq.some(p=>recuperable(p)&&Date.parse(p.ingreso)>Date.parse(b.fecha)&&(fotoSrc(p)||(p.media||[]).length));
+}
+async function autoBuscar(){
+  if(AUTO.corriendo||!autoOn()||!S.sample||!navigator.onLine||!S.db)return;
+  AUTO.hechos=AUTO.hechos.filter(t=>Date.now()-t<3600000);if(AUTO.hechos.length>=20)return;
+  const r=S.rec.find(pendienteIA);if(!r)return;
+  AUTO.corriendo=true;AUTO.hechos.push(Date.now());
+  try{await write(()=>S.db.collection('reclamos').doc(r.id).update({busquedaIAEnProceso:{por:S.me||'',t:new Date().toISOString()}}));
+    const out=await buscarPorFotos(r);await guardarBusquedaIA(r,out,true);
+    const top=out.res[0];if(top&&top.pct>=60)toast('Reclamo de '+(r.cliente||'cliente')+': posible coincidencia en '+sedeNom(top.p)+' ('+top.pct+'%)');}
+  catch(e){if(e&&(e.code==='sin_fotos'||e.code==='sin_custodia'))await write(()=>S.db.collection('reclamos').doc(r.id).update({busquedaIA:{fecha:new Date().toISOString(),por:S.me||'',auto:true,comparados:0,candidatos:[]},busquedaIAEnProceso:null}));
+    else await write(()=>S.db.collection('reclamos').doc(r.id).update({busquedaIAEnProceso:null}))}
+  finally{AUTO.corriendo=false;setTimeout(autoBuscar,20000)}
+}
+let autoTimer=null;const programarAuto=()=>{clearTimeout(autoTimer);autoTimer=setTimeout(autoBuscar,3000)};
+$('#auto_ia').checked=autoOn();
+$('#auto_ia').addEventListener('change',e=>{try{localStorage.setItem('auto_ia',e.target.checked?'1':'0')}catch(err){}if(e.target.checked){if(!S.sample){toast('La IA no está disponible en esta vista');e.target.checked=false;return}toast('Búsqueda automática con IA activada en este dispositivo');programarAuto()}});
+const lineaCand=(r,p,pct,why)=>`<div class="alert ${pct>=70?'g':'k'}" style="margin:6px 0"><span><b>${pct}%</b> · <b>${esc(p.codigo)}</b> · ${esc(p.objeto||p.descripcion||'')}<br><span class="meta">${esc(sedeNom(p))}${enTransito(p)?' → '+esc(p.traslado.a):', estante '+esc(p.ubicacion)}${why?' · '+esc(why):''}</span></span><span class="bar"><button class="btn alt sm" data-open="${esc(p.id)}">Ver</button>${pct>=70?`<button class="btn sm" data-link="${esc(r.id)}|${esc(p.id)}">Vincular</button>`:''}</span></div>`;
+function bloqueBusqueda(r){
+  if(r.estado!=='abierto')return '';
+  const loc=candidatosLocales(r,3).filter(x=>x.pct>=35),b=r.busquedaIA,en=r.busquedaIAEnProceso&&Date.now()-Date.parse(r.busquedaIAEnProceso.t)<15*60000;
+  const ia=b?(b.candidatos||[]).map(c=>({c,p:S.paq.find(p=>p.id===c.id)})).filter(x=>x.p&&recuperable(x.p)):[];
+  const nS=new Set(custodia().map(sedeNom)).size;
+  return `<div style="margin-top:8px;border-top:1px solid var(--line);padding-top:8px"><span class="meta"><b>Búsqueda automática en ${nS} sede(s)</b></span>
+   ${loc.length?loc.map(x=>lineaCand(r,x.p,x.pct,x.why)).join(''):'<p class="meta" style="margin:4px 0">Sin coincidencias por guía, contenido o ciudades.</p>'}
+   ${en?'<p class="meta" style="margin:4px 0">La IA está comparando las fotos del cliente con los videos de todas las bodegas…</p>':b?`<p class="meta" style="margin:6px 0 0">La IA comparó las fotos ${b.auto?'automáticamente ':''}el ${fdate(b.fecha)} contra ${b.comparados||0} paquete(s):</p>${ia.length?ia.map(x=>lineaCand(r,x.p,x.c.pct,x.c.why)).join(''):'<p class="meta" style="margin:4px 0">Ninguno se parece.</p>'}`:''}
+  </div>`;
+}
+
 async function compareFotos(r,box,btn,override){
   if(!S.sample){toast('La IA no está disponible en esta vista');return}
   const B=()=>document.getElementById(box.id)||box;btn.disabled=true;B().innerHTML='<p class="meta">Preparando fotos…</p>';
   try{
-    const cimgs=override||await imagesOf(r,4),client=cimgs[0];
-    if(!client){B().innerHTML='<p class="meta">No se pudo abrir la foto del cliente.</p>';return}
-    const toks=tokens([r.descripcion,r.fotoDesc,...(r.fotoTags||[]),r.origen,r.destino].join(' '));
-    const withFoto=custodia().filter(p=>(fotoSrc(p)||(p.media||[]).length)&&!p.privado);
-    if(!withFoto.length){B().innerHTML='<p class="meta">Aún no hay paquetes con foto en custodia. Uso la búsqueda por texto.</p>';await aiSearch([r.descripcion,r.fotoDesc,r.origen,r.destino].join(' '),box,btn);return}
-    const ranked=withFoto.map(p=>({p,s:score(p,toks).pct})).sort((a,b)=>b.s-a.s||String(b.p.ingreso).localeCompare(String(a.p.ingreso))).slice(0,8);
-    const cands=[];for(const x of ranked){const bs=await imagesOf(x.p,2);if(bs.length)cands.push({id:x.p.id,imgs:bs,datos:{desc:x.p.descripcion,marca:x.p.marca,color:x.p.color,texto:x.p.textoVisible,averias:x.p.averias,orig:x.p.origen,dest:x.p.destino,kg:x.p.peso,huella:x.p.huella||null}})}
-    if(!cands.length){B().innerHTML='<p class="meta">No se pudieron abrir las fotos de la custodia.</p>';return}
-    B().innerHTML=`<p class="meta">La IA está comparando rasgo por rasgo con ${cands.length} paquetes…</p>`;
-    const vm=await visualMatch(cimgs,override?'fotos del paquete cerrado tomadas al admitirlo en la oficina':'las fotos que envió el cliente de su envío',cands,`Lo que dice el cliente: ${JSON.stringify(r.descripcion||'')} (origen ${JSON.stringify(r.origen||'')}, destino ${JSON.stringify(r.destino||'')}).`);
-    const res=vm.filter(x=>x.pct>=20).map(x=>({...x,p:S.paq.find(p=>p.id===x.id)})).filter(x=>x.p);
-    B().innerHTML=(res.length?`<p class="meta">Comparación rasgo por rasgo: ${res.length} posible(s)</p>`+res.map(x=>card(x.p,{pct:x.pct,why:nivel(x.pct)+' · '+x.why,hits:toks,src:'cruce_foto'})+(x.pct>=70?`<div class="bar"><button class="btn sm" data-link="${esc(r.id)}|${esc(x.p.id)}">Vincular a este reclamo</button></div>`:'')).join('')
+    B().innerHTML='<p class="meta">La IA está comparando rasgo por rasgo con los paquetes de todas las sedes…</p>';
+    let out;try{out=await buscarPorFotos(r,override)}catch(e){
+      if(e&&e.code==='sin_fotos'){B().innerHTML='<p class="meta">No se pudo abrir la foto del cliente.</p>';return}
+      if(e&&e.code==='sin_custodia'){B().innerHTML='<p class="meta">Aún no hay paquetes con foto en custodia. Uso la búsqueda por texto.</p>';await aiSearch([r.descripcion,r.fotoDesc,r.origen,r.destino].join(' '),box,btn);return}
+      throw e}
+    const {res,toks}=out;if(!override)guardarBusquedaIA(r,out,false);
+    B().innerHTML=(res.length?`<p class="meta">Comparación rasgo por rasgo en ${new Set(res.map(x=>sedeNom(x.p))).size} sede(s): ${res.length} posible(s)</p>`+res.map(x=>card(x.p,{pct:x.pct,why:nivel(x.pct)+' · '+x.why,hits:toks,src:'cruce_foto'})+(x.pct>=70?`<div class="bar"><button class="btn sm" data-link="${esc(r.id)}|${esc(x.p.id)}">Vincular a este reclamo</button></div>`:'')).join('')
       :'<p class="meta">Ningún paquete de la custodia coincide con las fotos del cliente.</p>');
   }catch(e){B().innerHTML='<p class="meta">'+(e&&e.code==='rate_limited'?'IA ocupada, intente en un momento.':'La IA no pudo comparar las fotos.')+'</p>'}
   finally{btn.disabled=false}
@@ -826,6 +890,7 @@ function renderRecList(){
    <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><b>${esc(r.cliente)}</b><span class="meta">${esc(r.estado)} · ${fdate(r.creado)} · ${money(r.valor)}</span></div>
    <div style="display:flex;gap:12px;align-items:flex-start">${fotoSrc(r)?`<img src="${esc(fotoSrc(r))}" alt="Foto del cliente" style="width:84px;height:84px;object-fit:cover;border-radius:4px;flex:none">`:''}<div>${esc(r.descripcion)}${gallery((r.media||[]).filter(m=>m.tipo==='video'||(r.media||[]).length>1))}${r.estado==='abierto'?`<button class="btn alt sm" data-addm="reclamos|${esc(r.id)}">Agregar fotos del cliente</button>`:''}${(r.fotoTags||[]).length?`<div class="tags">${r.fotoTags.map(t=>`<span class="tag">${esc(t)}</span>`).join('')}</div>`:''}</div></div><div class="meta">${esc(r.origen||'¿?')} → ${esc(r.destino||'¿?')}${r.guia?' · guía '+esc(r.guia):''} · ${esc(r.contacto)}</div>
    <div class="bar" style="margin-top:6px"><button class="btn sm" data-reply="${esc(r.id)}">Responder por WhatsApp</button>${r.estado==='abierto'&&admOf(r.guia)?`<button class="btn red sm" data-cmpadm="${esc(r.id)}">Buscar con la foto de admisión</button>`:''}${(r.respuestas||[]).length?`<span class="meta" style="align-self:center">${r.respuestas.length} respuesta(s) · última ${fdate(r.respuestas.at(-1).t)}</span>`:'<span class="meta" style="align-self:center">Sin responder</span>'}${r.autorizaApertura?'<span class="meta" style="align-self:center">· autorizó apertura</span>':''}${r.codigoCliente?`<span class="meta" style="align-self:center">· ${esc(r.codigoCliente)}</span>`:''}</div>
+   ${bloqueBusqueda(r)}
    ${r.paqueteId?`<p>Paquete: <button class="btn alt sm" data-open="${esc(r.paqueteId)}">${esc((S.paq.find(p=>p.id===r.paqueteId)||{}).codigo||r.paqueteId)}</button></p>`:''}
    ${r.estado==='abierto'?`<div class="bar" style="margin-top:8px"><button class="btn sm" data-match="${esc(r.id)}">Buscar coincidencias</button><button class="btn alt sm" data-match="${esc(r.id)}" data-ai="1">Buscar con IA</button>${fotoSrc(r)||(r.media||[]).length?`<button class="btn red sm" data-cmp="${esc(r.id)}">Comparar foto con la custodia</button>`:''}</div><div class="list" id="m_${esc(r.id)}"></div>`:''}
   </div>`).join(''):'<p class="meta">No hay reclamos registrados.</p>';
@@ -844,11 +909,13 @@ function renderInv(){
   const ms=miSede(),llegan=custodia().filter(p=>enTransito(p)&&ms&&p.traslado.a===ms);
   const c=custodia().filter(p=>{const v=($('#f_sede')||{}).value||'';return !v||sedeNom(p)===v});
   const old=c.filter(p=>days(p.ingreso)>30),stale=c.filter(p=>p.estado==='custodia'&&days(p.verificado||p.ingreso)>15),disp=c.filter(p=>p.estado==='custodia'&&afectado(p)&&(urgente(p)||days(p.ingreso)>=plazo()));
-  const matches=[];for(const r of S.rec.filter(r=>r.estado==='abierto')){const toks=tokens([r.descripcion,r.origen,r.destino,r.guia].join(' '));
-    for(const p of c){const s=score(p,toks);if(s.pct>=60)matches.push({r,p,s})}}
+  const matches=[],visto=new Set();for(const r of S.rec.filter(r=>r.estado==='abierto')){
+    for(const x of candidatosLocales(r,5))if(x.pct>=60&&c.includes(x.p)&&!visto.has(r.id+x.p.id)){visto.add(r.id+x.p.id);matches.push({r,p:x.p,s:{pct:x.pct}})}
+    for(const k of ((r.busquedaIA||{}).candidatos||[])){const p=S.paq.find(q=>q.id===k.id);if(p&&k.pct>=60&&c.includes(p)&&!visto.has(r.id+p.id)){visto.add(r.id+p.id);matches.push({r,p,s:{pct:k.pct}})}}}
+  matches.sort((a,b)=>b.s.pct-a.s.pct);
   $('#alerts').innerHTML=
     llegan.map(p=>`<div class="alert g"><span>Por recibir en <b>${esc(ms)}</b>: <b>${esc(p.codigo)}</b> · ${esc(p.objeto||p.descripcion)} · viene de ${esc(sedeNom(p))}</span><button class="btn sm" data-recibir="${esc(p.id)}">Recibir</button></div>`).join('')+
-    matches.slice(0,10).map(m=>`<div class="alert g"><span>Posible coincidencia: reclamo de <b>${esc(m.r.cliente)}</b> con <b>${esc(m.p.codigo)}</b> (${m.s.pct}%)</span><span class="bar"><button class="btn alt sm" data-open="${esc(m.p.id)}">Ver</button><button class="btn sm" data-link="${esc(m.r.id)}|${esc(m.p.id)}">Vincular</button></span></div>`).join('')+
+    matches.slice(0,10).map(m=>`<div class="alert g"><span>Posible coincidencia: reclamo de <b>${esc(m.r.cliente)}</b> con <b>${esc(m.p.codigo)}</b> (${m.s.pct}%) · ${esc(sedeNom(m.p))}, estante <b>${esc(m.p.ubicacion)}</b>: verifíquelo</span><span class="bar"><button class="btn alt sm" data-open="${esc(m.p.id)}">Ver</button><button class="btn sm" data-link="${esc(m.r.id)}|${esc(m.p.id)}">Vincular</button></span></div>`).join('')+
     (old.length?`<div class="alert"><span><b>${old.length}</b> paquete(s) con más de 30 días en custodia</span></div>`:'')+
     (disp.length?`<div class="alert"><span><b>${disp.length}</b> paquete(s) afectados listos para separar (pestaña Disposición)</span></div>`:'')+
     (stale.length?`<div class="alert k"><span><b>${stale.length}</b> paquete(s) sin confirmar en estante hace más de 15 días</span></div>`:'')+
@@ -1482,7 +1549,7 @@ window.addEventListener('hashchange',routeHash);
   const timer=setTimeout(()=>{$('#status').textContent='Los datos tardan en llegar; pueden estar desactualizados'},10000);
   let got=0;const done=()=>{if(++got>=2){S.loaded=true;routeHash()}};let first1=true,first2=true;
   const PQ={rec:new Map(),act:new Map()};
-  const mergePaq=()=>{S.paq=[...new Map([...PQ.rec,...PQ.act]).values()].sort((a,b)=>String(b.ingreso).localeCompare(String(a.ingreso)));reaplicar('paquetes');programarCopia()};
+  const mergePaq=()=>{S.paq=[...new Map([...PQ.rec,...PQ.act]).values()].sort((a,b)=>String(b.ingreso).localeCompare(String(a.ingreso)));reaplicar('paquetes');programarCopia();programarAuto()};
   db.collection('paquetes').where('estado','in',['custodia','separado','rezago','venta']).limit(1000).onSnapshot(s=>{
     PQ.act=new Map(s.docs.map(d=>[d.id,{...d.data(),id:d.id}]));mergePaq();renderAll();renderAdm();
   },()=>{});
@@ -1491,7 +1558,7 @@ window.addEventListener('hashchange',routeHash);
     renderAll();if(first1){first1=false;done()}
   },e=>{clearTimeout(timer);$('#status').textContent='Sin acceso a los datos';banner('No se pudieron leer los paquetes. Verifique que tiene acceso a esta aplicación.')});
   db.collection('reclamos').orderBy('creado','desc').limit(500).onSnapshot(s=>{
-    S.rec=s.docs.map(d=>({...d.data(),id:d.id}));reaplicar('reclamos');programarCopia();renderAll();if(first2){first2=false;done()}
+    S.rec=s.docs.map(d=>({...d.data(),id:d.id}));reaplicar('reclamos');programarCopia();renderAll();programarAuto();if(first2){first2=false;done()}
   },()=>{});
   db.collection('lotes').orderBy('fecha','desc').limit(200).onSnapshot(s=>{S.lotes=s.docs.map(d=>({...d.data(),id:d.id}));renderAll()},()=>{});
   db.collection('rezagos').orderBy('fecha','desc').limit(100).onSnapshot(s=>{S.rez=s.docs.map(d=>({...d.data(),id:d.id}));renderAll()},()=>{});
