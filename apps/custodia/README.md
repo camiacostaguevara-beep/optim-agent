@@ -27,3 +27,13 @@ Estado: **pospuesta** (25 nov 2026). Nada se ha conectado todavía.
   para TI (marca del grabador, acceso ONVIF/RTSP, computador por bodega en la
   red de las cámaras, autorización y avisos de videovigilancia). La fase 1,
   búsqueda en clips MP4 exportados, ya está en la pestaña Cámaras.
+
+## Pendiente: imagen visual (pospuesta)
+
+Estado: **pospuesta** (26 nov 2026). Quedó publicado el diseño "centro de mando"
+(modo noche principal y modo día, paneles de vidrio, medidores de coincidencia,
+pulso de la red) con marca blanca por empresa (Tablero → Marca de la empresa).
+
+Para retomar: color por defecto de la marca Custodia (hoy cian eléctrico),
+intensidad del brillo, logos y colores reales de las transportadoras clientes,
+y una portada para la galería y los enlaces compartidos.
