@@ -97,8 +97,9 @@ th{font-size:13px;color:var(--mute);font-weight:600}
 <body>
 <header>
   <h1>Custodia: buscador de envíos</h1>
-  <p>El cliente describe lo que envió y el sistema dice en qué estante está.</p>
+  <p>El cliente describe lo que envió y el sistema dice en qué sede y en qué estante está.</p>
   <span class="status" id="status">Conectando…</span>
+  <label class="status">Mi sede: <select id="mi_sede" aria-label="Mi sede" style="min-height:0;width:auto;padding:2px 6px;border:0;background:transparent;font:600 13px Inter,sans-serif;color:#1d1a16"></select></label>
   <nav role="tablist">
     <button role="tab" data-t="buscar" aria-selected="true">Buscar</button>
     <button role="tab" data-t="asistente" aria-selected="false">Asistente IA</button>
@@ -119,6 +120,7 @@ th{font-size:13px;color:var(--mute);font-weight:600}
       <input id="q" placeholder="Ej.: tenis negros Nike talla 42 para Medellín" aria-label="Descripción del cliente">
       <button class="btn">Buscar</button>
       <button type="button" class="btn alt" id="aiq">Buscar con IA</button>
+      <select id="q_sede" aria-label="Sede" style="flex:0 1 220px"></select>
     </form>
     <p class="hint">Escriba lo que dice el cliente: objeto, color, marca, ciudad, peso, o números de la guía. "Buscar con IA" entiende descripciones vagas.</p>
     <div class="list" id="res"></div>
@@ -167,6 +169,7 @@ th{font-size:13px;color:var(--mute);font-weight:600}
         <label class="f">Estado del empaque<select id="emp"><option>Etiqueta dañada</option><option>Sin guía</option><option>Caja rota</option><option>Mojado</option><option>Bueno</option></select></label>
         <label class="f">Ubicación<input id="ubi" placeholder="B-3-2 (estante-nivel-caja)"></label>
       </div>
+      <label class="f">Sede de custodia<select id="sede_reg"></select></label>
       <div class="row2">
         <label class="f">Estado del producto<select id="cond"><option>Bueno</option><option>Usado</option><option>Dañado parcial</option><option>Dañado total</option><option>Vencido o perecedero</option></select></label>
         <label class="f">Material principal<select id="mat"><option>Mixto</option><option>Cartón y papel</option><option>Plástico</option><option>Electrónico (RAEE)</option><option>Textil</option><option>Vidrio</option><option>Metal</option><option>Orgánico</option><option>Peligroso</option></select></label>
@@ -203,7 +206,8 @@ th{font-size:13px;color:var(--mute);font-weight:600}
   <section id="inventario" hidden>
     <h2>Inventario de la custodia</h2>
     <div id="alerts"></div>
-    <div class="bar" style="margin:14px 0"><input id="f_txt" placeholder="Filtrar por código, estante u objeto"><select id="f_est" style="flex:0 1 200px"><option value="custodia">En custodia</option><option value="separado">Separados para disposición</option><option value="entregado">Entregados</option><option value="dispuesto">Enviados a reciclaje</option><option value="rezago">En rezago</option><option value="donado">Donados</option><option value="">Todos</option></select></div>
+    <div id="por_sede" style="overflow-x:auto;margin-top:10px"></div>
+    <div class="bar" style="margin:14px 0"><input id="f_txt" placeholder="Filtrar por código, estante u objeto"><select id="f_sede" aria-label="Sede" style="flex:0 1 200px"></select><select id="f_est" style="flex:0 1 200px"><option value="custodia">En custodia</option><option value="separado">Separados para disposición</option><option value="entregado">Entregados</option><option value="dispuesto">Enviados a reciclaje</option><option value="rezago">En rezago</option><option value="donado">Donados</option><option value="">Todos</option></select></div>
     <div style="overflow-x:auto"><table class="stack" id="inv"></table></div>
   </section>
 
@@ -261,6 +265,7 @@ th{font-size:13px;color:var(--mute);font-weight:600}
   <section id="tablero" hidden>
     <h2>Resultados de la custodia</h2>
     <div class="stats" id="stats"></div>
+    <h3>Por sede</h3><div id="t_sedes" style="overflow-x:auto"></div>
     <h3>Capacidad diaria</h3><div id="capacidad"><p class="meta">Calculando…</p></div>
     <div id="sedes"></div>
     <div id="empresa"></div>
@@ -314,6 +319,23 @@ function score(p,toks){
   return {pct:max?Math.round(100*s/max):0,hits};
 }
 const recuperable=p=>['custodia','separado','rezago'].includes(p.estado);
+/* ---------- sedes: cada paquete vive en una sede (bodega u oficina) ---------- */
+const SIN_SEDE='Sin sede';
+const sedeNom=p=>p.sede||SIN_SEDE;
+const miSede=()=>{try{return localStorage.getItem('custodia_sede')||''}catch(e){return ''}};
+const enTransito=p=>!!(p.traslado&&p.traslado.a);
+const opcSedes=(sel,primera)=>(primera?`<option value="">${esc(primera)}</option>`:'')+sedes().map(x=>`<option value="${esc(x.nombre)}" ${x.nombre===sel?'selected':''}>${esc(x.nombre)}</option>`).join('');
+function renderMiSede(){
+  const m=miSede(),ms=$('#mi_sede');if(ms)ms.innerHTML=opcSedes(m,sedes().length?'elegir…':'configure sedes');
+  const qs=$('#q_sede');if(qs){const v=qs.dataset.v??'';qs.innerHTML=`<option value="">Todas las sedes</option>`+opcSedes(v);qs.value=v}
+  const fs=$('#f_sede');if(fs){const v=fs.dataset.v??m;fs.innerHTML=`<option value="">Todas las sedes</option>`+opcSedes(v)+`<option value="${SIN_SEDE}">${SIN_SEDE}</option>`;fs.value=v}
+  const rs=$('#sede_reg');if(rs&&!rs.dataset.touched){rs.innerHTML=opcSedes(m,'Elija la sede');rs.value=m}
+}
+$('#mi_sede').addEventListener('change',e=>{try{localStorage.setItem('custodia_sede',e.target.value)}catch(err){}delete $('#f_sede').dataset.v;delete $('#sede_reg').dataset.touched;renderMiSede();renderAll();toast(e.target.value?'Su sede: '+e.target.value:'Sin sede elegida')});
+$('#q_sede').addEventListener('change',e=>{e.target.dataset.v=e.target.value;const q=$('#q').value;if(q.trim())localSearch(q)});
+$('#f_sede').addEventListener('change',e=>{e.target.dataset.v=e.target.value;renderInv()});
+$('#sede_reg').addEventListener('change',e=>{e.target.dataset.touched='1'});
+const enSedeBuscada=p=>{const v=($('#q_sede')||{}).value||'';return !v||p.sede===v||(enTransito(p)&&p.traslado.a===v)};
 const custodia=()=>S.paq.filter(recuperable);
 const ESTADO={custodia:'en custodia',separado:'separado para disposición',entregado:'entregado a su dueño',dispuesto:'enviado a reciclaje',venta:'en venta a empleados',vendido:'vendido a empleado',rezago:'en rezago (proceso legal)',donado:'donado'};
 
@@ -329,7 +351,7 @@ function card(p,r){
   <b>${esc(p.codigo)}</b> · ${esc(p.descripcion||p.objeto)}
   <div class="tags">${(p.etiquetas||[]).slice(0,10).map(t=>`<span class="tag ${hitTag(t)?'hit':''}">${esc(t)}</span>`).join('')}</div>
   <div class="meta">${esc(p.origen||'¿?')} → ${esc(p.destino||'¿?')}${p.peso?' · '+esc(p.peso)+' kg':''} · ${days(p.ingreso)} días · ${esc(p.empaque||'')}${p.condicion&&!/^(Bueno|Usado)$/.test(p.condicion)?' · '+esc(p.condicion):''}${p.averias?' · averías: '+esc(p.averias):''}${p.estado!=='custodia'?' · <b>'+esc((ESTADO[p.estado]||p.estado).toUpperCase())+'</b>':''}</div></div>
-  <div class="loc"><span class="meta">Estante</span><span class="big">${esc(p.ubicacion)}</span>
+  <div class="loc"><span class="meta"><b>${esc(sedeNom(p))}</b>${enTransito(p)?' → '+esc(p.traslado.a):''}</span><span class="meta">${enTransito(p)?'En tránsito':'Estante'}</span><span class="big">${esc(enTransito(p)?'—':p.ubicacion)}</span>
   ${recuperable(p)?`<button class="btn alt sm" data-deliver="${esc(p.id)}">Verificar y entregar</button>`:''}${r&&r.src?fbBtns(r.src,p.id):''}</div></article>`;
 }
 
@@ -337,15 +359,16 @@ function card(p,r){
 function localSearch(q,target){
   const toks=tokens(q),el=target||$('#res');
   if(!toks.length){el.innerHTML='<p class="meta">Escriba una descripción para buscar.</p>';return []}
-  const r=custodia().map(p=>({p,r:score(p,toks)})).filter(x=>x.r.pct>=25).sort((a,b)=>b.r.pct-a.r.pct).slice(0,8);
-  el.innerHTML=r.length?`<p class="meta">${r.length} candidato(s) · búsqueda rápida</p>`+r.map(x=>card(x.p,{...x.r,src:'busqueda'})).join(''):`<p class="meta">Sin coincidencias rápidas. Pruebe "Buscar con IA".</p>`;
+  const r=custodia().filter(p=>target||enSedeBuscada(p)).map(p=>({p,r:score(p,toks)})).filter(x=>x.r.pct>=25).sort((a,b)=>b.r.pct-a.r.pct).slice(0,8);
+  const ns=new Set(r.map(x=>sedeNom(x.p))).size;
+  el.innerHTML=r.length?`<p class="meta">${r.length} candidato(s)${ns>1?' en '+ns+' sedes':''} · búsqueda rápida</p>`+r.map(x=>card(x.p,{...x.r,src:'busqueda'})).join(''):`<p class="meta">Sin coincidencias rápidas. Pruebe "Buscar con IA".</p>`;
   return r;
 }
 async function aiSearch(q,target,btn){
   const el=target||$('#res'),E=()=>(el.id&&document.getElementById(el.id))||el;
   if(!S.sample){toast('La IA no está disponible en esta vista');return}
   if(!q.trim()){toast('Escriba la descripción del cliente');return}
-  const items=custodia().slice(0,300).map(p=>({id:p.id,obj:p.objeto,desc:p.descripcion,tags:(p.etiquetas||[]).join(','),marca:p.marca,color:p.color,orig:p.origen,dest:p.destino,kg:p.peso,texto:p.textoVisible,ingreso:(p.ingreso||'').slice(0,10)}));
+  const items=custodia().filter(p=>target||enSedeBuscada(p)).slice(0,300).map(p=>({id:p.id,sede:sedeNom(p),obj:p.objeto,desc:p.descripcion,tags:(p.etiquetas||[]).join(','),marca:p.marca,color:p.color,orig:p.origen,dest:p.destino,kg:p.peso,texto:p.textoVisible,ingreso:(p.ingreso||'').slice(0,10)}));
   if(!items.length){E().innerHTML='<p class="meta">No hay paquetes en custodia todavía.</p>';return}
   if(btn)btn.disabled=true;E().innerHTML='<p class="meta">La IA está comparando la descripción con '+items.length+' paquetes…</p>';
   try{
@@ -389,7 +412,8 @@ const onStaffVideo=async e=>{
 };
 $('#foto').addEventListener('change',onStaffVideo);$('#foto_gal').addEventListener('change',onStaffVideo);
 function suggestShelf(z){
-  const used={};custodia().forEach(p=>{const u=String(p.ubicacion||'');if(u.startsWith(z+'-'))used[u]=(used[u]||0)+1});
+  const sd=($('#sede_reg')||{}).value||'';
+  const used={};custodia().filter(p=>(p.sede||'')===sd).forEach(p=>{const u=String(p.ubicacion||'');if(u.startsWith(z+'-'))used[u]=(used[u]||0)+1});
   const list=Object.entries(used).sort((a,b)=>a[1]-b[1]);
   return list.length&&list[0][1]<15?list[0][0]:z+'-'+(Object.keys(used).length+1)+'-1';
 }
@@ -515,6 +539,7 @@ $('#rform').addEventListener('submit',async e=>{
   if(!RM.length){toast('Grabe el video de 15 segundos del paquete');return}
   if(!v('#desc')&&!v('#obj')){toast('Describa el contenido');return}
   if(!v('#ubi')){toast('Indique la ubicación');return}
+  if(sedes().length&&!$('#sede_reg').value){toast('Elija la sede de custodia');return}
   if($('#aper').value!=='exterior'&&!$('#sello').checked){toast('Confirme que el paquete quedó resellado');return}
   if($('#aper').value!=='exterior'&&!v('#test')){toast('Una apertura necesita testigo');return}
   const btn=$('#save');btn.disabled=true;
@@ -524,9 +549,9 @@ $('#rform').addEventListener('submit',async e=>{
   let media=[];if(RM.length){$('#aistate').textContent='Subiendo '+RM.length+' archivo(s)…';const up=await uploadMedia(RM,'personal');media=up.media;fotoId=up.mainId;if(!fotoId&&up.mini)fotoMini=up.mini}
   const tags=[...new Set([...v('#tags').split(','),v('#obj'),v('#marca'),v('#color')].map(t=>norm(t).trim()).filter(Boolean))];
   const p={codigo:code,estado:'custodia',descripcion:v('#desc'),objeto:v('#obj'),marca:v('#marca'),color:v('#color'),etiquetas:tags,textoVisible:v('#texto'),averias:v('#aver'),
-    peso:+v('#peso')||0,medidas:v('#med'),valor:+v('#valor')||0,origen:v('#orig'),destino:v('#dest'),empaque:$('#emp').value,ubicacion:v('#ubi').toUpperCase(),apertura:$('#aper').value,condicion:$('#cond').value,material:$('#mat').value,
+    peso:+v('#peso')||0,medidas:v('#med'),valor:+v('#valor')||0,origen:v('#orig'),destino:v('#dest'),empaque:$('#emp').value,ubicacion:v('#ubi').toUpperCase(),sede:$('#sede_reg').value||'',apertura:$('#aper').value,condicion:$('#cond').value,material:$('#mat').value,
     verificacion:v('#ver'),testigo:v('#test'),privado:$('#priv').checked,fotoId,media,fotoMini:fotoId?'':fotoMini,ingreso:now.toISOString(),verificado:now.toISOString(),
-    operario:S.me||'',historial:[ev('Apertura registrada en '+v('#ubi').toUpperCase())]};
+    operario:S.me||'',historial:[ev('Apertura registrada en '+($('#sede_reg').value?$('#sede_reg').value+', estante ':'')+v('#ubi').toUpperCase())]};
   if(regAI.huella)p.huella=regAI.huella;if(regAI.guias.length)p.guiasLeidas=regAI.guias;if(regAI.barras.length)p.guiaCodigoBarras=regAI.barras[0];
   if(regAI.guia&&!S.paq.some(x=>x.guia===regAI.guia)){p.guia=regAI.guia;p.historial.push(ev('Guía '+regAI.guia+(regAI.barras.includes(regAI.guia)?' leída del código de barras':' leída del video por la IA')))}
   const fin=Object.fromEntries(FB_CAMPOS.map(([k,id])=>[k,$(id).value]));
@@ -553,7 +578,10 @@ function openDetail(id,pp){
   <p><b>${esc(p.descripcion||p.objeto)}</b></p>
   <div class="tags">${(p.etiquetas||[]).map(t=>`<span class="tag">${esc(t)}</span>`).join('')}</div>
   <p class="meta">${esc(p.origen||'¿?')} → ${esc(p.destino||'¿?')} · ${p.peso?esc(p.peso)+' kg · ':''}${esc(p.medidas||'')} · empaque: ${esc(p.empaque)} · valor ${money(p.valor)}<br>Texto visible: ${esc(p.textoVisible||'—')}<br>${(()=>{const rc=S.rec.find(x=>x.paqueteId===p.id&&x.autorizaApertura);return rc?'<b>El cliente '+esc(rc.cliente)+' autorizó abrirlo con testigo.</b><br>':''})()}Apertura: ${esc({exterior:'sin abrir',remitente:'autorizó el remitente',destinatario:'autorizó el destinatario',rezago:'en rezago con acta'}[p.apertura]||'no registrada')} · Testigo: ${esc(p.testigo||'—')} · Estado: <b>${esc(ESTADO[p.estado]||p.estado)}</b><br>Producto: ${esc(p.condicion||'—')} · Material: ${esc(p.material||'—')}</p>
-  ${p.estado==='custodia'?`<div class="bar"><input id="mv" placeholder="Nuevo estante" style="flex:1 1 140px"><button class="btn alt sm" data-move="${esc(p.id)}">Mover</button><button class="btn red sm" data-deliver="${esc(p.id)}">Verificar y entregar</button><button class="btn alt sm" data-sep="${esc(p.id)}">Separar para disposición</button></div>`
+  <p class="meta">Sede: <b>${esc(sedeNom(p))}</b>${enTransito(p)?` · <b>en tránsito a ${esc(p.traslado.a)}</b> desde ${fdate(p.traslado.fecha)}${p.traslado.guia?' · guía de traslado '+esc(p.traslado.guia):''}`:''}</p>
+  ${enTransito(p)?`<div class="bar"><button class="btn red sm" data-recibir="${esc(p.id)}">Recibir en ${esc(p.traslado.a)}</button><button class="btn alt sm" data-cancelt="${esc(p.id)}">Cancelar traslado</button></div>`:p.estado==='custodia'&&sedes().length>1?`<div class="bar"><button class="btn alt sm" data-trasl="${esc(p.id)}">Trasladar a otra sede</button></div>`:''}
+  ${p.estado==='custodia'&&!enTransito(p)?`<div class="bar"><input id="mv" placeholder="Nuevo estante" style="flex:1 1 140px"><button class="btn alt sm" data-move="${esc(p.id)}">Mover</button><button class="btn red sm" data-deliver="${esc(p.id)}">Verificar y entregar</button><button class="btn alt sm" data-sep="${esc(p.id)}">Separar para disposición</button></div>`
+   :p.estado==='custodia'?''
    :p.estado==='separado'?`<div class="bar"><button class="btn alt sm" data-back="${esc(p.id)}">Devolver a custodia</button><button class="btn red sm" data-deliver="${esc(p.id)}">Verificar y entregar</button></div>`
    :p.estado==='rezago'?`<p>En rezago, lote <b>${esc(p.rezagoCodigo||'')}</b>. Aún puede recuperarlo su dueño.</p><div class="bar"><button class="btn red sm" data-deliver="${esc(p.id)}">Verificar y entregar</button></div>`
    :p.estado==='donado'?`<p>Donado a <b>${esc(p.donacion&&p.donacion.a)}</b> el ${fdate(p.donacion&&p.donacion.fecha)}</p>`
@@ -610,6 +638,30 @@ document.addEventListener('click',async e=>{
     if(t.dataset.ai)aiSearch(q,box,t);else localSearch(q,box)}
   else if(d.link!==undefined){const [rid,pid]=d.link.split('|');write(()=>S.db.collection('reclamos').doc(rid).update({estado:'encontrado',paqueteId:pid}),'Reclamo marcado como encontrado')}
 });
+
+function trasladar(id){
+  const p=S.paq.find(x=>x.id===id);if(!p)return;
+  $('#mbody').innerHTML=`<h2>Trasladar ${esc(p.codigo)}</h2><p class="meta">Hoy está en <b>${esc(sedeNom(p))}</b>, estante ${esc(p.ubicacion)}. Mientras viaja, la búsqueda lo muestra "en tránsito" y la sede de destino lo ve en "Por recibir".</p>
+  <label class="f">Sede de destino<select id="tr_a">${opcSedes('', 'Elija la sede')}</select></label>
+  <label class="f" style="margin-top:12px">Guía o manifiesto del traslado (opcional)<input id="tr_g"></label>
+  <div class="row2" style="margin-top:14px"><button class="btn red" id="tr_ok">Enviar a la otra sede</button><button class="btn alt" data-close>Cancelar</button></div>`;
+  modal.style.display='grid';
+  $('#tr_ok').onclick=async()=>{const a=$('#tr_a').value;if(!a){toast('Elija la sede de destino');return}if(a===p.sede){toast('Ya está en esa sede');return}
+    const t={a,desde:p.sede||'',fecha:new Date().toISOString(),guia:$('#tr_g').value.trim(),por:S.me||''};
+    if(await write(()=>S.db.collection('paquetes').doc(p.id).update({traslado:t,ubicacionAnterior:p.ubicacion,ubicacion:'EN TRÁNSITO',historial:histAdd(p,'Enviado de '+sedeNom(p)+' a '+a+(t.guia?' (guía '+t.guia+')':''))}),'En tránsito a '+a))closeM()};
+}
+function recibir(id){
+  const p=S.paq.find(x=>x.id===id);if(!p||!enTransito(p))return;
+  $('#mbody').innerHTML=`<h2>Recibir ${esc(p.codigo)} en ${esc(p.traslado.a)}</h2><p>${esc(p.descripcion||p.objeto)}</p><p class="meta">Viene de ${esc(sedeNom(p))} desde el ${fdate(p.traslado.fecha)}. Confirme que el paquete y su etiqueta QR coinciden.</p>
+  <label class="f">Estante donde queda<input id="rc_u" placeholder="B-3-2"></label>
+  <div class="row2" style="margin-top:14px"><button class="btn red" id="rc_ok">Recibido</button><button class="btn alt" data-close>Cancelar</button></div>`;
+  modal.style.display='grid';
+  $('#rc_ok').onclick=async()=>{const u=$('#rc_u').value.trim().toUpperCase();if(!u){toast('Escriba el estante');return}const a=p.traslado.a;
+    if(await write(()=>S.db.collection('paquetes').doc(p.id).update({sede:a,ubicacion:u,traslado:null,verificado:new Date().toISOString(),historial:histAdd(p,'Recibido en '+a+', estante '+u)}),'Recibido en '+a))closeM()};
+}
+document.addEventListener('click',async e=>{const t=e.target.closest('[data-trasl],[data-recibir],[data-cancelt]');if(!t)return;const d=t.dataset;
+  if(d.trasl)trasladar(d.trasl);else if(d.recibir)recibir(d.recibir);
+  else if(d.cancelt){const p=S.paq.find(x=>x.id===d.cancelt);if(p&&await write(()=>S.db.collection('paquetes').doc(p.id).update({traslado:null,ubicacion:p.ubicacionAnterior||'SIN-UBICAR',historial:histAdd(p,'Traslado cancelado: sigue en '+sedeNom(p))}),'Traslado cancelado'))closeM()}});
 
 /* ---------- reclamos ---------- */
 $('#c_fill').addEventListener('click',async e=>{
@@ -688,12 +740,22 @@ function renderRecList(){
 }
 
 /* ---------- inventario y alertas ---------- */
+function renderPorSede(){
+  const el=$('#por_sede');if(!el)return;const c=custodia(),nombres=[...new Set([...sedes().map(x=>x.nombre),...c.map(sedeNom)])];
+  if(nombres.length<2&&!sedes().length){el.innerHTML='';return}
+  const fila=n=>{const de=c.filter(p=>sedeNom(p)===n&&!enTransito(p));return {n,en:de.length,viejos:de.filter(p=>days(p.ingreso)>30).length,sinConf:de.filter(p=>p.estado==='custodia'&&days(p.verificado||p.ingreso)>15).length,llegan:c.filter(p=>enTransito(p)&&p.traslado.a===n).length}};
+  const fs=nombres.map(fila).filter(f=>f.en||f.llegan||sedes().some(x=>x.nombre===f.n));
+  el.innerHTML=`<table class="stack"><thead><tr><th>Sede</th><th style="text-align:right">En custodia</th><th style="text-align:right">Más de 30 días</th><th style="text-align:right">Sin confirmar</th><th style="text-align:right">Por recibir</th></tr></thead><tbody>${fs.map(f=>`<tr${f.n===miSede()?' style="font-weight:600"':''}><td>${esc(f.n)}${f.n===miSede()?' (mi sede)':''}</td><td style="text-align:right">${f.en}</td><td style="text-align:right">${f.viejos}</td><td style="text-align:right">${f.sinConf}</td><td style="text-align:right">${f.llegan}</td></tr>`).join('')}</tbody></table>`;
+}
 function renderInv(){
-  const c=custodia();
+  renderPorSede();
+  const ms=miSede(),llegan=custodia().filter(p=>enTransito(p)&&ms&&p.traslado.a===ms);
+  const c=custodia().filter(p=>{const v=($('#f_sede')||{}).value||'';return !v||sedeNom(p)===v});
   const old=c.filter(p=>days(p.ingreso)>30),stale=c.filter(p=>p.estado==='custodia'&&days(p.verificado||p.ingreso)>15),disp=c.filter(p=>p.estado==='custodia'&&afectado(p)&&(urgente(p)||days(p.ingreso)>=plazo()));
   const matches=[];for(const r of S.rec.filter(r=>r.estado==='abierto')){const toks=tokens([r.descripcion,r.origen,r.destino,r.guia].join(' '));
     for(const p of c){const s=score(p,toks);if(s.pct>=60)matches.push({r,p,s})}}
   $('#alerts').innerHTML=
+    llegan.map(p=>`<div class="alert g"><span>Por recibir en <b>${esc(ms)}</b>: <b>${esc(p.codigo)}</b> · ${esc(p.objeto||p.descripcion)} · viene de ${esc(sedeNom(p))}</span><button class="btn sm" data-recibir="${esc(p.id)}">Recibir</button></div>`).join('')+
     matches.slice(0,10).map(m=>`<div class="alert g"><span>Posible coincidencia: reclamo de <b>${esc(m.r.cliente)}</b> con <b>${esc(m.p.codigo)}</b> (${m.s.pct}%)</span><span class="bar"><button class="btn alt sm" data-open="${esc(m.p.id)}">Ver</button><button class="btn sm" data-link="${esc(m.r.id)}|${esc(m.p.id)}">Vincular</button></span></div>`).join('')+
     (old.length?`<div class="alert"><span><b>${old.length}</b> paquete(s) con más de 30 días en custodia</span></div>`:'')+
     (disp.length?`<div class="alert"><span><b>${disp.length}</b> paquete(s) afectados listos para separar (pestaña Disposición)</span></div>`:'')+
@@ -701,10 +763,11 @@ function renderInv(){
     (S.paq.some(p=>p.estado==='venta')?`<div class="alert"><span><b>${S.paq.filter(p=>p.estado==='venta').length}</b> paquete(s) quedaron marcados para venta. Devuélvalos a custodia para el proceso de rezago y donación.</span><button class="btn sm" id="unsale_all">Devolver todos</button></div>`:'');
   const ua=$('#unsale_all');if(ua)ua.onclick=async()=>{ua.disabled=true;let n=0;for(const p of S.paq.filter(p=>p.estado==='venta')){if(await write(()=>S.db.collection('paquetes').doc(p.id).update({estado:'custodia',venta:null,historial:histAdd(p,'Devuelto a custodia (venta retirada)')})))n++}toast(n+' paquete(s) devueltos a custodia')};
   const ft=norm($('#f_txt').value),fe=$('#f_est').value;
-  const rows=S.paq.filter(p=>(!fe||p.estado===fe)&&(!ft||norm([p.codigo,p.ubicacion,p.objeto,p.descripcion,...(p.etiquetas||[])].join(' ')).includes(ft)))
-    .sort((a,b)=>String(a.ubicacion).localeCompare(String(b.ubicacion)));
-  $('#inv').innerHTML=`<thead><tr><th>Código</th><th>Contenido</th><th>Estante</th><th>Días</th><th>Confirmado</th><th></th></tr></thead><tbody>`+
-    (rows.length?rows.map(p=>`<tr><td><button class="btn alt sm" data-open="${esc(p.id)}">${esc(p.codigo)}</button></td><td>${esc(p.objeto||p.descripcion)}</td><td><b>${esc(p.ubicacion)}</b></td><td>${days(p.ingreso)}</td><td>${p.estado==='custodia'?'hace '+days(p.verificado||p.ingreso)+' d':esc(ESTADO[p.estado]||p.estado)}</td><td>${p.estado==='custodia'?`<button class="btn sm" data-check="${esc(p.id)}">Está aquí</button>`:''}</td></tr>`).join(''):'<tr><td colspan="6" class="meta">Sin paquetes con ese filtro.</td></tr>')+'</tbody>';
+  const fsd=($('#f_sede')||{}).value||'';
+  const rows=S.paq.filter(p=>(!fsd||sedeNom(p)===fsd||(enTransito(p)&&p.traslado.a===fsd))&&(!fe||p.estado===fe)&&(!ft||norm([p.codigo,p.ubicacion,p.sede,p.objeto,p.descripcion,...(p.etiquetas||[])].join(' ')).includes(ft)))
+    .sort((a,b)=>sedeNom(a).localeCompare(sedeNom(b))||String(a.ubicacion).localeCompare(String(b.ubicacion)));
+  $('#inv').innerHTML=`<thead><tr><th>Código</th><th>Contenido</th><th>Sede</th><th>Estante</th><th>Días</th><th>Confirmado</th><th></th></tr></thead><tbody>`+
+    (rows.length?rows.map(p=>`<tr><td><button class="btn alt sm" data-open="${esc(p.id)}">${esc(p.codigo)}</button></td><td>${esc(p.objeto||p.descripcion)}</td><td>${esc(sedeNom(p))}${enTransito(p)?' → '+esc(p.traslado.a):''}</td><td><b>${esc(p.ubicacion)}</b></td><td>${days(p.ingreso)}</td><td>${p.estado==='custodia'?'hace '+days(p.verificado||p.ingreso)+' d':esc(ESTADO[p.estado]||p.estado)}</td><td>${p.estado==='custodia'?`<button class="btn sm" data-check="${esc(p.id)}">Está aquí</button>`:''}</td></tr>`).join(''):'<tr><td colspan="7" class="meta">Sin paquetes con ese filtro.</td></tr>')+'</tbody>';
 }
 $('#f_txt').addEventListener('input',renderInv);$('#f_est').addEventListener('change',renderInv);
 
@@ -720,7 +783,7 @@ function openClaim(p){
 const plazo=()=>Math.max(1,+(S.cfg&&S.cfg.plazoDias)||90);
 const kg=v=>(Math.round((+v||0)*100)/100).toLocaleString('es-CO')+' kg';
 function rowD(p,extra){const cl=openClaim(p);
-  return `<div class="alert ${cl?'':'k'}"><span>${extra||''}<b>${esc(p.codigo)}</b> · ${esc(p.objeto||p.descripcion)} · ${esc(p.condicion||p.empaque)} · ${esc(p.material||'Mixto')}${p.peso?' · '+kg(p.peso):''} · ${days(p.ingreso)} días${cl?`<br><b>Tiene reclamo parecido de ${esc(cl.cliente)}: no disponer todavía</b>`:''}</span>
+  return `<div class="alert ${cl?'':'k'}"><span>${extra||''}<b>${esc(p.codigo)}</b> · ${esc(sedeNom(p))} · ${esc(p.objeto||p.descripcion)} · ${esc(p.condicion||p.empaque)} · ${esc(p.material||'Mixto')}${p.peso?' · '+kg(p.peso):''} · ${days(p.ingreso)} días${cl?`<br><b>Tiene reclamo parecido de ${esc(cl.cliente)}: no disponer todavía</b>`:''}</span>
   <span class="bar"><button class="btn alt sm" data-open="${esc(p.id)}">Ver</button>${p.estado==='custodia'?`<button class="btn sm" data-sep="${esc(p.id)}">Separar</button>`:`<button class="btn alt sm" data-back="${esc(p.id)}">Devolver</button>`}</span></div>`}
 function renderDisp(){
   const c=S.paq.filter(p=>p.estado==='custodia'&&afectado(p));
@@ -777,7 +840,7 @@ async function review(btn){
   const out=$('#as_out');btn.disabled=true;out.innerHTML='<p class="meta">Revisando con reglas locales…</p>';
   const c=S.paq.filter(p=>p.estado==='custodia');
   AS.dispo=c.filter(p=>afectado(p)&&(urgente(p)||days(p.ingreso)>=plazo())&&!openClaim(p));
-  AS.ruta=c.filter(p=>days(p.verificado||p.ingreso)>15).sort((a,b)=>String(a.ubicacion).localeCompare(String(b.ubicacion)));
+  AS.ruta=c.filter(p=>days(p.verificado||p.ingreso)>15&&!enTransito(p)&&(!miSede()||p.sede===miSede())).sort((a,b)=>String(a.ubicacion).localeCompare(String(b.ubicacion)));
   AS.matches=[];
   const open=S.rec.filter(r=>r.estado==='abierto'),pool=custodia();
   let note='';
@@ -797,7 +860,7 @@ function renderAS(note){
   sec('1. Reclamos que la IA encontró ('+AS.matches.length+')',AS.matches.length?AS.matches.map(m=>`<div class="alert g"><span><b>${m.pct}%</b> · reclamo de <b>${esc(m.r.cliente)}</b> ↔ <b>${esc(m.p.codigo)}</b> en ${esc(m.p.ubicacion)}<br><span class="meta">${esc(m.why)}</span></span><span class="bar"><button class="btn alt sm" data-open="${esc(m.p.id)}">Ver</button><button class="btn sm" data-link="${esc(m.r.id)}|${esc(m.p.id)}">Vincular</button>${fbBtns('asistente',m.p.id+'~'+m.r.id)}</span></div>`).join(''):'<p class="meta">Sin coincidencias nuevas.</p>')+
   sec('2. Dañados para separar ('+AS.dispo.length+')',AS.dispo.length?`<p class="meta">${AS.dispo.map(p=>esc(p.codigo)+' ('+esc(p.condicion||p.empaque)+')').join(' · ')}</p><button class="btn sm" id="as_sep">Separar los ${AS.dispo.length} para disposición</button>`:'<p class="meta">Ninguno.</p>')+
   (sec('3. Para declarar en rezago ('+S.paq.filter(p=>(p.estado==='custodia'||p.estado==='separado')&&days(p.ingreso)>=90&&!openClaim(p)).length+')','<p class="meta">Envíos con más de 3 meses sin entrega ni devolución. Créelos como lote en la pestaña Disposición, sección Rezago y donación.</p>'))+
-  sec('4. Ruta de conteo: sin confirmar hace más de 15 días ('+AS.ruta.length+')',AS.ruta.length?`<p class="meta">Recorra en este orden y toque "Está aquí":</p>`+AS.ruta.map(p=>`<div class="alert k"><span><b>${esc(p.ubicacion)}</b> · ${esc(p.codigo)} · ${esc(p.objeto||p.descripcion)}</span><button class="btn sm" data-check="${esc(p.id)}">Está aquí</button></div>`).join(''):'<p class="meta">Todo confirmado.</p>');
+  sec('4. Ruta de conteo'+(miSede()?' en '+esc(miSede()):'')+': sin confirmar hace más de 15 días ('+AS.ruta.length+')',AS.ruta.length?`<p class="meta">Recorra en este orden y toque "Está aquí":</p>`+AS.ruta.map(p=>`<div class="alert k"><span><b>${esc(p.ubicacion)}</b> · ${esc(p.codigo)} · ${esc(p.objeto||p.descripcion)}</span><button class="btn sm" data-check="${esc(p.id)}">Está aquí</button></div>`).join(''):'<p class="meta">Todo confirmado.</p>');
   const sb=$('#as_sep');if(sb)sb.onclick=async()=>{sb.disabled=true;let n=0;for(const p of AS.dispo){if(await write(()=>S.db.collection('paquetes').doc(p.id).update({estado:'separado',ubicacionAnterior:p.ubicacion,ubicacion:'DISP',separado:new Date().toISOString(),historial:histAdd(p,'Separado para disposición (asistente IA)')})))n++}AS.dispo=[];renderAS();toast(n+' paquete(s) separados')};
 }
 $('#as_go').addEventListener('click',e=>review(e.currentTarget));
@@ -1169,9 +1232,9 @@ document.addEventListener('click',async e=>{const t=e.target.closest('[data-adm]
 });
 function renderSedes(){
   const el=$('#sedes');if(!el)return;if(!S.isAdmin){el.innerHTML='';return}
-  el.innerHTML=`<h3>Oficinas y bodegas autorizadas</h3><p class="meta">Se usan al admitir envíos y al registrar avistamientos de cámaras.</p>
+  el.innerHTML=`<h3>Sedes: oficinas y bodegas de custodia</h3><p class="meta">Cada paquete queda en una sede. Se usan en la custodia, los traslados, la admisión y los avistamientos de cámaras. Cada celular o computador elige su sede arriba, en "Mi sede".</p>
   ${sedes().map(x=>`<div class="alert k"><span><b>${esc(x.nombre)}</b> · ${esc(x.tipo)}</span><button class="btn alt sm" data-sede-del="${esc(x.nombre)}">Quitar</button></div>`).join('')||'<p class="meta">Sin sedes.</p>'}
-  <div class="bar"><input id="sd_n" placeholder="Nombre, ej. Oficina Chapinero" style="flex:1 1 200px"><select id="sd_t" style="flex:0 1 140px"><option>Oficina</option><option>Bodega</option></select><button class="btn alt sm" id="sd_b">Agregar</button></div>`;
+  <div class="bar"><input id="sd_n" placeholder="Nombre, ej. Bodega Medellín" style="flex:1 1 200px"><select id="sd_t" style="flex:0 1 140px"><option>Oficina</option><option>Bodega</option></select><button class="btn alt sm" id="sd_b">Agregar</button></div>`;
   $('#sd_b').onclick=()=>{const n=$('#sd_n').value.trim();if(!n)return;if(sedes().some(x=>x.nombre===n)){toast('Ya existe');return}write(()=>S.db.doc('config/sedes').set({lista:[...sedes(),{nombre:n,tipo:$('#sd_t').value}]}),'Sede agregada')};
 }
 
@@ -1285,12 +1348,16 @@ function renderStats(){
   const recT=S.rec.length,recOk=S.rec.filter(r=>r.estado!=='abierto').length;
   $('#stats').innerHTML=[['En custodia',c.length],['Entregados a su dueño',ent.length],['Valor recuperado',money(recov)],['Días promedio en custodia',Math.round(prom)],['Reclamos abiertos',recT-recOk],['Reclamos resueltos',recT?Math.round(100*recOk/recT)+'%':'—'],['Separados para disposición',S.paq.filter(p=>p.estado==='separado').length],['Entregado a reciclaje',kg(kgRec)],['Donados (rezago)',S.paq.filter(p=>p.estado==='donado').length],['En rezago',S.paq.filter(p=>p.estado==='rezago').length]]
     .map(([k,v])=>`<div class="stat"><span class="big">${esc(v)}</span><span class="meta">${esc(k)}</span></div>`).join('');
+  {const nombres=[...new Set([...sedes().map(x=>x.nombre),...S.paq.map(sedeNom)])];
+   const fila=n=>{const de=S.paq.filter(p=>sedeNom(p)===n),cu=de.filter(p=>recuperable(p)&&!enTransito(p)),en=de.filter(p=>p.estado==='entregado');
+     return `<tr><td>${esc(n)}</td><td style="text-align:right">${cu.length}</td><td style="text-align:right">${S.paq.filter(p=>enTransito(p)&&p.traslado.a===n).length}</td><td style="text-align:right">${en.length}</td><td style="text-align:right">${money(en.reduce((s,p)=>s+(+p.valor||0),0))}</td><td style="text-align:right">${cu.length?Math.round(cu.reduce((s,p)=>s+days(p.ingreso),0)/cu.length):'—'}</td><td style="text-align:right">${cu.filter(p=>p.estado==='custodia'&&days(p.verificado||p.ingreso)>15).length}</td></tr>`};
+   $('#t_sedes').innerHTML=nombres.length?`<table class="stack"><thead><tr><th>Sede</th><th style="text-align:right">En custodia</th><th style="text-align:right">Llegando</th><th style="text-align:right">Entregados</th><th style="text-align:right">Valor recuperado</th><th style="text-align:right">Días promedio</th><th style="text-align:right">Sin confirmar</th></tr></thead><tbody>${nombres.map(fila).join('')}</tbody></table>`:'<p class="meta">Configure las sedes más abajo para ver resultados por sede.</p>'}
   const demo=S.paq.filter(p=>p.muestra).length+S.rec.filter(r=>r.muestra).length;
   $('#admin').innerHTML=S.isAdmin&&demo?`<p class="meta">Hay ${demo} registros de ejemplo para demostraciones.</p><button class="btn alt sm" id="deldemo">Borrar datos de ejemplo</button>`:'';
   const b=$('#deldemo');if(b)b.onclick=async()=>{b.disabled=true;for(const p of S.paq.filter(p=>p.muestra))await write(()=>S.db.collection('paquetes').doc(p.id).delete());for(const r of S.rec.filter(r=>r.muestra))await write(()=>S.db.collection('reclamos').doc(r.id).delete());toast('Datos de ejemplo borrados')};
 }
 
-function renderAll(){renderRec();renderInv();renderDisp();renderRezago();renderConc();renderStats();renderPrec();const q=$('#q').value;if(q&&!$('#res').querySelector('.why'))localSearch(q)}
+function renderAll(){renderMiSede();renderRec();renderInv();renderDisp();renderRezago();renderConc();renderStats();renderPrec();const q=$('#q').value;if(q&&!$('#res').querySelector('.why'))localSearch(q)}
 function banner(m){$('#banner').innerHTML=m?`<div class="banner">${esc(m)}</div>`:''}
 
 /* ---------- pestañas y QR ---------- */
@@ -1327,7 +1394,7 @@ window.addEventListener('hashchange',routeHash);
   db.collection('importes').orderBy('fecha','desc').limit(20).onSnapshot(s=>{S.imp=s.docs.flatMap(d=>Array.isArray(d.data().filas)?d.data().filas:[]);renderConc()},()=>{});
   db.collection('feedback').orderBy('dia','desc').limit(300).onSnapshot(s=>{S.fb=s.docs.flatMap(d=>Array.isArray(d.data().eventos)?d.data().eventos:[]).sort((a,b)=>String(a.t).localeCompare(String(b.t)));renderPrec()},()=>{});
   db.doc('config/personal').onSnapshot(s=>{S.cfgP=s.exists?s.data():{};renderPersonal()},()=>{});
-  db.doc('config/sedes').onSnapshot(s=>{S.cfgS=s.exists?s.data():{};const o=$('#ad_of');if(o)o.innerHTML=sedeOpts('Oficina');renderSedes()},()=>{});
+  db.doc('config/sedes').onSnapshot(s=>{S.cfgS=s.exists?s.data():{};const o=$('#ad_of');if(o)o.innerHTML=sedeOpts('Oficina');renderSedes();renderMiSede();renderAll()},()=>{});
   db.collection('admisiones').orderBy('fecha','desc').limit(1000).onSnapshot(s=>{S.adm=s.docs.map(d=>({...d.data(),id:d.id}));renderAdm()},()=>{});
   db.doc('config/empresa').onSnapshot(s=>{S.cfgE=s.exists?s.data():{};renderEmpresa()},()=>{});
   db.doc('config/disposicion').onSnapshot(s=>{S.cfg=s.exists?s.data():{};renderAll()},()=>{});
