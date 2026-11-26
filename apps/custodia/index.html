@@ -860,7 +860,7 @@ async function videoFrames(file,n){
   const sh=cand.map(x=>x.sharp).sort((a,b)=>a-b),q={sharp:Math.round(sh[sh.length>>1]),bright:Math.round(cand.reduce((s,x)=>s+x.bright,0)/cand.length)};
   return {frames:picked.map(x=>x.b),best,dur,q};
 }
-const calidadTxt=q=>!q?'':q.bright<45?'El video está oscuro: con más luz la IA reconoce mejor el paquete.':q.sharp<30?'El video está movido o desenfocado: grabe más despacio y acérquese a las etiquetas.':'';
+const calidadTxt=q=>!q?'':q.bright<45?'El video está oscuro: con más luz la IA reconoce mejor el paquete.':q.sharp<100?'El video está movido o desenfocado: grabe más despacio y acérquese a las etiquetas.':'';
 async function compressVideo(file,st){
   if(typeof MediaRecorder==='undefined')return null;
   const mime=['video/mp4;codecs=avc1','video/mp4','video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'].find(m=>{try{return MediaRecorder.isTypeSupported(m)}catch(e){return false}});if(!mime)return null;
@@ -899,17 +899,17 @@ Transcribe: números de guía o remesa (secuencias de 6 o más dígitos; tambié
 Reglas: copia los dígitos exactamente; si un dígito no se lee con seguridad escribe "?" en su lugar; no completes ni adivines; si el mismo número aparece en varios cuadros, compáralos para confirmar cada dígito y marca "seguro" solo si todos los dígitos se leen igual.
 Responde SOLO con JSON: {"guias":[{"numero":"...","seguro":true}],"remitente":"","destinatario":"","telefonos":[],"ciudades":[],"otros_textos":[]}`,{images:imgs,modelTier:'complex'});
 }
-const FEAT=[['numeros','números de guía',45],['etiquetas','etiquetas',18],['logos','logos',15],['empaque','empaque',12],['color','color',10],['cinta','cinta y sellos',8],['forma','forma y tamaño',8],['averias','averías',4]];
+const FEAT=[['numeros','números de guía',45],['etiquetas','etiquetas',18],['logos','logos',15],['empaque','empaque',12],['color','color',10],['cinta','cinta y sellos',8],['forma','forma y tamaño',8],['marcas','marcas únicas',12],['averias','averías',4]];
 /* Puntaje calculado aquí, no inventado por la IA: cada rasgo que ella ve igual suma, uno distinto resta,
-   y lo que no se ve no cuenta. Sin números de guía legibles el máximo es ~79%. Un número distinto,
-   o un logo, etiqueta o empaque distinto, bajan el resultado a "no es". */
+   y lo que no se ve no cuenta. Sin números de guía legibles el máximo es ~81%. Un número distinto,
+   o un logo, etiqueta, empaque o marca única distinta, bajan el resultado a "no es". */
 function scoreFeat(r){
   let pos=0,seen=0;const f={};
   for(const [k,,w] of FEAT){const v=String(r[k]||'nv').toLowerCase().trim();f[k]=v==='si'||v==='sí'?'si':v==='no'?'no':'nv';if(f[k]==='si'){pos+=w;seen+=w}else if(f[k]==='no')seen+=w}
   let pct=seen?Math.round(100*pos/(seen+20)):0;
   if(f.numeros==='si')pct=Math.max(pct,92);
   if(f.numeros==='no')pct=Math.min(pct,8);
-  if(['logos','etiquetas','empaque'].some(k=>f[k]==='no'))pct=Math.min(pct,25);
+  if(['logos','etiquetas','empaque','marcas'].some(k=>f[k]==='no'))pct=Math.min(pct,25);
   return {pct:Math.max(0,Math.min(99,pct)),f};
 }
 const featTxt=f=>FEAT.filter(([k])=>f[k]!=='nv').map(([k,t])=>(f[k]==='si'?'✓ ':'✗ ')+t).join(' · ');
@@ -923,9 +923,9 @@ async function visualMatch(ref,refDesc,cands,ctx){
 Datos registrados de los candidatos: ${JSON.stringify(batch.map(c=>({id:c.id,...c.datos})))}
 ${ctx||''}
 Para CADA candidato compara contra la referencia rasgo por rasgo. Para cada rasgo responde "si" (claramente igual), "no" (claramente distinto) o "nv" (no se ve en alguna de las dos, o no se puede saber).
-Rasgos: numeros (número de guía o texto impreso legible en ambas), etiquetas (etiquetas pegadas: posición, color, formato), logos (logos, marcas y estampados impresos), empaque (caja de cartón, bolsa plástica de mensajería, sobre, etc.), color, cinta (tipo y color de cinta, sellos, amarres), forma (forma y proporciones), averias (golpes, roturas, manchas).
+Rasgos: numeros (número de guía o texto impreso legible en ambas), etiquetas (etiquetas pegadas: posición, color, formato), logos (logos, marcas y estampados impresos), empaque (caja de cartón, bolsa plástica de mensajería, sobre, etc.), color, cinta (tipo y color de cinta, sellos, amarres), forma (forma y proporciones), marcas (marcas únicas: escritos a mano como "FRÁGIL", stickers, sellos, parches de cinta; "no" si una de las dos tiene una marca que la otra no tiene en la misma cara visible), averias (golpes, roturas, manchas; un golpe nuevo en custodia puede haber ocurrido en el camino, así que no es prueba en contra).
 Sé estricto: el ángulo, la luz y la calidad de la cámara NO son diferencias; un logo, texto, etiqueta o tipo de empaque distinto SÍ lo es. Si la referencia muestra el producto y el candidato una caja cerrada, marca "nv" salvo lo que la caja deje ver (por ejemplo, la marca impresa). Ante la duda responde "nv", nunca "si".
-Responde SOLO con JSON: {"resultados":[{"id":"...","numeros":"si|no|nv","etiquetas":"...","logos":"...","empaque":"...","color":"...","cinta":"...","forma":"...","averias":"...","razon":"frase corta: qué coincide y qué no"}]} incluyendo TODOS los candidatos.`,{images:[...R,...batch.flatMap(c=>c.imgs)],modelTier:'complex'});
+Responde SOLO con JSON: {"resultados":[{"id":"...","numeros":"si|no|nv","etiquetas":"...","logos":"...","empaque":"...","color":"...","cinta":"...","forma":"...","marcas":"...","averias":"...","razon":"frase corta: qué coincide y qué no"}]} incluyendo TODOS los candidatos.`,{images:[...R,...batch.flatMap(c=>c.imgs)],modelTier:'complex'});
     for(const r of (o&&Array.isArray(o.resultados)?o.resultados:[])){const c=batch.find(x=>x.id===String(r.id));if(!c)continue;const {pct,f}=scoreFeat(r);out.push({id:c.id,pct,f,why:[featTxt(f),String(r.razon||'')].filter(Boolean).join(' · ')})}
   }
   return out.sort((a,b)=>b.pct-a.pct);
