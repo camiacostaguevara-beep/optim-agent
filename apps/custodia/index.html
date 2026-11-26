@@ -875,9 +875,13 @@ async function compressVideo(file,st){
   draw();await new Promise(r=>{v.onended=r;setTimeout(r,(v.duration+5)*1000)});alive=false;rec.stop();await done;URL.revokeObjectURL(url);
   const out=new Blob(chunks,{type:mime.split(';')[0]});return out.size>10000?out:null;
 }
+/* Muchos celulares (Samsung, iPhone) graban en HEVC, que varios navegadores no pueden abrir.
+   La marca del códec está en el encabezado del archivo, al inicio o al final. */
+async function esHEVC(file){try{for(const part of [file.slice(0,1<<20),file.slice(Math.max(0,file.size-(2<<20)))]){if(/hvc1|hev1/.test(new TextDecoder('latin1').decode(await part.arrayBuffer())))return true}}catch(e){}return false}
+const MSG_HEVC='Este video está en formato de alta eficiencia (HEVC) y este navegador no lo puede abrir. En la cámara del celular desactive los videos de alta eficiencia (Samsung: ajustes de la cámara, opciones avanzadas de video; iPhone: Ajustes, Cámara, Formatos, Más compatible) y grabe de nuevo.';
 async function prepMedia(file,st){
   if(file.type.startsWith('video/')){
-    const {frames,best,dur,q}=await videoFrames(file,8);if(!frames.length)throw new Error('No se pudo leer el video. Pruebe con otro formato (MP4).');
+    const {frames,best,dur,q}=await videoFrames(file,8);if(!frames.length)throw new Error(await esHEVC(file)?MSG_HEVC:'No se pudo leer el video. Grábelo de nuevo con la cámara del celular.');
     if(dur>20)throw new Error('El video dura '+Math.round(dur)+' segundos. Debe durar unos 15 segundos.');
     if(dur<4)throw new Error('El video es muy corto. Grabe unos 15 segundos mostrando todo el paquete.');
     if(file.size>8*1024*1024){const cv=await compressVideo(file,st);if(cv&&cv.size<file.size)file=cv;}
@@ -937,10 +941,10 @@ function renderGrid(list,el,tag){
 }
 async function addFiles(files,list,el,tag,st,want){
   if(!canUpload()){toast('Solo el personal autorizado puede subir archivos');return false}
-  let added=0;for(const f of [...files].slice(0,10)){if(list.length>=(want==='video'?3:10)){toast(want==='video'?'Máximo 3 videos por paquete':'Máximo 10 fotos');break}
+  let added=0,lastErr='';for(const f of [...files].slice(0,10)){if(list.length>=(want==='video'?3:10)){toast(want==='video'?'Máximo 3 videos por paquete':'Máximo 10 fotos');break}
     if(want&&!f.type.startsWith(want==='video'?'video/':'image/')){toast(want==='video'?'El personal sube solo videos de 15 segundos':'El cliente sube solo fotos');continue}
-    st.textContent='Preparando '+f.name+'…';try{const m=await prepMedia(f,st);list.push(m);added++;const w=calidadTxt(m.q);if(w)toast(w)}catch(err){toast(err.message||'No se pudo leer '+f.name)}}
-  renderGrid(list,el,tag);st.textContent=added?list.length+' archivo(s) listos.':'';return added>0;
+    st.textContent='Preparando '+f.name+'…';try{const m=await prepMedia(f,st);list.push(m);added++;const w=calidadTxt(m.q);if(w)toast(w)}catch(err){lastErr=err.message||'No se pudo leer '+f.name;toast(lastErr)}}
+  renderGrid(list,el,tag);st.textContent=added?list.length+' archivo(s) listos.':lastErr;return added>0;
 }
 async function uploadMedia(list,origen){
   const media=[];let mainId='',mini='';const now=new Date().toISOString(),base={origen,por:S.me||'',t:now};

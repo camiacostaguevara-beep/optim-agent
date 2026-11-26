@@ -2,8 +2,9 @@ import subprocess, numpy as np, sys
 from PIL import Image
 def stats(path):
     out=[]
+    dur=float(subprocess.run(['ffprobe','-v','error','-show_entries','format=duration','-of','csv=p=0',path],capture_output=True,text=True).stdout.strip() or 15)
     for i in range(16):
-        t=15*(i+.5)/16
+        t=dur*(i+.5)/16
         raw=subprocess.run(['ffmpeg','-loglevel','error','-ss',str(t),'-i',path,'-frames:v','1','-vf','scale=160:-1','-f','rawvideo','-pix_fmt','rgb24','-'],capture_output=True).stdout
         a=np.frombuffer(raw,np.uint8).reshape(-1,160,3).astype(float)
         g=.299*a[...,0]+.587*a[...,1]+.114*a[...,2]
