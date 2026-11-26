@@ -196,7 +196,69 @@ tbody tr:last-child td{border-bottom:0}
 details>summary{list-style:none}details>summary::-webkit-details-marker{display:none}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
 @media(max-width:600px){table{font-size:13px}.stack thead{display:none}.stack tr{display:grid;padding-block:10px;border-bottom:1px solid var(--line)}.stack td{display:flow-root;border:0;padding:3px 12px;padding-inline-start:8em;text-align:start}.stack td::before{content:attr(data-l);float:inline-start;width:7.5em;margin-inline-start:-8em;color:var(--mute)}.stack td:empty{display:none}}
+/* ===== MODO AGENTE: estilo alternativo negro, de unidad de rastreo. Se activa por dispositivo con el botón del ojo. ===== */
+:root[data-estilo="agente"]{
+  --bg:#000000;--surface:rgba(11,11,11,.92);--surface-solid:#0a0a0a;--surface-2:#131313;--ink:#ececec;--mute:#8b8b8b;--line:rgba(255,255,255,.13);
+  --btn-bg:#151515;--btn-fg:#ececec;--brand:#ff2b2b;--on-brand:#ffffff;
+  --ok:#3ddc84;--warn:#ffb020;--crit:#ff5252;--info:#9aa6b6;
+  --brand-ink:color-mix(in srgb,var(--brand) 80%,#ffffff);--glow:color-mix(in srgb,var(--brand) 50%,transparent);--grid:rgba(255,255,255,.03);
+  --shadow:0 0 0 1px rgba(255,255,255,.02) inset;
+  --f-display:"JetBrains Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;color-scheme:dark}
+[data-estilo="agente"] body{background:radial-gradient(1000px 520px at 50% -12%,color-mix(in srgb,var(--brand) 9%,transparent),transparent 62%),#000}
+[data-estilo="agente"] .fondo{background-image:repeating-linear-gradient(0deg,rgba(255,255,255,.028) 0 1px,transparent 1px 3px);background-size:auto;-webkit-mask-image:none;mask-image:none}
+[data-estilo="agente"] h1,[data-estilo="agente"] h2,[data-estilo="agente"] h3{text-transform:uppercase;letter-spacing:.06em;font-weight:700}
+[data-estilo="agente"] .marca b{text-transform:uppercase;letter-spacing:.12em;font-size:16px}
+[data-estilo="agente"] .marca .ini{border-radius:4px;background:var(--brand);box-shadow:0 0 18px -4px var(--glow)}
+[data-estilo="agente"] .appbar,[data-estilo="agente"] .rail{background:rgba(0,0,0,.82)}
+[data-estilo="agente"] .chip,[data-estilo="agente"] .sede{border-radius:4px}
+[data-estilo="agente"] .rail button{border-radius:4px;font-family:var(--f-mono);font-size:13px;text-transform:uppercase;letter-spacing:.06em}
+[data-estilo="agente"] .rail button[aria-selected="true"]{background:linear-gradient(90deg,color-mix(in srgb,var(--brand) 18%,transparent),transparent);border-color:color-mix(in srgb,var(--brand) 35%,transparent)}
+/* buscador potente */
+[data-estilo="agente"] #buscar .hero{position:relative;text-align:center;padding:34px 0 8px;isolation:isolate}
+[data-estilo="agente"] #buscar .hero::before{content:"";position:absolute;left:50%;top:52%;width:min(440px,88vw);aspect-ratio:1;transform:translate(-50%,-50%);border-radius:50%;z-index:-1;pointer-events:none;
+  background:radial-gradient(circle,transparent 0 21%,rgba(255,255,255,.07) 21.3% 21.8%,transparent 22.1% 47%,rgba(255,255,255,.06) 47.3% 47.8%,transparent 48.1% 69%,color-mix(in srgb,var(--brand) 35%,transparent) 69.3% 69.7%,transparent 70%),
+  linear-gradient(rgba(255,255,255,.07),rgba(255,255,255,.07)) center/1px 100% no-repeat,linear-gradient(90deg,rgba(255,255,255,.07),rgba(255,255,255,.07)) center/100% 1px no-repeat}
+[data-estilo="agente"] #buscar .hero h1{background:none;color:var(--ink);font-size:clamp(32px,6.4vw,58px);letter-spacing:.1em}
+[data-estilo="agente"] #buscar .hero p{margin:10px auto 0}
+[data-estilo="agente"] #buscar .eyebrow{justify-content:center;color:var(--brand-ink)}
+[data-estilo="agente"] #buscar .eyebrow::after{content:"";width:18px;height:1px;background:var(--brand);box-shadow:0 0 8px var(--glow)}
+[data-estilo="agente"] .pulso{justify-content:center}
+[data-estilo="agente"] .pulso span{border-radius:3px}
+[data-estilo="agente"] #sform{max-width:860px;margin:0 auto}
+[data-estilo="agente"] #q{min-height:64px;font:500 19px var(--f-mono);border-radius:4px;background:#050505 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ff2b2b' stroke-width='1.6'%3E%3Ccircle cx='12' cy='12' r='7'/%3E%3Ccircle cx='12' cy='12' r='1.4' fill='%23ff2b2b'/%3E%3Cpath d='M12 1v5M12 18v5M1 12h5M18 12h5'/%3E%3C/svg%3E") 16px center/26px no-repeat;padding-left:56px;caret-color:var(--brand);border-color:rgba(255,255,255,.22)}
+[data-estilo="agente"] #q:focus{border-color:var(--brand);box-shadow:0 0 0 1px var(--brand),0 0 36px -8px var(--glow)}
+[data-estilo="agente"] #sform .btn{min-height:64px;border-radius:4px;font-family:var(--f-mono);text-transform:uppercase;letter-spacing:.12em}
+[data-estilo="agente"] .btn{border-radius:4px}
+[data-estilo="agente"] .btn.red{background:var(--brand);box-shadow:0 0 28px -8px var(--glow)}
+[data-estilo="agente"] input,[data-estilo="agente"] select,[data-estilo="agente"] textarea{border-radius:4px}
+/* expedientes */
+[data-estilo="agente"] .label{border-radius:4px;background:#070707;border-color:rgba(255,255,255,.12)}
+[data-estilo="agente"] .label::before{content:"EXPEDIENTE";left:14px;right:auto;top:-8px;height:auto;width:auto;padding:0 8px;background:#000;box-shadow:none;border-radius:0;font:700 10px/16px var(--f-mono);letter-spacing:.22em;color:var(--brand-ink)}
+[data-estilo="agente"] .label::after{content:"";position:absolute;inset:-1px;pointer-events:none;
+  background:linear-gradient(var(--brand),var(--brand)) top left/16px 2px no-repeat,linear-gradient(var(--brand),var(--brand)) top left/2px 16px no-repeat,
+  linear-gradient(var(--brand),var(--brand)) top right/16px 2px no-repeat,linear-gradient(var(--brand),var(--brand)) top right/2px 16px no-repeat,
+  linear-gradient(var(--brand),var(--brand)) bottom left/16px 2px no-repeat,linear-gradient(var(--brand),var(--brand)) bottom left/2px 16px no-repeat,
+  linear-gradient(var(--brand),var(--brand)) bottom right/16px 2px no-repeat,linear-gradient(var(--brand),var(--brand)) bottom right/2px 16px no-repeat}
+[data-estilo="agente"] .label:hover{border-color:color-mix(in srgb,var(--brand) 45%,transparent);box-shadow:0 0 40px -18px var(--glow)}
+[data-estilo="agente"] .thumb{border-radius:2px;filter:grayscale(.35) contrast(1.08)}
+[data-estilo="agente"] .label:hover .thumb{filter:none}
+[data-estilo="agente"] .loc .big{border-radius:2px;color:#fff;background:transparent;border-color:color-mix(in srgb,var(--brand) 60%,transparent);text-shadow:0 0 14px var(--glow)}
+[data-estilo="agente"] .loc>.meta:first-child::before{content:"UBICACIÓN · ";letter-spacing:.14em;font:600 10px var(--f-mono);color:var(--brand-ink)}
+[data-estilo="agente"] .tag{border-radius:2px}
+[data-estilo="agente"] .tag.hit{background:transparent;color:var(--brand-ink);border-color:var(--brand)}
+[data-estilo="agente"] .gauge::before{background:#070707}
+[data-estilo="agente"] .stat,[data-estilo="agente"] .alert,[data-estilo="agente"] table,[data-estilo="agente"] .form,[data-estilo="agente"] .modal>div,[data-estilo="agente"] .escaneo,[data-estilo="agente"] .drop{border-radius:4px}
+[data-estilo="agente"] .stat::after{background:linear-gradient(90deg,var(--brand),transparent 60%)}
+.estilo{cursor:pointer;color:var(--ink)}.estilo::before{display:none}.estilo svg{width:16px;height:16px}
+.estilo[aria-pressed="true"]{border-color:var(--brand);color:var(--brand-ink);box-shadow:0 0 16px -6px var(--glow)}
+@media(max-width:640px){.estilo span{display:none}.estilo{padding:6px 8px}}
+[data-estilo="agente"] #sform #q{flex:1 1 100%}
+[data-estilo="agente"] #sform{justify-content:center}
+.marca>div{overflow:hidden}.marca b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media(max-width:640px){[data-estilo="agente"] .marca b{font-size:14px;letter-spacing:.04em}}
+@media(max-width:899px){[data-estilo="agente"] .rail button{font-size:10.5px;letter-spacing:0;text-transform:none}}
 </style>
+<script>try{if(localStorage.getItem('custodia_estilo')==='agente')document.documentElement.dataset.estilo='agente'}catch(e){}</script>
 <script>new MutationObserver(()=>{for(const c of document.querySelectorAll('.stack td:not([data-l])')){let i=0,p=c;while(p=p.previousElementSibling)i+=p.colSpan;c.dataset.l=c.closest('table').rows[0].cells[i]?.textContent||''}}).observe(document,{childList:true,subtree:true})</script>
 </head>
 <body>
@@ -212,11 +274,13 @@ details>summary{list-style:none}details>summary::-webkit-details-marker{display:
 <symbol id="i-disposicion" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 11c0 5.6-7 10-7 10z"/></symbol>
 <symbol id="i-tablero" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20h18"/><path d="M6 20V11M11 20V5M16 20v-6M21 20V9"/></symbol>
 <symbol id="i-mas" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></symbol>
+<symbol id="i-ojo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></symbol>
 <symbol id="i-sede" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.2 7-12a7 7 0 0 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="9" r="2.5"/></symbol>
 </defs></svg>
 <div class="fondo" aria-hidden="true"></div>
 <header class="appbar">
   <div class="marca"><span class="ini" id="marca_ini">C</span><img id="marca_logo" alt="" hidden><div><b id="marca_nom">Custodia</b><small id="marca_sub">Buscador de envíos en custodia</small></div></div>
+  <button type="button" class="chip estilo" id="estilo_btn" aria-pressed="false" title="Cambiar al modo agente"><svg><use href="#i-ojo"/></svg><span>Modo agente</span></button>
   <span class="chip" id="status" data-estado="">Conectando…</span>
   <label class="sede" title="Mi sede"><svg><use href="#i-sede"/></svg><select id="mi_sede" aria-label="Mi sede"></select></label>
 </header>
@@ -238,11 +302,11 @@ details>summary{list-style:none}details>summary::-webkit-details-marker{display:
   <div id="banner"></div>
 
   <section id="buscar">
-    <div class="hero"><div class="eyebrow">Centro de búsqueda · Red nacional de custodias</div><h1>¿Qué envió el cliente?</h1><p>Escriba lo que describe: objeto, color, marca, ciudad, peso o parte de la guía. La búsqueda cubre todas las sedes, y "Buscar con IA" entiende descripciones vagas.</p></div>
+    <div class="hero"><div class="eyebrow" id="h_eye">Centro de búsqueda · Red nacional de custodias</div><h1 id="h_tit">¿Qué envió el cliente?</h1><p id="h_txt">Escriba lo que describe: objeto, color, marca, ciudad, peso o parte de la guía. La búsqueda cubre todas las sedes, y "Buscar con IA" entiende descripciones vagas.</p></div>
     <div class="pulso" id="pulso" aria-live="polite"></div>
     <form class="bar" id="sform">
       <input id="q" placeholder="Ej.: tenis negros Nike talla 42 para Medellín" aria-label="Descripción del cliente">
-      <button class="btn red">Buscar</button>
+      <button class="btn red" id="b_buscar">Buscar</button>
       <button type="button" class="btn alt" id="aiq">Buscar con IA</button>
       <select id="q_sede" aria-label="Sede" style="flex:0 1 220px"></select>
     </form>
@@ -456,6 +520,18 @@ function score(p,toks){
   }
   return {pct:max?Math.round(100*s/max):0,hits};
 }
+const TEXTOS={
+  normal:{eye:'Centro de búsqueda · Red nacional de custodias',tit:'¿Qué envió el cliente?',txt:'Escriba lo que describe: objeto, color, marca, ciudad, peso o parte de la guía. La búsqueda cubre todas las sedes, y "Buscar con IA" entiende descripciones vagas.',ph:'Ej.: tenis negros Nike talla 42 para Medellín',bus:'Buscar',ia:'Buscar con IA',btn:'Modo agente'},
+  agente:{eye:'Unidad de rastreo · Red nacional',tit:'Localizar envío',txt:'Describa el objetivo: objeto, color, marca, ciudad, peso o fragmento de guía. El rastreo cubre todas las sedes y la IA interpreta descripciones vagas.',ph:'Objetivo: tenis negros Nike talla 42, destino Medellín',bus:'Rastrear',ia:'Rastreo con IA',btn:'Modo normal'}};
+function aplicarEstilo(){
+  const ag=document.documentElement.dataset.estilo==='agente',t=TEXTOS[ag?'agente':'normal'],set=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v};
+  set('h_eye',t.eye);set('h_tit',t.tit);set('h_txt',t.txt);set('b_buscar',t.bus);set('aiq',t.ia);
+  const q=document.getElementById('q');if(q)q.placeholder=t.ph;
+  const b=document.getElementById('estilo_btn');if(b){b.setAttribute('aria-pressed',ag);b.title=ag?'Volver al estilo normal':'Cambiar al modo agente';b.querySelector('span').textContent=t.btn}
+}
+document.getElementById('estilo_btn').addEventListener('click',()=>{const r=document.documentElement;if(r.dataset.estilo==='agente')delete r.dataset.estilo;else r.dataset.estilo='agente';
+  try{localStorage.setItem('custodia_estilo',r.dataset.estilo||'')}catch(e){}aplicarEstilo()});
+aplicarEstilo();
 const escaneo=t=>`<div class="escaneo"><span class="radar" aria-hidden="true"></span><span>${esc(t)}</span></div>`;
 function renderPulso(){const el=document.getElementById('pulso');if(!el)return;const c=custodia(),ns=new Set([...(typeof sedes==='function'?sedes().map(x=>x.nombre):[]),...c.map(p=>p.sede).filter(Boolean)]).size,ra=S.rec.filter(r=>r.estado==='abierto').length,nn=c.filter(p=>p.nn&&!p.guia).length;
   el.innerHTML=`<span><b>${ns||1}</b>sede(s) en red</span><span><b>${c.length}</b>en custodia</span><span><b>${ra}</b>reclamo(s) abierto(s)</span>${nn?`<span><b>${nn}</b>NN</span>`:''}<span class="ia"><b>${S.sample?'●':'○'}</b>${S.sample?'IA activa':'IA no disponible'}</span>`}
