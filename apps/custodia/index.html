@@ -104,6 +104,7 @@ th{font-size:13px;color:var(--mute);font-weight:600}
     <button role="tab" data-t="buscar" aria-selected="true">Buscar</button>
     <button role="tab" data-t="asistente" aria-selected="false">Asistente IA</button>
     <button role="tab" data-t="admision" aria-selected="false">Admisión</button>
+    <button role="tab" data-t="camaras" aria-selected="false">Cámaras</button>
     <button role="tab" data-t="registrar" aria-selected="false">Registrar en custodia</button>
     <button role="tab" data-t="reclamos" aria-selected="false">Reclamos</button>
     <button role="tab" data-t="inventario" aria-selected="false">Inventario</button>
@@ -170,6 +171,7 @@ th{font-size:13px;color:var(--mute);font-weight:600}
         <label class="f">Ubicación<input id="ubi" placeholder="B-3-2 (estante-nivel-caja)"></label>
       </div>
       <label class="f">Sede de custodia<select id="sede_reg"></select></label>
+      <label class="check"><input type="checkbox" id="nn"> Paquete NN: sin guía y sin nombre, solo la caja o el empaque. Se identifica por fotos y características: registre peso, medidas y marcas.</label>
       <div class="row2">
         <label class="f">Estado del producto<select id="cond"><option>Bueno</option><option>Usado</option><option>Dañado parcial</option><option>Dañado total</option><option>Vencido o perecedero</option></select></label>
         <label class="f">Material principal<select id="mat"><option>Mixto</option><option>Cartón y papel</option><option>Plástico</option><option>Electrónico (RAEE)</option><option>Textil</option><option>Vidrio</option><option>Metal</option><option>Orgánico</option><option>Peligroso</option></select></label>
@@ -209,7 +211,7 @@ th{font-size:13px;color:var(--mute);font-weight:600}
     <h2>Inventario de la custodia</h2>
     <div id="alerts"></div>
     <div id="por_sede" style="overflow-x:auto;margin-top:10px"></div>
-    <div class="bar" style="margin:14px 0"><input id="f_txt" placeholder="Filtrar por código, estante u objeto"><select id="f_sede" aria-label="Sede" style="flex:0 1 200px"></select><select id="f_est" style="flex:0 1 200px"><option value="custodia">En custodia</option><option value="separado">Separados para disposición</option><option value="entregado">Entregados</option><option value="dispuesto">Enviados a reciclaje</option><option value="rezago">En rezago</option><option value="donado">Donados</option><option value="">Todos</option></select></div>
+    <div class="bar" style="margin:14px 0"><input id="f_txt" placeholder="Filtrar por código, estante u objeto"><select id="f_sede" aria-label="Sede" style="flex:0 1 200px"></select><label class="check" style="flex:0 0 auto;align-self:center"><input type="checkbox" id="f_nn"> Solo NN</label><select id="f_est" style="flex:0 1 200px"><option value="custodia">En custodia</option><option value="separado">Separados para disposición</option><option value="entregado">Entregados</option><option value="dispuesto">Enviados a reciclaje</option><option value="rezago">En rezago</option><option value="donado">Donados</option><option value="">Todos</option></select></div>
     <div style="overflow-x:auto"><table class="stack" id="inv"></table></div>
   </section>
 
@@ -232,6 +234,16 @@ th{font-size:13px;color:var(--mute);font-weight:600}
     <h3>Admisiones recientes</h3>
     <input id="ad_q" placeholder="Buscar por número de guía" inputmode="numeric" style="margin-bottom:10px">
     <div id="ad_list"></div>
+  </section>
+
+  <section id="camaras" hidden>
+    <h2>Buscar en grabaciones de cámaras</h2>
+    <p class="meta">Exporte del grabador (NVR o DVR) un clip MP4 de la cámara y de la franja de horas en que pudo pasar el paquete. El video se revisa en este dispositivo y no se sube completo: la app toma los cuadros donde hay movimiento y la IA busca en ellos el paquete elegido. Uso autorizado solo para ubicar envíos; no se analizan personas.</p>
+    <div class="row2"><label class="f">Sede<select id="cm_sede"></select></label><label class="f">Cámara<input id="cm_cam" placeholder="Ej.: muelle 2"></label><label class="f">Hora de inicio del clip<input id="cm_ini" type="datetime-local"></label></div>
+    <label class="f" style="margin-top:12px">Qué buscar<select id="cm_obj"></select></label>
+    <input type="file" id="cm_f" accept="video/*" hidden>
+    <div class="bar" style="margin-top:12px"><button class="btn red" id="cm_b" type="button">Elegir el clip y buscar</button><button class="btn alt" id="cm_x" type="button" hidden>Detener</button></div>
+    <p class="meta" id="cm_st"></p><div id="cm_res" class="list"></div>
   </section>
 
   <section id="conciliar" hidden>
@@ -326,6 +338,7 @@ const SIN_SEDE='Sin sede';
 const sedeNom=p=>p.sede||SIN_SEDE;
 const miSede=()=>{try{return localStorage.getItem('custodia_sede')||''}catch(e){return ''}};
 const enTransito=p=>!!(p.traslado&&p.traslado.a);
+const esNN=p=>!!p.nn&&!p.guia;
 const opcSedes=(sel,primera)=>(primera?`<option value="">${esc(primera)}</option>`:'')+sedes().map(x=>`<option value="${esc(x.nombre)}" ${x.nombre===sel?'selected':''}>${esc(x.nombre)}</option>`).join('');
 function renderMiSede(){
   const m=miSede(),ms=$('#mi_sede');if(ms)ms.innerHTML=opcSedes(m,sedes().length?'elegir…':'configure sedes');
@@ -350,7 +363,7 @@ function card(p,r){
   return `<article class="label">${thumb(p,true)}
   <div>${r?`<div class="score ${r.pct<50?'low':''}">${r.pct}% de coincidencia</div>`:''}
   ${r&&r.why?`<div class="why">${esc(r.why)}</div>`:''}
-  <b>${esc(p.codigo)}</b> · ${esc(p.descripcion||p.objeto)}
+  ${esNN(p)?'<span class="tag hit">NN</span> ':''}<b>${esc(p.codigo)}</b> · ${esc(p.descripcion||p.objeto)}${p.nn&&(p.medidas||p.peso)?` <span class="meta">(${esc([p.medidas&&p.medidas+' cm',p.peso&&p.peso+' kg'].filter(Boolean).join(', '))})</span>`:''}
   <div class="tags">${(p.etiquetas||[]).slice(0,10).map(t=>`<span class="tag ${hitTag(t)?'hit':''}">${esc(t)}</span>`).join('')}</div>
   <div class="meta">${esc(p.origen||'¿?')} → ${esc(p.destino||'¿?')}${p.peso?' · '+esc(p.peso)+' kg':''} · ${days(p.ingreso)} días · ${esc(p.empaque||'')}${p.condicion&&!/^(Bueno|Usado)$/.test(p.condicion)?' · '+esc(p.condicion):''}${p.averias?' · averías: '+esc(p.averias):''}${p.estado!=='custodia'?' · <b>'+esc((ESTADO[p.estado]||p.estado).toUpperCase())+'</b>':''}</div></div>
   <div class="loc"><span class="meta"><b>${esc(sedeNom(p))}</b>${enTransito(p)?' → '+esc(p.traslado.a):''}</span><span class="meta">${enTransito(p)?'En tránsito':'Estante'}</span><span class="big">${esc(enTransito(p)?'—':p.ubicacion)}</span>
@@ -596,6 +609,7 @@ async function analyze(){
         regAI.guia=hit?hit.g:'';
         if(hit){const a=hit.a,i=hit.i;if(!$('#orig').value)$('#orig').value=(a&&a.origen)||(i&&i.o)||'';if(!$('#dest').value)$('#dest').value=(a&&a.destino)||(i&&i.d)||'';}
         const difiere=barras.length&&iaG.length&&!iaG.includes(barras[0]);
+        if(!regAI.guias.length&&!gs.length&&!String(L.remitente||'').trim()&&!String(L.destinatario||'').trim()&&!$('#nn').checked){$('#nn').checked=true;msg+=' No se ve guía ni nombres: se marcó como NN. Registre peso, medidas y marcas.'}
         st.textContent=msg+(barras.length?' Código de barras leído (exacto): '+barras[0]+'.'+(difiere?' La IA leyó '+iaG[0]+' en la etiqueta: se usa el código de barras.':''):regAI.guias.length?' Guía leída: '+regAI.guias.join(', ')+'.':gs.length?' Se ve una guía pero con dígitos dudosos ('+gs[0].n+'): acérquese a la etiqueta y agregue otro video.':' No se leyó número de guía.')+(hit?' Coincide con '+(hit.a?'una admisión':'el reporte de la transportadora')+': se asignará al guardar.':'');
       }else{regAI.guias=barras.slice();st.textContent=msg+(barras.length?' Código de barras leído (exacto): '+barras[0]+'.':'')}
     }catch(err){regAI.guias=barras.slice();st.textContent=msg+(barras.length?' Código de barras leído (exacto): '+barras[0]+'.':'')}
@@ -624,6 +638,7 @@ $('#rform').addEventListener('submit',async e=>{
   if(!v('#desc')&&!v('#obj')){toast('Describa el contenido');return}
   if(!v('#ubi')){toast('Indique la ubicación');return}
   if(sedes().length&&!$('#sede_reg').value){toast('Elija la sede de custodia');return}
+  if($('#nn').checked&&(!v('#peso')||!v('#med'))){toast('Un NN se identifica por sus características: registre peso y medidas');return}
   if($('#aper').value!=='exterior'&&!$('#sello').checked){toast('Confirme que el paquete quedó resellado');return}
   if($('#aper').value!=='exterior'&&!v('#test')){toast('Una apertura necesita testigo');return}
   const btn=$('#save');btn.disabled=true;
@@ -638,13 +653,14 @@ $('#rform').addEventListener('submit',async e=>{
     operario:S.me||'',historial:[ev('Apertura registrada en '+($('#sede_reg').value?$('#sede_reg').value+', estante ':'')+v('#ubi').toUpperCase())]};
   if(regAI.huella)p.huella=regAI.huella;if(regAI.guias.length)p.guiasLeidas=regAI.guias;if(regAI.barras.length)p.guiaCodigoBarras=regAI.barras[0];
   if(regAI.sinIA)p.iaPendiente=true;
+  if($('#nn').checked){p.nn=true;p.historial.push(ev('Registrado como NN: sin guía ni nombre'))}
   if(regAI.guia&&!S.paq.some(x=>x.guia===regAI.guia)){p.guia=regAI.guia;p.historial.push(ev('Guía '+regAI.guia+(regAI.barras.includes(regAI.guia)?' leída del código de barras':' leída del video por la IA')))}
   const fin=Object.fromEntries(FB_CAMPOS.map(([k,id])=>[k,$(id).value]));
   const ok=await write(()=>S.db.collection('paquetes').doc(id).set(p),'Paquete '+code+' registrado');
   if(ok&&aiSug){const campos={},corr=[];for(const [k] of FB_CAMPOS){if(!aiSug[k]&&!fin[k])continue;const same=norm(aiSug[k]).trim()===norm(fin[k]).trim();campos[k]=same;if(!same)corr.push({campo:k,ia:String(aiSug[k]).slice(0,80),final:String(fin[k]).slice(0,80)})}
     fbLog({tipo:'foto',ref:id,ok:!corr.length,campos,corr});aiSug=null}
   btn.disabled=false;
-  if(ok){e.target.reset();fotoBlob=null;fotoMini='';regAI={huella:null,guias:[],guia:'',barras:[],vivo:[],sinIA:false};RM.length=0;$('#rm_grid').innerHTML='';$('#aistate').textContent='';openDetail(id,{...p,id})}
+  if(ok){e.target.reset();fotoBlob=null;fotoMini='';regAI={huella:null,guias:[],guia:'',barras:[],vivo:[],sinIA:false};$('#nn').checked=false;RM.length=0;$('#rm_grid').innerHTML='';$('#aistate').textContent='';openDetail(id,{...p,id})}
 });
 
 /* ---------- detalle, etiqueta y entrega ---------- */
@@ -796,6 +812,75 @@ $('#cform').addEventListener('submit',async e=>{
     setTimeout(()=>{const b=document.querySelector(hadFoto?`[data-cmp="${CSS.escape(ref.id)}"]`:(S.sample?`[data-match="${CSS.escape(ref.id)}"][data-ai]`:`[data-match="${CSS.escape(ref.id)}"]`));if(b)b.click()},500)}
 });
 async function blobOf(src){try{if(!src)return null;const res=await fetch(src);if(!res.ok)return null;const b=await res.blob();return b.type.startsWith('image/')?b:null}catch(e){return null}}
+/* ---------- cámaras: buscar un paquete en un clip grabado ---------- */
+const CAM={parar:false,frames:[]};
+function renderCamaras(){
+  const sd=$('#cm_sede');if(sd){const v=sd.dataset.v??miSede();sd.innerHTML=opcSedes(v,'Elija la sede');sd.value=v}
+  const ob=$('#cm_obj');if(!ob)return;const v=ob.value;
+  const rs=S.rec.filter(r=>r.estado==='abierto'&&(fotoSrc(r)||(r.media||[]).length)),as=S.adm.filter(a=>(a.media||[]).length).slice(0,60),ps=custodia().filter(p=>(fotoSrc(p)||(p.media||[]).length)).sort((a,b)=>esNN(b)-esNN(a)).slice(0,80);
+  ob.innerHTML='<option value="">Elija qué buscar</option>'+(rs.length?`<optgroup label="Reclamos abiertos con fotos">${rs.map(r=>`<option value="r:${esc(r.id)}">${esc(r.cliente||'Cliente')}: ${esc(String(r.descripcion||'').slice(0,50))}</option>`).join('')}</optgroup>`:'')+
+    (as.length?`<optgroup label="Admisiones con foto (guía)">${as.map(a=>`<option value="a:${esc(a.id)}">Guía ${esc(a.guia)}: ${esc(String(a.descripcion||a.contenido||'').slice(0,40))}</option>`).join('')}</optgroup>`:'')+
+    (ps.length?`<optgroup label="Paquetes en custodia (NN primero)">${ps.map(p=>`<option value="p:${esc(p.id)}">${esNN(p)?'NN · ':''}${esc(p.codigo)}: ${esc(String(p.descripcion||p.objeto||'').slice(0,40))}</option>`).join('')}</optgroup>`:'');
+  if([...ob.options].some(o=>o.value===v))ob.value=v;
+}
+async function framesDeClip(file,st){
+  const url=URL.createObjectURL(file),v=document.createElement('video');v.muted=true;v.playsInline=true;v.preload='auto';v.src=url;
+  try{await new Promise((ok,ko)=>{v.onloadeddata=ok;v.onerror=ko;setTimeout(ko,20000)})}catch(e){URL.revokeObjectURL(url);throw new Error(await esHEVC(file)?MSG_HEVC:'No se pudo abrir el clip. Expórtelo del grabador en MP4 (H.264); los formatos propios del grabador, como .dav, deben convertirse con su reproductor.')}
+  if(!isFinite(v.duration)){await new Promise(r=>{v.ondurationchange=()=>{if(isFinite(v.duration))r()};v.currentTime=1e101;setTimeout(r,4000)});v.ondurationchange=null}
+  const dur=isFinite(v.duration)&&v.duration>0?v.duration:1,paso=Math.max(1,dur/150),sm=document.createElement('canvas'),big=document.createElement('canvas');sm.width=64;sm.height=36;
+  const gs=sm.getContext('2d',{willReadFrequently:true});let prev=null;const cand=[];
+  const ir=t=>new Promise(r=>{let fin=false;const ok=x=>{if(!fin){fin=true;r(x)}};v.onseeked=()=>ok(true);v.currentTime=t;setTimeout(()=>ok(!v.seeking),8000)});
+  for(let t=0;t<dur&&!CAM.parar;t+=paso){if(!(await ir(Math.min(dur-0.05,t))))continue;if(!v.videoWidth)continue;
+    gs.drawImage(v,0,0,64,36);const d=gs.getImageData(0,0,64,36).data,g=new Float32Array(64*36);for(let i=0;i<g.length;i++)g[i]=.299*d[i*4]+.587*d[i*4+1]+.114*d[i*4+2];
+    let mov=0;if(prev){for(let i=0;i<g.length;i++)mov+=Math.abs(g[i]-prev[i]);mov/=g.length}prev=g;
+    const k=Math.min(1,960/Math.max(v.videoWidth,v.videoHeight));big.width=Math.round(v.videoWidth*k);big.height=Math.round(v.videoHeight*k);big.getContext('2d').drawImage(v,0,0,big.width,big.height);
+    const b=await new Promise(r=>big.toBlob(r,'image/jpeg',.8));if(b)cand.push({t,mov,blob:b});
+    if(st)st.textContent='Revisando el clip en este dispositivo… '+Math.round(100*t/dur)+'%'}
+  URL.revokeObjectURL(url);
+  const conMov=cand.filter((x,i)=>i===0||x.mov>=3);const sel=(conMov.length>=8?conMov:cand).slice().sort((a,b)=>b.mov-a.mov).slice(0,40).sort((a,b)=>a.t-b.t);
+  return {dur,frames:sel,revisados:cand.length};
+}
+async function buscarEnFrames(refs,refDesc,frames,st){
+  const max=await imgMax();if(!max)throw {code:'images_unavailable'};
+  const R=refs.slice(0,Math.max(1,Math.min(3,max-3))),per=Math.max(1,max-R.length),out=[];
+  for(let i=0;i<frames.length&&!CAM.parar;i+=per){const batch=frames.slice(i,i+per);
+    if(st)st.textContent='La IA revisa los cuadros '+(i+1)+' a '+(i+batch.length)+' de '+frames.length+'…';
+    const o=await S.sample.json(`Eres perito visual de una empresa de mensajería en Colombia. Las primeras ${R.length} imágenes son ${refDesc}. Después vienen ${batch.length} cuadros de una cámara de seguridad de una bodega, en este orden: ${JSON.stringify(batch.map((f,j)=>'c'+(i+j)))}. En cada cuadro puede haber varios paquetes o ninguno, de lejos y con poca calidad.
+Para CADA cuadro di si aparece el MISMO paquete de la referencia y compara rasgo por rasgo el paquete más parecido del cuadro: "si" (claramente igual), "no" (claramente distinto) o "nv" (no se ve). Rasgos: numeros, etiquetas, logos, empaque, color, cinta, forma, marcas (escritos a mano, stickers, parches de cinta), averias. Ignora a las personas: no las describas. Ante la duda responde "nv".
+Responde SOLO con JSON: {"cuadros":[{"id":"c0","aparece":"si|no|duda","numeros":"si|no|nv","etiquetas":"","logos":"","empaque":"","color":"","cinta":"","forma":"","marcas":"","averias":"","donde":"posición en el cuadro, frase corta","razon":"frase corta"}]} con TODOS los cuadros.`,{images:[...R,...batch.map(f=>f.blob)],modelTier:'complex'});
+    for(const c of (o&&Array.isArray(o.cuadros)?o.cuadros:[])){const j=+String(c.id||'').replace(/\D/g,'');const f=frames[j];if(!f||String(c.aparece).toLowerCase()==='no')continue;const {pct,f:fe}=scoreFeat(c);if(pct>=35)out.push({f,pct,why:[featTxt(fe),c.donde,c.razon].filter(Boolean).join(' · ')})}
+  }
+  return out.sort((a,b)=>b.pct-a.pct).slice(0,10);
+}
+$('#cm_sede').addEventListener('change',e=>{e.target.dataset.v=e.target.value});
+$('#cm_b').addEventListener('click',()=>{if(!S.sample){toast('La IA no está disponible en esta vista');return}if(!navigator.onLine){toast('Necesita conexión para que la IA revise el clip');return}if(!$('#cm_obj').value){toast('Elija qué buscar');return}if(!$('#cm_sede').value&&sedes().length){toast('Elija la sede de la cámara');return}$('#cm_f').click()});
+$('#cm_x').addEventListener('click',()=>{CAM.parar=true;$('#cm_st').textContent='Deteniendo…'});
+$('#cm_f').addEventListener('change',async e=>{
+  const file=e.target.files[0];e.target.value='';if(!file)return;const st=$('#cm_st'),res=$('#cm_res');
+  const [tipo,id]=$('#cm_obj').value.split(':'),ent=(tipo==='r'?S.rec:tipo==='a'?S.adm:S.paq).find(x=>x.id===id);if(!ent){toast('Elija qué buscar');return}
+  CAM.parar=false;$('#cm_b').disabled=true;$('#cm_x').hidden=false;res.innerHTML='';
+  try{
+    const refs=await imagesOf(ent,3);if(!refs.length)throw new Error('No se pudieron abrir las fotos de referencia.');
+    const {dur,frames,revisados}=await framesDeClip(file,st);if(!frames.length)throw new Error('No se pudieron leer cuadros del clip.');
+    const refDesc=tipo==='r'?'fotos del envío que mandó el cliente':tipo==='a'?'fotos del paquete cerrado al admitirlo en la oficina':'cuadros del video del paquete en custodia';
+    const hits=await buscarEnFrames(refs,refDesc,frames,st);
+    const ini=$('#cm_ini').value?Date.parse($('#cm_ini').value):NaN,hora=t=>isFinite(ini)?new Date(ini+t*1000).toLocaleString('es-CO',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit',second:'2-digit'}):'minuto '+Math.floor(t/60)+':'+String(Math.floor(t%60)).padStart(2,'0')+' del clip';
+    const ord=hits.slice().sort((a,b)=>a.f.t-b.f.t),pasos=[];for(const h of ord){const u=pasos.at(-1);if(u&&h.f.t-u.fin<=Math.max(6,dur/40)){u.fin=h.f.t;u.n++;if(h.pct>u.mejor.pct)u.mejor=h}else pasos.push({ini:h.f.t,fin:h.f.t,n:1,mejor:h})}
+    pasos.sort((a,b)=>b.mejor.pct-a.mejor.pct);
+    CAM.frames=pasos.map(x=>({...x.mejor,ini:x.ini,fin:x.fin}));CAM.ctx={tipo,id,sede:$('#cm_sede').value,cam:$('#cm_cam').value.trim(),ini};
+    st.textContent=`Clip de ${Math.round(dur/60)} min revisado: ${revisados} momentos, ${frames.length} con movimiento enviados a la IA.`+(CAM.parar?' (detenido)':'');
+    res.innerHTML=pasos.length?`<p class="meta">El paquete pasa ${pasos.length} vez/veces por esta cámara.</p>`+pasos.map((x,i)=>{const h=x.mejor;return `<article class="label"><img src="${URL.createObjectURL(h.f.blob)}" alt="" style="width:112px;height:112px;object-fit:cover;border-radius:4px"><div><div class="score ${h.pct<50?'low':''}">${h.pct}% · ${esc(nivel(h.pct))}</div><b>${esc(hora(x.ini))}${x.fin>x.ini?' a '+esc(hora(x.fin)):''}</b> <span class="meta">(${x.n} cuadro(s))</span><div class="meta">${esc(h.why)}</div></div><div class="loc"><button class="btn sm" data-camok="${i}">Guardar avistamiento</button></div></article>`}).join(''):'<p class="meta">El paquete no aparece en los cuadros con movimiento de este clip.</p>';
+  }catch(err){st.textContent=err&&err.message?err.message:(err&&err.code==='rate_limited'?'IA ocupada: intente en un momento.':'No se pudo revisar el clip.')}
+  finally{$('#cm_b').disabled=false;$('#cm_x').hidden=true}
+});
+document.addEventListener('click',async e=>{const t=e.target.closest('[data-camok]');if(!t)return;const h=CAM.frames[+t.dataset.camok],c=CAM.ctx;if(!h||!c)return;t.disabled=true;
+  const col=c.tipo==='r'?'reclamos':c.tipo==='a'?'admisiones':'paquetes',ent=(c.tipo==='r'?S.rec:c.tipo==='a'?S.adm:S.paq).find(x=>x.id===c.id);if(!ent)return;
+  const img=await loadImg(URL.createObjectURL(h.f.blob)),mini=img?await toJpeg(img,360,.6):{url:''};
+  const up=await uploadMedia([{kind:'foto',blob:h.f.blob,mini:mini.url}],'camara',col+'/'+c.id);
+  const x={t:isFinite(c.ini)?new Date(c.ini+h.f.t*1000).toISOString():new Date().toISOString(),hasta:isFinite(c.ini)&&h.fin>h.ini?new Date(c.ini+h.fin*1000).toISOString():'',sede:c.sede||'',camara:c.cam,pct:h.pct,razon:String(h.why).slice(0,200),foto:(up.media[0]&&up.media[0].id)||'',ok:false,por:S.me||'',fuente:'clip'};
+  const upd={avistamientos:[...(ent.avistamientos||[]),x].slice(-60)};if(col==='paquetes')upd.historial=histAdd(ent,'Visto en cámara '+(c.cam||'')+' de '+(c.sede||'sede')+' ('+h.pct+'%)');
+  if(await write(()=>S.db.collection(col).doc(c.id).update(upd),'Avistamiento guardado'))t.textContent='Guardado'});
+
 /* ---------- búsqueda nacional de un reclamo ---------- */
 const digitosGuia=r=>String(r.guia||'').replace(/\D/g,'');
 function candidatosLocales(r,n){
@@ -818,7 +903,7 @@ async function buscarPorFotos(r,override){
   const cimgs=override||await imagesOf(r,4);if(!cimgs.length)throw {code:'sin_fotos'};
   const toks=tokens([r.descripcion,r.fotoDesc,...(r.fotoTags||[]),r.origen,r.destino].join(' '));
   const locales=candidatosLocales(r,40).filter(x=>(fotoSrc(x.p)||(x.p.media||[]).length)&&!x.p.privado).map(x=>x.p);
-  const resto=custodia().filter(p=>(fotoSrc(p)||(p.media||[]).length)&&!p.privado&&!locales.includes(p)).sort((a,b)=>score(b,toks).pct-score(a,toks).pct||String(b.ingreso).localeCompare(String(a.ingreso)));
+  const resto=custodia().filter(p=>(fotoSrc(p)||(p.media||[]).length)&&!p.privado&&!locales.includes(p)).sort((a,b)=>(esNN(b)-esNN(a))||score(b,toks).pct-score(a,toks).pct||String(b.ingreso).localeCompare(String(a.ingreso)));
   const orden=[...locales,...resto].slice(0,8);if(!orden.length)throw {code:'sin_custodia'};
   const cands=[];for(const p of orden){const bs=await imagesOf(p,2);if(bs.length)cands.push({id:p.id,imgs:bs,datos:{sede:sedeNom(p),desc:p.descripcion,marca:p.marca,color:p.color,texto:p.textoVisible,averias:p.averias,orig:p.origen,dest:p.destino,kg:p.peso,huella:p.huella||null}})}
   if(!cands.length)throw {code:'sin_custodia'};
@@ -900,9 +985,9 @@ function renderRecList(){
 function renderPorSede(){
   const el=$('#por_sede');if(!el)return;const c=custodia(),nombres=[...new Set([...sedes().map(x=>x.nombre),...c.map(sedeNom)])];
   if(nombres.length<2&&!sedes().length){el.innerHTML='';return}
-  const fila=n=>{const de=c.filter(p=>sedeNom(p)===n&&!enTransito(p));return {n,en:de.length,viejos:de.filter(p=>days(p.ingreso)>30).length,sinConf:de.filter(p=>p.estado==='custodia'&&days(p.verificado||p.ingreso)>15).length,llegan:c.filter(p=>enTransito(p)&&p.traslado.a===n).length}};
+  const fila=n=>{const de=c.filter(p=>sedeNom(p)===n&&!enTransito(p));return {n,en:de.length,viejos:de.filter(p=>days(p.ingreso)>30).length,sinConf:de.filter(p=>p.estado==='custodia'&&days(p.verificado||p.ingreso)>15).length,nn:de.filter(esNN).length,llegan:c.filter(p=>enTransito(p)&&p.traslado.a===n).length}};
   const fs=nombres.map(fila).filter(f=>f.en||f.llegan||sedes().some(x=>x.nombre===f.n));
-  el.innerHTML=`<table class="stack"><thead><tr><th>Sede</th><th style="text-align:right">En custodia</th><th style="text-align:right">Más de 30 días</th><th style="text-align:right">Sin confirmar</th><th style="text-align:right">Por recibir</th></tr></thead><tbody>${fs.map(f=>`<tr${f.n===miSede()?' style="font-weight:600"':''}><td>${esc(f.n)}${f.n===miSede()?' (mi sede)':''}</td><td style="text-align:right">${f.en}</td><td style="text-align:right">${f.viejos}</td><td style="text-align:right">${f.sinConf}</td><td style="text-align:right">${f.llegan}</td></tr>`).join('')}</tbody></table>`;
+  el.innerHTML=`<table class="stack"><thead><tr><th>Sede</th><th style="text-align:right">En custodia</th><th style="text-align:right">Más de 30 días</th><th style="text-align:right">Sin confirmar</th><th style="text-align:right">NN</th><th style="text-align:right">Por recibir</th></tr></thead><tbody>${fs.map(f=>`<tr${f.n===miSede()?' style="font-weight:600"':''}><td>${esc(f.n)}${f.n===miSede()?' (mi sede)':''}</td><td style="text-align:right">${f.en}</td><td style="text-align:right">${f.viejos}</td><td style="text-align:right">${f.sinConf}</td><td style="text-align:right">${f.nn}</td><td style="text-align:right">${f.llegan}</td></tr>`).join('')}</tbody></table>`;
 }
 function renderInv(){
   renderPorSede();
@@ -923,12 +1008,13 @@ function renderInv(){
   const ua=$('#unsale_all');if(ua)ua.onclick=async()=>{ua.disabled=true;let n=0;for(const p of S.paq.filter(p=>p.estado==='venta')){if(await write(()=>S.db.collection('paquetes').doc(p.id).update({estado:'custodia',venta:null,historial:histAdd(p,'Devuelto a custodia (venta retirada)')})))n++}toast(n+' paquete(s) devueltos a custodia')};
   const ft=norm($('#f_txt').value),fe=$('#f_est').value;
   const fsd=($('#f_sede')||{}).value||'';
-  const rows=S.paq.filter(p=>(!fsd||sedeNom(p)===fsd||(enTransito(p)&&p.traslado.a===fsd))&&(!fe||p.estado===fe)&&(!ft||norm([p.codigo,p.ubicacion,p.sede,p.objeto,p.descripcion,...(p.etiquetas||[])].join(' ')).includes(ft)))
+  const fnn=($('#f_nn')||{}).checked;
+  const rows=S.paq.filter(p=>(!fnn||esNN(p))&&(!fsd||sedeNom(p)===fsd||(enTransito(p)&&p.traslado.a===fsd))&&(!fe||p.estado===fe)&&(!ft||norm([p.codigo,p.ubicacion,p.sede,p.objeto,p.descripcion,...(p.etiquetas||[])].join(' ')).includes(ft)))
     .sort((a,b)=>sedeNom(a).localeCompare(sedeNom(b))||String(a.ubicacion).localeCompare(String(b.ubicacion)));
   $('#inv').innerHTML=`<thead><tr><th>Código</th><th>Contenido</th><th>Sede</th><th>Estante</th><th>Días</th><th>Confirmado</th><th></th></tr></thead><tbody>`+
     (rows.length?rows.map(p=>`<tr><td><button class="btn alt sm" data-open="${esc(p.id)}">${esc(p.codigo)}</button></td><td>${esc(p.objeto||p.descripcion)}</td><td>${esc(sedeNom(p))}${enTransito(p)?' → '+esc(p.traslado.a):''}</td><td><b>${esc(p.ubicacion)}</b></td><td>${days(p.ingreso)}</td><td>${p.estado==='custodia'?'hace '+days(p.verificado||p.ingreso)+' d':esc(ESTADO[p.estado]||p.estado)}</td><td>${p.estado==='custodia'?`<button class="btn sm" data-check="${esc(p.id)}">Está aquí</button>`:''}</td></tr>`).join(''):'<tr><td colspan="7" class="meta">Sin paquetes con ese filtro.</td></tr>')+'</tbody>';
 }
-$('#f_txt').addEventListener('input',renderInv);$('#f_est').addEventListener('change',renderInv);
+$('#f_txt').addEventListener('input',renderInv);$('#f_nn').addEventListener('change',renderInv);$('#f_est').addEventListener('change',renderInv);
 
 /* ---------- disposición final ---------- */
 const AFECT=/^(Dañado parcial|Dañado total|Vencido o perecedero)$/;
@@ -1514,7 +1600,7 @@ function renderStats(){
   const recov=ent.reduce((s,p)=>s+(+p.valor||0),0);
   const prom=c.length?c.reduce((s,p)=>s+days(p.ingreso),0)/c.length:0;
   const recT=S.rec.length,recOk=S.rec.filter(r=>r.estado!=='abierto').length;
-  $('#stats').innerHTML=[['En custodia',c.length],['Entregados a su dueño',ent.length],['Valor recuperado',money(recov)],['Días promedio en custodia',Math.round(prom)],['Reclamos abiertos',recT-recOk],['Reclamos resueltos',recT?Math.round(100*recOk/recT)+'%':'—'],['Separados para disposición',S.paq.filter(p=>p.estado==='separado').length],['Entregado a reciclaje',kg(kgRec)],['Donados (rezago)',S.paq.filter(p=>p.estado==='donado').length],['En rezago',S.paq.filter(p=>p.estado==='rezago').length]]
+  $('#stats').innerHTML=[['En custodia',c.length],['Entregados a su dueño',ent.length],['Valor recuperado',money(recov)],['Días promedio en custodia',Math.round(prom)],['Reclamos abiertos',recT-recOk],['Reclamos resueltos',recT?Math.round(100*recOk/recT)+'%':'—'],['Separados para disposición',S.paq.filter(p=>p.estado==='separado').length],['Entregado a reciclaje',kg(kgRec)],['Donados (rezago)',S.paq.filter(p=>p.estado==='donado').length],['En rezago',S.paq.filter(p=>p.estado==='rezago').length],['NN sin identificar',custodia().filter(esNN).length]]
     .map(([k,v])=>`<div class="stat"><span class="big">${esc(v)}</span><span class="meta">${esc(k)}</span></div>`).join('');
   {const nombres=[...new Set([...sedes().map(x=>x.nombre),...S.paq.map(sedeNom)])];
    const fila=n=>{const de=S.paq.filter(p=>sedeNom(p)===n),cu=de.filter(p=>recuperable(p)&&!enTransito(p)),en=de.filter(p=>p.estado==='entregado');
@@ -1525,7 +1611,7 @@ function renderStats(){
   const b=$('#deldemo');if(b)b.onclick=async()=>{b.disabled=true;for(const p of S.paq.filter(p=>p.muestra))await write(()=>S.db.collection('paquetes').doc(p.id).delete());for(const r of S.rec.filter(r=>r.muestra))await write(()=>S.db.collection('reclamos').doc(r.id).delete());toast('Datos de ejemplo borrados')};
 }
 
-function renderAll(){renderMiSede();renderRec();renderInv();renderDisp();renderRezago();renderConc();renderStats();renderPrec();const q=$('#q').value;if(q&&!$('#res').querySelector('.why'))localSearch(q)}
+function renderAll(){renderMiSede();renderCamaras();renderRec();renderInv();renderDisp();renderRezago();renderConc();renderStats();renderPrec();const q=$('#q').value;if(q&&!$('#res').querySelector('.why'))localSearch(q)}
 function banner(m){$('#banner').innerHTML=m?`<div class="banner">${esc(m)}</div>`:''}
 
 /* ---------- pestañas y QR ---------- */
