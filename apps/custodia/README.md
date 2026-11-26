@@ -23,3 +23,7 @@ Estado: **pospuesta** (25 nov 2026). Nada se ha conectado todavía.
 - Para retomar: enviar el documento a TI, recibir la forma de entrega (API,
   archivos en su nube o vista de base de datos) y una credencial de pruebas;
   firmar el contrato de transmisión de datos (Ley 1581 de 2012).
+- Cámaras en vivo (fase 2), también pospuesta: el documento trae las preguntas
+  para TI (marca del grabador, acceso ONVIF/RTSP, computador por bodega en la
+  red de las cámaras, autorización y avisos de videovigilancia). La fase 1,
+  búsqueda en clips MP4 exportados, ya está en la pestaña Cámaras.
