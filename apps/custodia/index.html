@@ -129,6 +129,7 @@ a.btn{text-decoration:none}
 .label:hover{border-color:color-mix(in srgb,var(--brand) 40%,var(--line));box-shadow:var(--shadow),0 0 0 1px color-mix(in srgb,var(--brand) 15%,transparent),0 16px 40px -20px var(--glow)}
 .label>div>b:first-of-type,.label b.cod{font-family:var(--f-mono);font-size:14px;letter-spacing:.03em;color:var(--brand-ink)}
 @keyframes in{from{opacity:0;transform:translateY(6px)}}
+.fstrip{display:flex;gap:6px;margin:8px 0 2px;flex-wrap:wrap;align-items:center}.fstrip button{padding:0;border:1px solid var(--line);border-radius:8px;overflow:hidden;width:46px;height:46px;background:var(--surface-2);cursor:pointer;flex:none}.fstrip img{width:100%;height:100%;object-fit:cover;display:block}.fstrip .bas{width:auto;height:46px;display:flex;align-items:center;gap:6px;padding:0 8px 0 0;font:600 13px var(--f-mono,monospace);color:var(--ink,inherit)}.fstrip .bas img{width:46px;height:46px}.fstrip .bas.sin{padding:0 8px}.thumb.xs{width:52px;height:52px;border-radius:8px}.fgrande{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px;margin:8px 0}.fgrande a{display:block;aspect-ratio:1;border-radius:10px;overflow:hidden;border:1px solid var(--line);background:var(--surface-2)}.fgrande img{width:100%;height:100%;object-fit:cover;display:block}
 .thumb{width:104px;height:104px;border-radius:12px;overflow:hidden;background:var(--surface-2);display:grid;place-items:center;cursor:pointer;border:1px solid var(--line);padding:0}
 .thumb img{width:100%;height:100%;object-fit:cover}.thumb.blur img{filter:blur(10px)}
 .tags{display:flex;flex-wrap:wrap;gap:5px;margin:8px 0}
@@ -587,14 +588,29 @@ const ESTADO={custodia:'en custodia',separado:'separado para disposición',entre
 const fotoSrc=p=>p.fotoId?'/_blob/'+encodeURIComponent(p.fotoId):(String(p.fotoMini||'').startsWith('data:image/')?p.fotoMini:'');
 function thumb(p,hide){const src=fotoSrc(p);
   return `<button class="thumb ${hide&&p.privado?'blur':''}" data-open="${esc(p.id)}" aria-label="Ver paquete">${src?`<img src="${esc(src)}" alt="">`:`<svg viewBox="0 0 100 100" width="100%" height="100%" aria-hidden="true"><rect x="14" y="32" width="72" height="54" rx="3" fill="#c79a62"/><path d="M14 32 L30 16 H70 L86 32Z" fill="#c79a62" opacity=".75"/><rect x="44" y="32" width="12" height="54" fill="var(--brand)" opacity=".85"/></svg>`}</button>`}
+/* Fotos del envío: las fotos del personal y los cuadros que se sacaron de cada video (sin la de la báscula). */
+function fotosDe(p){
+  const out=[];for(const m of (p.media||[])){if(m.origen==='bascula'||m.pend||String(m.id||'').startsWith('pend-'))continue;
+    if(m.tipo==='foto'&&m.id)out.push({id:m.id,de:'foto'});else if(m.tipo==='video')[m.posterId,...(m.frames||[])].filter(Boolean).forEach(f=>out.push({id:f,de:'video'}))}
+  const vistos=new Set();return out.filter(x=>!vistos.has(x.id)&&vistos.add(x.id));
+}
+const fotoBascula=p=>{const b=p.pesoBascula||{};if(b.fotoId)return b.fotoId;const m=(p.media||[]).find(x=>x.origen==='bascula'&&x.id&&!x.pend);return m?m.id:''};
+const pesoTxt=p=>p.pesoBascula&&+p.pesoBascula.kg>0?p.pesoBascula.kg+' kg en báscula':p.peso?p.peso+' kg (sin foto de báscula)':'';
+/* Tira de fotos junto a la descripción: cuadros del video y, al final, la báscula con su peso. */
+function tiraFotos(p,n){
+  if(p.privado)return '';const fs=fotosDe(p).filter(x=>x.id!==p.fotoId).slice(0,n||4),bf=fotoBascula(p);
+  if(!fs.length&&!bf&&!p.pesoBascula)return '';
+  return `<div class="fstrip">${fs.map(x=>`<button type="button" data-open="${esc(p.id)}" title="${x.de==='video'?'Foto sacada del video':'Foto'}"><img src="${esc(blobUrl(x.id))}" alt="" loading="lazy"></button>`).join('')}${bf||p.pesoBascula?`<button type="button" class="bas ${bf?'':'sin'}" data-open="${esc(p.id)}" title="Báscula">${bf?`<img src="${esc(blobUrl(bf))}" alt="Báscula" loading="lazy">`:''}<span>⚖ ${esc((p.pesoBascula||{}).kg||p.peso||'—')} kg</span></button>`:''}</div>`;
+}
 function card(p,r){
   const hitTag=t=>r&&r.hits&&r.hits.some(h=>near(norm(t),h)||norm(t).includes(h));
   return `<article class="label">${thumb(p,true)}
   <div>${r?`<div class="medidor"><span class="gauge ${r.pct>=70?'':r.pct>=50?'medio':'bajo'}" style="--p:${Math.max(0,Math.min(100,+r.pct||0))}"><b>${r.pct}</b></span><span>% de coincidencia</span></div>`:''}
   ${r&&r.why?`<div class="why">${esc(r.why)}</div>`:''}
   ${esNN(p)?'<span class="tag hit">NN</span> ':''}<b>${esc(p.codigo)}</b> · ${esc(p.descripcion||p.objeto)}${p.nn&&(p.medidas||p.peso)?` <span class="meta">(${esc([p.medidas&&p.medidas+' cm',p.peso&&p.peso+' kg'].filter(Boolean).join(', '))})</span>`:''}
+  ${tiraFotos(p,4)}
   <div class="tags">${(p.etiquetas||[]).slice(0,10).map(t=>`<span class="tag ${hitTag(t)?'hit':''}">${esc(t)}</span>`).join('')}</div>
-  <div class="meta">${esc(p.origen||'¿?')} → ${esc(p.destino||'¿?')}${p.peso?' · '+esc(p.peso)+' kg':''} · ${days(p.ingreso)} días · ${esc(p.empaque||'')}${p.condicion&&!/^(Bueno|Usado)$/.test(p.condicion)?' · '+esc(p.condicion):''}${p.averias?' · averías: '+esc(p.averias):''}${p.estado!=='custodia'?' · <b>'+esc((ESTADO[p.estado]||p.estado).toUpperCase())+'</b>':''}</div></div>
+  <div class="meta">${esc(p.origen||'¿?')} → ${esc(p.destino||'¿?')}${pesoTxt(p)?' · '+esc(pesoTxt(p)):''} · ${days(p.ingreso)} días · ${esc(p.empaque||'')}${p.condicion&&!/^(Bueno|Usado)$/.test(p.condicion)?' · '+esc(p.condicion):''}${p.averias?' · averías: '+esc(p.averias):''}${p.estado!=='custodia'?' · <b>'+esc((ESTADO[p.estado]||p.estado).toUpperCase())+'</b>':''}</div></div>
   <div class="loc"><span class="meta"><b>${esc(sedeNom(p))}</b>${enTransito(p)?' → '+esc(p.traslado.a):''}</span><span class="meta">${enTransito(p)?'En tránsito':'Estante'}</span><span class="big">${esc(enTransito(p)?'—':p.ubicacion)}</span>
   ${recuperable(p)?`<button class="btn alt sm" data-deliver="${esc(p.id)}">Verificar y entregar</button>`:''}${r&&r.src?fbBtns(r.src,p.id):''}</div></article>`;
 }
@@ -694,7 +710,7 @@ async function sincronizar(){
         for(const b of bs){try{m[b.k]=(await conTiempo(S.assets.upload(b.blob),120000)).id}catch(e){if(esRed(e)){corte=true;break}m[b.k]=''}}
         if(corte)break;
         try{const ref=S.realDb.doc(path),sn=await ref.get();if(sn.exists){const d=sn.data(),media=parcheMedia(d.media,m),up={media};
-          if(!d.fotoId){const f=media.find(x=>x.tipo==='foto'&&x.id&&!x.pend)||media.find(x=>x.posterId&&!String(x.posterId).startsWith('pend-'));if(f)up.fotoId=f.tipo==='foto'?f.id:f.posterId}
+          if(!d.fotoId){const f=media.find(x=>x.tipo==='foto'&&x.id&&!x.pend&&x.origen!=='bascula')||media.find(x=>x.posterId&&!String(x.posterId).startsWith('pend-'));if(f)up.fotoId=f.tipo==='foto'?f.id:f.posterId}
           await conTiempo(ref.update(up),20000)}}catch(e){if(esRed(e))break}
         for(const b of bs){await idbDel('blobs',b.k);OFF.blobs--}enviados++;estadoConexion()}
     }
@@ -811,7 +827,7 @@ async function analyze(){
   st.textContent='La IA está mirando la foto…';
   try{
     const o=await S.sample.json(`Analiza los cuadros de un video de 15 segundos que recorre por fuera un paquete en la bodega de custodia de una empresa de mensajería en Colombia (combina lo que se ve en todos: caras, etiquetas, sellos, marcas, averías). ${learnText()}${$('#aper').value==='exterior'?'El paquete está CERRADO: describe el empaque, tamaño, marcas, etiquetas y texto visible; no adivines el contenido, usa objeto "paquete cerrado" si no se ve.':'El paquete fue abierto legalmente: describe su contenido y declara en "condicion" el estado del objeto mirando golpes, grietas, piezas rotas o faltantes, rayones, manchas, humedad y fechas vencidas ("Bueno" si no se ve ningún daño); escribe en "averias" los daños vistos.'} Responde SOLO con JSON:
-{"objeto":"nombre corto","categoria":"","marca":"o vacío","color":"","estado":"nuevo|usado|dañado","descripcion":"una frase en español","etiquetas":["8 a 12 palabras clave en español, minúsculas, sin tildes: objeto, sinónimos, marca, modelo, color, material, talla, accesorios"],"texto_visible":"texto o números legibles (guía, nombres, direcciones, seriales) o vacío","averias":"daños visibles del empaque o del contenido (aplastado, roto, mojado, cinta abierta, etc.) o vacío","origen_posible":"ciudad colombiana de donde probablemente salió, deducida SOLO de pistas visibles (dirección del remitente, factura o tienda, indicativo telefónico, sello) o vacío","destino_posible":"ciudad deducida de pistas visibles o vacío","pista_ciudades":"qué pista usaste, frase corta, o vacío","peso_estimado_kg":número aproximado,"peso_bascula_kg":número exacto en kg SOLO si en la foto se ve la pantalla de una báscula, si no null,"zona":"A electrónicos y celulares|B ropa, calzado y accesorios|C hogar, electrodomésticos y cocina|D documentos, alimentos, belleza y otros (responde solo la letra)","condicion":"Bueno|Usado|Dañado parcial|Dañado total|Vencido o perecedero","material":"Mixto|Cartón y papel|Plástico|Electrónico (RAEE)|Textil|Vidrio|Metal|Orgánico|Peligroso (baterías, químicos, medicamentos, aerosoles)","sensible":true/false (documentos de identidad, medicamentos, ropa interior o datos personales),"huella":{"empaque":"caja de cartón|bolsa plástica de mensajería|sobre|bolsa de tela|otro","color_principal":"","cinta":"tipo y color o vacío","logos":["logos o marcas impresas en el empaque"],"etiquetas":["cada etiqueta pegada: color, formato, posición"],"marcas_distintivas":["rasgos únicos: escritos a mano, golpes, parches de cinta"],"tamano":"pequeño|mediano|grande"}}`,{images:aiImages(RM,Math.min(8,(await imgMax())||8)),modelTier:'complex'});
+{"objeto":"nombre corto","categoria":"","marca":"o vacío","color":"","estado":"nuevo|usado|dañado","descripcion":"una frase en español","etiquetas":["8 a 12 palabras clave en español, minúsculas, sin tildes: objeto, sinónimos, marca, modelo, color, material, talla, accesorios"],"texto_visible":"texto o números legibles (guía, nombres, direcciones, seriales) o vacío","averias":"daños visibles del empaque o del contenido (aplastado, roto, mojado, cinta abierta, etc.) o vacío","origen_posible":"ciudad colombiana de donde probablemente salió, deducida SOLO de pistas visibles (dirección del remitente, factura o tienda, indicativo telefónico, sello) o vacío","destino_posible":"ciudad deducida de pistas visibles o vacío","pista_ciudades":"qué pista usaste, frase corta, o vacío","peso_estimado_kg":número aproximado,"peso_bascula_kg":número exacto en kg SOLO si en la foto se ve la pantalla de una báscula, si no null,"cuadro_bascula":número del cuadro (0 = el primero que recibes) donde mejor se lee la pantalla de la báscula, o -1,"zona":"A electrónicos y celulares|B ropa, calzado y accesorios|C hogar, electrodomésticos y cocina|D documentos, alimentos, belleza y otros (responde solo la letra)","condicion":"Bueno|Usado|Dañado parcial|Dañado total|Vencido o perecedero","material":"Mixto|Cartón y papel|Plástico|Electrónico (RAEE)|Textil|Vidrio|Metal|Orgánico|Peligroso (baterías, químicos, medicamentos, aerosoles)","sensible":true/false (documentos de identidad, medicamentos, ropa interior o datos personales),"huella":{"empaque":"caja de cartón|bolsa plástica de mensajería|sobre|bolsa de tela|otro","color_principal":"","cinta":"tipo y color o vacío","logos":["logos o marcas impresas en el empaque"],"etiquetas":["cada etiqueta pegada: color, formato, posición"],"marcas_distintivas":["rasgos únicos: escritos a mano, golpes, parches de cinta"],"tamano":"pequeño|mediano|grande"}}`,{images:(regAI.imgsIA=aiImages(RM,Math.min(8,(await imgMax())||8))),modelTier:'complex'});
     if(!o){st.textContent='La IA no devolvió datos.';return}
     const set=(id,v)=>{if(v&&!$(id).value)$(id).value=String(v)};
     set('#desc',o.descripcion);set('#obj',o.objeto);set('#marca',o.marca);set('#color',o.color);set('#texto',o.texto_visible);set('#aver',o.averias);
@@ -820,7 +836,8 @@ async function analyze(){
     set('#orig',o.origen_posible);set('#dest',o.destino_posible);
     const pick=(id,val)=>{if(!val)return;const op=[...$(id).options].find(x=>norm(x.value).startsWith(norm(val).slice(0,6)));if(op)$(id).value=op.value};
     pick('#cond',o.condicion);pick('#mat',o.material);
-    if(+o.peso_bascula_kg>0&&!$('#peso').value){$('#peso').value=Math.round(+o.peso_bascula_kg*100)/100;$('#basstate').textContent='Peso leído de la báscula en la foto: '+$('#peso').value+' kg.'}
+    if(+o.peso_bascula_kg>0&&!$('#peso').value){$('#peso').value=Math.round(+o.peso_bascula_kg*100)/100;$('#basstate').textContent='Peso leído de la báscula en el video: '+$('#peso').value+' kg.';
+      const ci=Math.round(+o.cuadro_bascula),im=regAI.imgsIA||[];if(!regAI.bascula&&ci>=0&&ci<im.length)regAI.bascula={blob:im[ci],kg:+$('#peso').value,fuente:'video'};mostrarBascula()}
     if(!$('#ubi').value){const z=String(o.zona||'D').trim().charAt(0).toUpperCase();$('#ubi').value=suggestShelf(/[A-D]/.test(z)?z:'D')}
     if(sueltoReg())$('#ubi').value=suggestShelf(zonaSuelto($('#cond').value));
     if(o.averias&&!sinAveria(o.averias)||DANO.test($('#cond').value))st.dataset.aver='1';else delete st.dataset.aver;
@@ -850,6 +867,9 @@ async function analyze(){
   }catch(e){st.textContent=e&&e.code==='rate_limited'?'IA ocupada, espere un momento y vuelva a tomar la foto.':'La IA no respondió: llene los datos a mano.'}
 }
 $('#bbas').addEventListener('click',()=>$('#fbas').click());
+function mostrarBascula(){const st=$('#basstate'),b=regAI.bascula;let im=$('#bas_prev');if(!b){if(im)im.remove();return}
+  if(!im){im=document.createElement('img');im.id='bas_prev';im.alt='Foto de la báscula';im.style.cssText='width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid var(--line);display:block;margin-top:6px';st.after(im)}
+  if(im.dataset.u)URL.revokeObjectURL(im.dataset.u);im.dataset.u=URL.createObjectURL(b.blob);im.src=im.dataset.u}
 $('#fbas').addEventListener('change',async e=>{
   const f=e.target.files[0],st=$('#basstate');if(!f)return;e.target.value='';
   if(!S.sample){st.textContent='IA no disponible: escriba el peso a mano.';return}
@@ -860,7 +880,8 @@ $('#fbas').addEventListener('change',async e=>{
     let v=o&&+o.valor;const u=norm(o&&o.unidad);
     if(!(v>0)){st.textContent='No se leyó claro. Tome otra foto más cerca y sin reflejos, o escriba el peso.';return}
     if(u==='g')v=v/1000;else if(u==='lb')v=v*0.4536;
-    v=Math.round(v*100)/100;$('#peso').value=v;st.textContent='Peso leído: '+v+' kg. Verifique que coincide con la pantalla.';
+    v=Math.round(v*100)/100;$('#peso').value=v;st.textContent='Peso leído: '+v+' kg. Verifique que coincide con la pantalla. La foto de la báscula queda en la ficha.';
+    regAI.bascula={blob:j.b,kg:v,fuente:'foto'};mostrarBascula();
   }catch(err){st.textContent='La IA no respondió: escriba el peso a mano.'}
 });
 $('#rform').addEventListener('submit',async e=>{
@@ -884,6 +905,8 @@ $('#rform').addEventListener('submit',async e=>{
     peso:+v('#peso')||0,medidas:v('#med'),valor:+v('#valor')||0,origen:v('#orig'),destino:v('#dest'),empaque:$('#emp').value,ubicacion:v('#ubi').toUpperCase(),sede:$('#sede_reg').value||'',apertura:$('#aper').value,condicion:$('#cond').value,material:$('#mat').value,
     verificacion:v('#ver'),testigo:v('#test'),privado:$('#priv').checked,fotoId,media,fotoMini:fotoId?'':fotoMini,ingreso:now.toISOString(),verificado:now.toISOString(),
     operario:S.me||'',historial:[ev('Apertura registrada en '+($('#sede_reg').value?$('#sede_reg').value+', estante ':'')+v('#ubi').toUpperCase())]};
+  if(regAI.bascula&&+v('#peso')>0){try{const ub=await uploadMedia([{kind:'foto',blob:regAI.bascula.blob,mini:''}],'bascula','paquetes/'+id);const m=ub.media[0];
+      if(m){p.media=[...p.media,m];p.pesoBascula={kg:+v('#peso'),leido:regAI.bascula.kg,fuente:regAI.bascula.fuente,fotoId:m.pend?'':(m.id||''),t:now.toISOString()};p.historial.push(ev('Peso en báscula: '+v('#peso')+' kg'+(regAI.bascula.fuente==='video'?' (leído del video)':' (foto de la báscula)')))}}catch(err){}}
   if(regAI.huella)p.huella=regAI.huella;if(regAI.guias.length)p.guiasLeidas=regAI.guias;if(regAI.barras.length)p.guiaCodigoBarras=regAI.barras[0];
   if(regAI.sinIA)p.iaPendiente=true;
   if($('#nn').checked){p.nn=true;p.historial.push(ev('Registrado como NN: sin guía ni nombre'))}
@@ -895,7 +918,7 @@ $('#rform').addEventListener('submit',async e=>{
   if(ok&&aiSug){const campos={},corr=[];for(const [k] of FB_CAMPOS){if(!aiSug[k]&&!fin[k])continue;const same=norm(aiSug[k]).trim()===norm(fin[k]).trim();campos[k]=same;if(!same)corr.push({campo:k,ia:String(aiSug[k]).slice(0,80),final:String(fin[k]).slice(0,80)})}
     fbLog({tipo:'foto',ref:id,ok:!corr.length,campos,corr});aiSug=null}
   btn.disabled=false;
-  if(ok){e.target.reset();vistaApertura();fotoBlob=null;fotoMini='';regAI={huella:null,guias:[],guia:'',barras:[],vivo:[],sinIA:false};$('#nn').checked=false;RM.length=0;$('#rm_grid').innerHTML='';$('#aistate').textContent='';openDetail(id,{...p,id})}
+  if(ok){e.target.reset();vistaApertura();fotoBlob=null;fotoMini='';regAI={huella:null,guias:[],guia:'',barras:[],vivo:[],sinIA:false};mostrarBascula();$('#nn').checked=false;RM.length=0;$('#rm_grid').innerHTML='';$('#aistate').textContent='';openDetail(id,{...p,id})}
 });
 
 /* ---------- detalle, etiqueta y entrega ---------- */
@@ -910,6 +933,8 @@ function openDetail(id,pp){
   ${src?`<img src="${esc(src)}" alt="Foto del contenido" style="width:100%;max-height:320px;object-fit:contain;border-radius:6px;background:var(--bg)">`:''}
   <div class="etq">${qrSvg(APP_URL+'#'+p.id)}<div><span style="color:#444;font-size:13px">${esc(marcaNombre())} · Abierto en custodia</span><div class="big">${esc(p.codigo)}</div><div>Estante <b>${esc(p.ubicacion)}</b> · ${fdate(p.ingreso)}</div></div></div>
   <p class="meta">Haga captura de esta etiqueta para imprimirla. Al escanear el QR con el celular se abre esta ficha.</p>
+  ${(()=>{const fs=fotosDe(p),bf=fotoBascula(p);return (fs.length&&!p.privado?`<h3>Fotos del envío${fs.some(x=>x.de==='video')?' (sacadas del video)':''}</h3><div class="fgrande">${fs.map(x=>`<a href="${esc(blobUrl(x.id))}" target="_blank" rel="noopener" title="Abrir en grande"><img src="${esc(blobUrl(x.id))}" alt="" loading="lazy"></a>`).join('')}</div>`:'')+
+    (bf||p.pesoBascula||p.peso?`<div class="fstrip">${bf?`<a class="mthumb" href="${esc(blobUrl(bf))}" target="_blank" rel="noopener"><img src="${esc(blobUrl(bf))}" alt="Foto de la báscula"></a>`:''}<span><b>⚖ ${esc((p.pesoBascula||{}).kg||p.peso||'—')} kg</b><br><span class="meta">${p.pesoBascula?'Leído '+((p.pesoBascula.fuente==='video')?'del video':'de la foto de la báscula')+(+p.pesoBascula.leido&&+p.pesoBascula.leido!==+p.pesoBascula.kg?' ('+p.pesoBascula.leido+' kg leídos, corregido por el personal)':''):'Peso sin foto de báscula'}</span></span></div>`:'')})()}
   ${gallery(p.media,true,'paquetes|'+p.id)}${recuperable(p)?`<p class="bar"><button class="btn alt sm" data-addm="paquetes|${esc(p.id)}">${p.fueraDeCaja?'Agregar fotos o video':'Agregar otro video'}</button>${p.guia?(admOf(p.guia)?`<button class="btn alt sm" data-adm="${esc(admOf(p.guia).id)}">Ver foto de admisión</button>`:''):`<button class="btn sm" data-findadm="${esc(p.id)}">Buscar su guía por foto de admisión</button>`}</p><div id="fa_box"></div>`:''}
   <p><b>${esc(p.descripcion||p.objeto)}</b></p>
   <div class="tags">${(p.etiquetas||[]).map(t=>`<span class="tag">${esc(t)}</span>`).join('')}</div>
@@ -1289,8 +1314,8 @@ function renderInv(){
   const fsu=($('#f_suelto')||{}).value||'';
   const rows=S.paq.filter(p=>(!fnn||esNN(p))&&(!fsu||(fsu==='suelto')===!!p.fueraDeCaja)&&(!fsd||sedeNom(p)===fsd||(enTransito(p)&&p.traslado.a===fsd))&&(!fe||p.estado===fe)&&(!ft||norm([p.codigo,p.ubicacion,p.sede,p.objeto,p.descripcion,...(p.etiquetas||[])].join(' ')).includes(ft)))
     .sort((a,b)=>sedeNom(a).localeCompare(sedeNom(b))||String(a.ubicacion).localeCompare(String(b.ubicacion)));
-  $('#inv').innerHTML=`<thead><tr><th>Código</th><th>Contenido</th><th>Sede</th><th>Estante</th><th>Días</th><th>Confirmado</th><th></th></tr></thead><tbody>`+
-    (rows.length?rows.map(p=>`<tr><td><button class="btn alt sm" data-open="${esc(p.id)}">${esc(p.codigo)}</button></td><td>${esc(p.objeto||p.descripcion)}${p.fueraDeCaja?' <span class="tag">fuera de caja · '+esc(p.condicion||'')+'</span>':''}${estadoAveria(p)&&estadoAveria(p)!=='descartado'?' <span class="tag">avería</span>':''}</td><td>${esc(sedeNom(p))}${enTransito(p)?' → '+esc(p.traslado.a):''}</td><td><b>${esc(p.ubicacion)}</b></td><td>${days(p.ingreso)}</td><td>${p.estado==='custodia'?'hace '+days(p.verificado||p.ingreso)+' d':esc(ESTADO[p.estado]||p.estado)}</td><td>${p.estado==='custodia'?`<button class="btn sm" data-check="${esc(p.id)}">Está aquí</button>`:''}</td></tr>`).join(''):'<tr><td colspan="7" class="meta">Sin paquetes con ese filtro.</td></tr>')+'</tbody>';
+  $('#inv').innerHTML=`<thead><tr><th>Foto</th><th>Código</th><th>Contenido</th><th>Sede</th><th>Estante</th><th>Días</th><th>Confirmado</th><th></th></tr></thead><tbody>`+
+    (rows.length?rows.map(p=>`<tr><td>${thumb(p,true).replace('class="thumb ','class="thumb xs ')}</td><td><button class="btn alt sm" data-open="${esc(p.id)}">${esc(p.codigo)}</button></td><td>${esc(p.objeto||p.descripcion)}${pesoTxt(p)?'<br><span class="meta">'+esc(pesoTxt(p))+'</span>':''}${p.fueraDeCaja?' <span class="tag">fuera de caja · '+esc(p.condicion||'')+'</span>':''}${estadoAveria(p)&&estadoAveria(p)!=='descartado'?' <span class="tag">avería</span>':''}</td><td>${esc(sedeNom(p))}${enTransito(p)?' → '+esc(p.traslado.a):''}</td><td><b>${esc(p.ubicacion)}</b></td><td>${days(p.ingreso)}</td><td>${p.estado==='custodia'?'hace '+days(p.verificado||p.ingreso)+' d':esc(ESTADO[p.estado]||p.estado)}</td><td>${p.estado==='custodia'?`<button class="btn sm" data-check="${esc(p.id)}">Está aquí</button>`:''}</td></tr>`).join(''):'<tr><td colspan="8" class="meta">Sin paquetes con ese filtro.</td></tr>')+'</tbody>';
 }
 $('#f_txt').addEventListener('input',renderInv);$('#f_nn').addEventListener('change',renderInv);
 {const fs=document.createElement('select');fs.id='f_suelto';fs.setAttribute('aria-label','Con caja o fuera de caja');fs.style.flex='0 1 180px';fs.innerHTML='<option value="">Con y sin caja</option><option value="caja">Siguen en su caja</option><option value="suelto">Fuera de caja</option>';$('#f_nn').closest('label').after(fs);fs.addEventListener('change',renderInv)}$('#f_est').addEventListener('change',renderInv);
@@ -1307,7 +1332,7 @@ function openClaim(p){
 const plazo=()=>Math.max(1,+(S.cfg&&S.cfg.plazoDias)||90);
 const kg=v=>(Math.round((+v||0)*100)/100).toLocaleString('es-CO')+' kg';
 function rowD(p,extra){const cl=openClaim(p);
-  return `<div class="alert ${cl?'':'k'}"><span>${extra||''}<b>${esc(p.codigo)}</b> · ${esc(sedeNom(p))} · ${esc(p.objeto||p.descripcion)} · ${esc(p.condicion||p.empaque)} · ${esc(p.material||'Mixto')}${p.peso?' · '+kg(p.peso):''} · ${days(p.ingreso)} días${cl?`<br><b>Tiene reclamo parecido de ${esc(cl.cliente)}: no disponer todavía</b>`:''}</span>
+  return `<div class="alert ${cl?'':'k'}"><span style="display:flex;gap:10px;align-items:flex-start">${thumb(p,true).replace('class="thumb ','class="thumb xs ')}<span>${extra||''}<b>${esc(p.codigo)}</b> · ${esc(sedeNom(p))} · ${esc(p.objeto||p.descripcion)} · ${esc(p.condicion||p.empaque)} · ${esc(p.material||'Mixto')}${p.peso?' · '+kg(p.peso):''} · ${days(p.ingreso)} días${cl?`<br><b>Tiene reclamo parecido de ${esc(cl.cliente)}: no disponer todavía</b>`:''}</span></span>
   <span class="bar"><button class="btn alt sm" data-open="${esc(p.id)}">Ver</button>${p.estado==='custodia'?`<button class="btn sm" data-sep="${esc(p.id)}">Separar</button>`:`<button class="btn alt sm" data-back="${esc(p.id)}">Devolver</button>`}</span></div>`}
 function renderDisp(){
   const c=S.paq.filter(p=>p.estado==='custodia'&&afectado(p));
@@ -1631,13 +1656,13 @@ async function uploadMedia(list,origen,destino){
 const blobUrl=id=>'/_blob/'+encodeURIComponent(id);
 const mThumbSrc=m=>(m.pend||String(m.id||'').startsWith('pend-'))?(String(m.mini||'').startsWith('data:image/')?m.mini:''):m.tipo==='foto'?(m.id?blobUrl(m.id):(String(m.mini||'').startsWith('data:image/')?m.mini:'')):(m.posterId?blobUrl(m.posterId):'');
 async function imagesOf(ent,max){
-  const urls=[];for(const m of (ent.media||[])){if(m.tipo==='foto')urls.push(mThumbSrc(m));else(m.frames||[]).forEach(f=>urls.push(blobUrl(f)))}
+  const urls=[];for(const m of (ent.media||[])){if(m.origen==='bascula')continue;if(m.tipo==='foto')urls.push(mThumbSrc(m));else(m.frames||[]).forEach(f=>urls.push(blobUrl(f)))}
   if(!urls.length&&fotoSrc(ent))urls.push(fotoSrc(ent));
   const out=[];for(const u of urls.filter(Boolean).slice(0,max)){const b=await blobOf(u);if(b)out.push(b)}return out;
 }
 function gallery(list,big,ctx){
   if(!list||!list.length)return '';const del=ctx&&puedeBorrar();
-  return `<div class="mgrid">${list.map((m,i)=>{const src=mThumbSrc(m),who=({cliente:'cliente',admision:'admisión',camara:'cámara'})[m.origen]||'personal',
+  return `<div class="mgrid">${list.map((m,i)=>{const src=mThumbSrc(m),who=({cliente:'cliente',admision:'admisión',camara:'cámara',bascula:'báscula'})[m.origen]||'personal',
     x=del?`data-delm="${esc(ctx)}|${i}"`:'',nom=m.tipo==='video'?'video':'foto';
     if(big&&m.tipo==='video'&&m.id&&!m.pend)return `<div style="width:100%"><video controls playsinline preload="metadata" src="${esc(blobUrl(m.id))}" ${m.posterId?`poster="${esc(blobUrl(m.posterId))}"`:''} style="width:100%;max-height:320px;border-radius:6px;background:#000"></video><span class="meta">Video · subido por ${who} · ${fdate(m.t)}</span>${x?` <button type="button" class="btn alt sm" ${x}>Eliminar video</button>`:''}</div>`;
     return `<div class="mthumb" title="${who}">${src?`<img src="${esc(src)}" alt="">`:''}<span class="v">${m.tipo==='video'?'video · ':''}${who}</span>${x?`<button type="button" class="x del" ${x} aria-label="Eliminar ${nom}" title="Eliminar ${nom}">×</button>`:''}</div>`}).join('')}</div>`;
@@ -1807,7 +1832,7 @@ function renderSubastas(){
     return `<div class="alert ${est==='subastado'?'g':est==='retirado'?'k':''}" style="display:block">
     <div style="display:flex;gap:12px;align-items:flex-start">${src&&!p.privado?`<div class="mthumb"><img src="${esc(src)}" alt=""></div>`:''}<div style="flex:1">
       <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><b>${esc(p.codigo)} · ${esc((ta&&ta.modelo)||p.objeto||'objeto')}</b><span class="meta">${esc(SB_EST[est])}</span></div>
-      <div>${esc(p.descripcion||'')}</div>
+      <div>${esc(p.descripcion||'')}</div>${tiraFotos(p,5)}
       <div class="meta">Estado <b>${esc(p.condicion)}</b> · ${esc(sedeNom(p))}, estante ${esc(p.ubicacion)} · ${days(p.ingreso)} días en custodia${+p.valor?' · valor declarado en la guía '+money(p.valor):''}</div>
       ${ta?`<div class="meta">Precio en el mercado estimado por la IA el ${fdate(ta.t)} (confianza ${esc(ta.confianza)}): nuevo ${esc(rango(ta.nuevo))} · usado ${esc(rango(ta.usado))}. Es un estimado con lo que sabe la IA, no una consulta en vivo: confírmelo con los enlaces.</div>`:'<div class="meta">Aún sin precio de mercado.</div>'}
       ${est==='subastado'?`<div><b>Vendido en ${money(sb.venta.valor)}</b> · ${fdate(sb.venta.fecha)}${sb.venta.acta?' · acta '+esc(sb.venta.acta):''}</div>`
@@ -1868,7 +1893,7 @@ function renderAverias(){
     return `<div class="alert ${est==='por_revisar'?'':est==='descartado'?'k':'g'}" style="display:block">
     <div style="display:flex;gap:12px;align-items:flex-start">${src&&!p.privado?`<div class="mthumb"><img src="${esc(src)}" alt=""></div>`:''}<div style="flex:1">
       <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><b>${esc(p.codigo)}${p.guia?' · guía '+esc(p.guia):''}</b><span class="meta">avería ${esc(AV_EST[est])}</span></div>
-      <div>${esc(p.objeto||p.descripcion)} · <b>${esc(a.descripcion||textoAveria(p)||'—')}</b></div>
+      <div>${esc(p.objeto||p.descripcion)} · <b>${esc(a.descripcion||textoAveria(p)||'—')}</b></div>${tiraFotos(p,5)}
       <div class="meta">${esc(sedeNom(p))}, estante ${esc(p.ubicacion)} · ${p.fueraDeCaja?'fuera de su caja, estado '+esc(p.condicion||'—'):'sigue en su caja'} · ${esc(p.origen||'¿?')} → ${esc(p.destino||'¿?')} · valor declarado ${money(p.valor)}${a.t?' · detectada '+fdate(a.t)+(a.origen==='ia'?' por la IA':''):''}</div>
       <div class="meta">${esc(previo)}${a.caso?' · caso '+esc(a.caso):''}${est==='indemnizado'?' · indemnizado '+money(a.valorIndemnizado):''}${a.nota?' · '+esc(a.nota):''}</div>
     </div></div>
@@ -1924,7 +1949,8 @@ function borrarMedio(col,id,i){
   const nom=m.tipo==='video'?'video':'foto',queda=(ent.media||[]).length-1;
   pedirBorrado('Eliminar '+nom,`Se borrará ${m.tipo==='video'?'este video':'esta foto'} ${col==='reclamos'?'del reclamo de '+(ent.cliente||'un cliente'):col==='admisiones'?'de la admisión de la guía '+(ent.guia||''):'del paquete '+(ent.codigo||'')}.${col==='paquetes'&&m.tipo==='video'?' La IA ya no podrá usar este video para reconocer el paquete.':''}${queda?'':' Es el único archivo: el registro queda sin imágenes.'}`,async motivo=>{
     const quita=archivosDe(m),media=(ent.media||[]).filter((_,k)=>k!==i),upd={media};
-    if(quita.includes(ent.fotoId)){const f=media.find(x=>x.tipo==='foto'&&x.id&&!x.pend)||media.find(x=>x.posterId&&!x.pend);upd.fotoId=f?(f.tipo==='foto'?f.id:f.posterId):''}
+    if(m.origen==='bascula'&&ent.pesoBascula)upd.pesoBascula={...ent.pesoBascula,fotoId:''};
+    if(quita.includes(ent.fotoId)){const f=media.find(x=>x.tipo==='foto'&&x.id&&!x.pend&&x.origen!=='bascula')||media.find(x=>x.posterId&&!x.pend);upd.fotoId=f?(f.tipo==='foto'?f.id:f.posterId):''}
     if(col==='paquetes')upd.historial=histAdd(ent,nom.charAt(0).toUpperCase()+nom.slice(1)+' eliminado: '+motivo);
     if(!await write(()=>S.db.collection(col).doc(id).update(upd)))return;
     const quedan=await borrarArchivos(quita);await registrarBorrado({tipo:nom,coleccion:col,registro:id,motivo,archivos:quita.length},quedan);

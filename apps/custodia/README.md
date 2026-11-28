@@ -1,7 +1,7 @@
 # Custodia: buscador de envíos
 
 Copia de respaldo del artifact publicado en claude.ai
-(https://claude.ai/artifact/4DfAbYsxbJmyQFXj6wdyJW), versión 1795874355-4fbd.
+(https://claude.ai/artifact/4DfAbYsxbJmyQFXj6wdyJW), versión 1795875764-1e0c.
 
 App para la bodega de custodia de una transportadora en Colombia: búsqueda de
 envíos por descripción, registro con video, reclamos, inventario, conciliación
@@ -27,6 +27,17 @@ interfaz, pero sin datos.
   eliminación pide un motivo y queda en el Tablero (quién, cuándo, por qué,
   sin guardar los datos borrados). Los archivos que la cuenta no pudo borrar
   quedan ocultos y un administrador termina de borrarlos desde el Tablero.
+
+## Fotos y peso junto a cada envío
+
+- Cada envío muestra su foto junto a la descripción en Buscar, Inventario,
+  Rezago y disposición, Averías y Subastas, con una tira de las fotos sacadas
+  del video (hasta 4 cuadros por video) y el peso.
+- La foto de la báscula se guarda con el paquete (origen `bascula`): la que
+  toma el personal con "Foto de la báscula", o el cuadro del video donde la IA
+  leyó la pantalla. La ficha muestra el peso guardado y, si el personal lo
+  corrigió, el peso que se leyó. La foto de la báscula no se usa en las
+  comparaciones visuales.
 
 ## Averías y objetos fuera de caja
 
