@@ -276,6 +276,7 @@ details>summary{list-style:none}details>summary::-webkit-details-marker{display:
 <symbol id="i-disposicion" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 11c0 5.6-7 10-7 10z"/></symbol>
 <symbol id="i-tablero" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20h18"/><path d="M6 20V11M11 20V5M16 20v-6M21 20V9"/></symbol>
 <symbol id="i-averias" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></symbol>
+<symbol id="i-subastas" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></symbol>
 <symbol id="i-mas" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></symbol>
 <symbol id="i-ojo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></symbol>
 <symbol id="i-sede" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.2 7-12a7 7 0 0 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="9" r="2.5"/></symbol>
@@ -294,6 +295,7 @@ details>summary{list-style:none}details>summary::-webkit-details-marker{display:
     <button role="tab" data-t="reclamos" aria-selected="false"><svg><use href="#i-reclamos"/></svg><span>Reclamos</span></button>
     <button role="tab" data-t="inventario" aria-selected="false"><svg><use href="#i-inventario"/></svg><span>Inventario</span></button>
     <button role="tab" data-t="averias" aria-selected="false" class="sec"><svg><use href="#i-averias"/></svg><span>Averías</span></button>
+    <button role="tab" data-t="subastas" aria-selected="false" class="sec"><svg><use href="#i-subastas"/></svg><span>Subastas</span></button>
     <button role="tab" data-t="admision" aria-selected="false" class="sec"><svg><use href="#i-admision"/></svg><span>Admisión</span></button>
     <button role="tab" data-t="camaras" aria-selected="false" class="sec"><svg><use href="#i-camaras"/></svg><span>Cámaras</span></button>
     <button role="tab" data-t="asistente" aria-selected="false" class="sec"><svg><use href="#i-asistente"/></svg><span>Asistente IA</span></button>
@@ -412,6 +414,15 @@ details>summary{list-style:none}details>summary::-webkit-details-marker{display:
     <div class="stats" id="av_stats"></div>
     <div class="bar" style="margin:14px 0"><select id="av_f" aria-label="Estado de la revisión" style="flex:0 1 200px"><option value="por_revisar">Por revisar</option><option value="confirmado">Confirmados: por indemnizar</option><option value="indemnizado">Indemnizados</option><option value="descartado">Descartados</option><option value="">Todos</option></select><select id="av_sede" aria-label="Sede" style="flex:0 1 200px"></select><button class="btn alt sm" id="av_copy" type="button">Copiar lista para la transportadora</button></div>
     <div class="list" id="av_list"></div>
+  </section>
+
+  <section id="subastas" hidden>
+    <h2>Subastas</h2>
+    <p class="meta">Objetos que se abrieron por tiempo y quedaron en buen estado (los dañados van a Averías). La IA reconoce el objeto en la foto y estima su precio en el mercado colombiano; confírmelo con los enlaces de búsqueda y apruebe el precio base.</p>
+    <p class="meta"><b>Antes de vender:</b> el objeto debe haber terminado el proceso de rezago (plazo de recuperación y ofrecimiento al ICBF). Confirme con su abogado que la subasta está permitida para sus rezagos.</p>
+    <div class="stats" id="sb_stats"></div>
+    <div class="bar" style="margin:14px 0"><select id="sb_f" aria-label="Estado en la subasta" style="flex:0 1 220px"><option value="por_tasar">Por tasar</option><option value="tasado">Con precio sugerido: por aprobar</option><option value="lista">Listos para subastar</option><option value="subastado">Vendidos en subasta</option><option value="retirado">Retirados</option><option value="">Todos</option></select><select id="sb_sede" aria-label="Sede" style="flex:0 1 200px"></select><button class="btn alt sm" id="sb_tasar" type="button">Tasar con IA los que faltan</button><button class="btn alt sm" id="sb_copy" type="button">Copiar catálogo</button></div>
+    <div class="list" id="sb_list"></div>
   </section>
 
   <section id="admision" hidden>
@@ -570,7 +581,7 @@ $('#f_sede').addEventListener('change',e=>{e.target.dataset.v=e.target.value;ren
 $('#sede_reg').addEventListener('change',e=>{e.target.dataset.touched='1'});
 const enSedeBuscada=p=>{const v=($('#q_sede')||{}).value||'';return !v||p.sede===v||(enTransito(p)&&p.traslado.a===v)};
 const custodia=()=>S.paq.filter(recuperable);
-const ESTADO={custodia:'en custodia',separado:'separado para disposición',entregado:'entregado a su dueño',dispuesto:'enviado a reciclaje',venta:'en venta a empleados',vendido:'vendido a empleado',rezago:'en rezago (proceso legal)',donado:'donado'};
+const ESTADO={custodia:'en custodia',separado:'separado para disposición',entregado:'entregado a su dueño',dispuesto:'enviado a reciclaje',venta:'en venta a empleados',vendido:'vendido a empleado',rezago:'en rezago (proceso legal)',donado:'donado',subastado:'vendido en subasta'};
 
 /* ---------- tarjetas ---------- */
 const fotoSrc=p=>p.fotoId?'/_blob/'+encodeURIComponent(p.fotoId):(String(p.fotoMini||'').startsWith('data:image/')?p.fotoMini:'');
@@ -906,6 +917,7 @@ function openDetail(id,pp){
   <p class="meta">Sede: <b>${esc(sedeNom(p))}</b>${enTransito(p)?` · <b>en tránsito a ${esc(p.traslado.a)}</b> desde ${fdate(p.traslado.fecha)}${p.traslado.guia?' · guía de traslado '+esc(p.traslado.guia):''}`:''}</p>
   ${enTransito(p)?`<div class="bar"><button class="btn red sm" data-recibir="${esc(p.id)}">Recibir en ${esc(p.traslado.a)}</button><button class="btn alt sm" data-cancelt="${esc(p.id)}">Cancelar traslado</button></div>`:p.estado==='custodia'&&sedes().length>1?`<div class="bar"><button class="btn alt sm" data-trasl="${esc(p.id)}">Trasladar a otra sede</button></div>`:''}
   ${p.fueraDeCaja?`<p class="meta"><b>Objeto fuera de su caja</b> desde ${fdate((p.abierto||{}).t)} · estado <b>${esc(p.condicion||'—')}</b>${(p.estadoIA||{}).razon?' · IA: '+esc(p.estadoIA.razon):''}${(p.abierto||{}).acta?' · acta '+esc(p.abierto.acta):''}${(p.abierto||{}).testigo?' · testigo '+esc(p.abierto.testigo):''}</p>`:''}
+  ${enSubasta(p)?`<p class="meta"><b>Subasta: ${esc(SB_EST[estadoSubasta(p)])}</b>${precioBase(p)?' · precio base '+money(precioBase(p)):''}${p.tasacion?' · usado en el mercado '+esc(rango(p.tasacion.usado)):''} <button class="btn alt sm" data-ir="subastas">Ver en Subastas</button></p>`:''}
   ${estadoAveria(p)?`<p class="meta" style="color:var(--danger,#c0392b)"><b>Avería ${esc(AV_EST[estadoAveria(p)])}</b>: ${esc((p.averia||{}).descripcion||p.averias||p.condicion||'')} <button class="btn alt sm" data-ir="averias">Ver en Averías</button></p>`:''}
   ${['custodia','separado','rezago'].includes(p.estado)&&!p.fueraDeCaja&&!enTransito(p)&&puedeAbrir(p)?`<div class="bar"><button class="btn red sm" data-abrirobj="${esc(p.id)}">Abrir y fotografiar el objeto</button><span class="meta" style="align-self:center">${esc(puedeAbrir(p))}</span></div>`:''}
   ${p.estado==='custodia'&&!enTransito(p)?`<div class="bar"><input id="mv" placeholder="Nuevo estante" style="flex:1 1 140px"><button class="btn alt sm" data-move="${esc(p.id)}">Mover</button><button class="btn red sm" data-deliver="${esc(p.id)}">Verificar y entregar</button><button class="btn alt sm" data-sep="${esc(p.id)}">Separar para disposición</button></div>`
@@ -1716,12 +1728,12 @@ async function analizarObjeto(p){
   const fijar=()=>{if(!$('#ob_ubi').value||/^O[BD]-/.test($('#ob_ubi').value))$('#ob_ubi').value=suggestShelfEn(zonaSuelto($('#ob_cond').value),p.sede||'')};
   if(!S.sample||!navigator.onLine){st.textContent='Sin IA en este momento: declare el estado a mano.';fijar();return}
   st.innerHTML=escaneo('La IA está revisando el estado del objeto…');
-  try{const o=await S.sample.json(`Estas fotos muestran un objeto que se sacó de su caja en la bodega de custodia de una empresa de mensajería en Colombia (ya es custodia de la empresa por tiempo). Declara su estado mirando solo lo que se ve: golpes, grietas, piezas rotas o faltantes, rayones, manchas, humedad, óxido, fugas, fechas vencidas. Si no se ve ningún daño, el estado es "Bueno" (o "Usado" si tiene uso normal). Responde SOLO con JSON: {"objeto":"nombre corto","descripcion":"una frase en español con marca, modelo, color y accesorios","condicion":"Bueno|Usado|Dañado parcial|Dañado total|Vencido o perecedero","danos":"daños vistos, en una frase, o vacío","razon":"en qué te basas, frase corta","seguro":true si las fotos alcanzan para decidir, false si hace falta otra foto,"etiquetas":["6 a 10 palabras clave en español, minúsculas, sin tildes"],"marca":"o vacío","color":""}`,{images:OBJ.map(m=>m.blob).slice(0,6),modelTier:'default'});
+  try{const o=await S.sample.json(`Estas fotos muestran un objeto que se sacó de su caja en la bodega de custodia de una empresa de mensajería en Colombia (ya es custodia de la empresa por tiempo). Declara su estado mirando solo lo que se ve: golpes, grietas, piezas rotas o faltantes, rayones, manchas, humedad, óxido, fugas, fechas vencidas. Si no se ve ningún daño, el estado es "Bueno" (o "Usado" si tiene uso normal). Responde SOLO con JSON: {"objeto":"nombre corto","descripcion":"una frase en español con marca, modelo, color y accesorios","condicion":"Bueno|Usado|Dañado parcial|Dañado total|Vencido o perecedero","danos":"daños vistos, en una frase, o vacío","razon":"en qué te basas, frase corta","seguro":true si las fotos alcanzan para decidir, false si hace falta otra foto,"etiquetas":["6 a 10 palabras clave en español, minúsculas, sin tildes"],"marca":"o vacío","color":"",${PROMPT_PRECIO}}`,{images:OBJ.map(m=>m.blob).slice(0,6),modelTier:'default'});
     if(n!==obSeq||!o)return;
     if(o.descripcion)$('#ob_desc').value=String(o.descripcion).slice(0,200);
     const op=[...$('#ob_cond').options].find(x=>norm(x.value)===norm(o.condicion||''));if(op)$('#ob_cond').value=op.value;
     $('#ob_dano').value=sinAveria(o.danos)?'':String(o.danos).slice(0,200);fijar();
-    OBJ.ia={...o,t:new Date().toISOString()};
+    OBJ.ia={...o,t:new Date().toISOString()};const ta=tasacionDe(o);if(ta&&!DANO.test($('#ob_cond').value)&&!/Vencido/.test($('#ob_cond').value))o.razon=(o.razon?o.razon+'. ':'')+'Precio estimado usado '+rango(ta.usado);
     st.textContent='La IA declara: '+$('#ob_cond').value+(o.razon?' ('+String(o.razon).slice(0,140)+')':'')+'.'+(o.seguro===false?' Pide otra foto para estar segura: agregue una de cerca.':' Revise y guarde.');
   }catch(e){if(n===obSeq){st.textContent=e&&e.code==='rate_limited'?'IA ocupada: declare el estado a mano o intente en un momento.':'La IA no respondió: declare el estado a mano.';fijar()}}
 }
@@ -1736,17 +1748,112 @@ async function guardarObjeto(p){
     descripcion:$('#ob_desc').value.trim()||p.descripcion||'',media:[...(p.media||[]),...up.media].slice(-30),
     historial:histAdd(p,'Abierto ('+(base==='rezago'?'rezago, acta '+acta:'autorización del '+base)+', testigo '+test+'): objeto fuera de su caja, estado '+cond+', pasa del estante '+p.ubicacion+' al '+ubi)};
   if(up.mainId)upd.fotoId=up.mainId;
-  if(ia){upd.estadoIA={condicion:ia.condicion||'',razon:String(ia.razon||'').slice(0,200),seguro:ia.seguro!==false,t:ia.t};
+  if(ia){upd.estadoIA={condicion:ia.condicion||'',razon:String(ia.razon||'').slice(0,200),seguro:ia.seguro!==false,t:ia.t};const ta=tasacionDe(ia);if(ta)upd.tasacion=ta;
     if(ia.objeto&&(!p.objeto||/paquete cerrado/i.test(p.objeto)))upd.objeto=String(ia.objeto).slice(0,60);if(ia.marca&&!p.marca)upd.marca=String(ia.marca).slice(0,60);if(ia.color&&!p.color)upd.color=String(ia.color).slice(0,40);
     if(Array.isArray(ia.etiquetas))upd.etiquetas=[...new Set([...(p.etiquetas||[]),...ia.etiquetas.map(x=>norm(x).trim()).filter(Boolean)])].slice(0,30)}
   if(dano)upd.averias=[p.averias,'objeto: '+dano].filter(Boolean).join(' · ').slice(0,300);
   const tras={...p,...upd};if(esAveriado(tras)&&(!p.averia||p.averia.estado==='descartado'))upd.averia=nuevaAveria(tras,ia?'ia':'personal');
   else if(p.averia&&dano)upd.averia={...p.averia,descripcion:textoAveria(tras).slice(0,300)};
   if(ia)fbLog({tipo:'estado_objeto',ref:p.id,ok:norm(ia.condicion||'')===norm(cond),campos:{condicion:norm(ia.condicion||'')===norm(cond)},corr:norm(ia.condicion||'')===norm(cond)?[]:[{campo:'condicion',ia:String(ia.condicion||''),final:cond}]});
-  if(await write(()=>S.db.collection('paquetes').doc(p.id).update(upd),p.codigo+' quedó como objeto fuera de caja en '+ubi+(upd.averia?' · pasó a Averías':''))){OBJ=[];closeM();setTimeout(()=>openDetail(p.id),300)}
+  if(await write(()=>S.db.collection('paquetes').doc(p.id).update(upd),p.codigo+' quedó como objeto fuera de caja en '+ubi+(upd.averia&&DANO.test(cond)?' · pasó a Averías':/^(Bueno|Usado)$/.test(cond)?' · pasó a Subastas':''))){OBJ=[];closeM();setTimeout(()=>openDetail(p.id),300)}
   else{b.disabled=false;b.textContent='Guardar como objeto fuera de caja'}
 }
 document.addEventListener('click',e=>{const t=e.target.closest('[data-abrirobj]');if(t)abrirObjeto(t.dataset.abrirobj)});
+
+/* ---------- subastas: objetos abiertos por tiempo en buen estado ---------- */
+const PROMPT_PRECIO='"modelo":"marca y modelo exactos si se leen, o vacío","precio_nuevo_cop":{"min":número,"max":número} precio de este producto NUEVO en tiendas de Colombia en pesos, o null si no lo puedes estimar,"precio_usado_cop":{"min":número,"max":número} precio de uno USADO en buen estado en Colombia (MercadoLibre, Facebook Marketplace), o null,"busqueda":"texto corto para buscar este producto en MercadoLibre Colombia","confianza_precio":"alta|media|baja"';
+const SB_EST={por_tasar:'por tasar',tasado:'precio por aprobar',lista:'lista para subastar',subastado:'vendido en subasta',retirado:'retirado de la subasta'};
+const SB_FACTOR={Bueno:.6,Usado:.5};
+const rangoOk=r=>r&&+r.min>0&&+r.max>=+r.min?{min:Math.round(+r.min),max:Math.round(+r.max)}:null;
+const rango=r=>r?(r.min===r.max?money(r.min):money(r.min)+' – '+money(r.max)):'sin dato';
+const medio=r=>r?(r.min+r.max)/2:0;
+function tasacionDe(o){const nuevo=rangoOk(o.precio_nuevo_cop),usado=rangoOk(o.precio_usado_cop);if(!nuevo&&!usado)return null;
+  return {t:new Date().toISOString(),fuente:'ia',nuevo,usado,modelo:String(o.modelo||'').slice(0,80),busqueda:String(o.busqueda||o.modelo||o.objeto||'').slice(0,80),confianza:['alta','media','baja'].includes(o.confianza_precio)?o.confianza_precio:'baja'}}
+const enSubasta=p=>p.fueraDeCaja&&(p.estado==='subastado'||recuperable(p)&&/^(Bueno|Usado)$/.test(p.condicion||''));
+const estadoSubasta=p=>p.estado==='subastado'?'subastado':(p.subasta||{}).estado==='lista'?'lista':(p.subasta||{}).estado==='retirado'?'retirado':p.tasacion?'tasado':'por_tasar';
+/* Valor de referencia: el precio que el personal verificó en el mercado; si no hay, el punto medio del precio usado que estimó la IA. */
+function referencia(p){const sb=p.subasta||{},ta=p.tasacion||{};if(+sb.referencia>0)return {v:+sb.referencia,de:'precio verificado por el personal'};
+  if(ta.usado)return {v:medio(ta.usado),de:'precio usado estimado por la IA'};if(ta.nuevo)return {v:medio(ta.nuevo)*.5,de:'mitad del precio nuevo estimado por la IA'};return null}
+const sugerido=p=>{const r=referencia(p);return r?Math.max(1000,Math.round(r.v*(SB_FACTOR[p.condicion]||.5)/1000)*1000):0};
+const precioBase=p=>+(p.subasta||{}).precioBase||sugerido(p);
+function legalSubasta(p){
+  if(openClaim(p))return {ok:false,txt:'Tiene un reclamo abierto que puede ser suyo: no lo subaste.'};
+  const r=p.rezagoId&&S.rez.find(x=>x.id===p.rezagoId);if(!r)return {ok:false,txt:'Falta declararlo en rezago (pestaña Rezago y disposición).'};
+  const ps=r.pasos||{},recOk=Date.now()>Date.parse(r.recuperacionHasta),lim=ps.icbf&&ps.icbf.limite;
+  if(!recOk)return {ok:false,txt:'Lote '+(r.codigo||'')+': el dueño aún puede recuperarlo hasta el '+fdate(r.recuperacionHasta)+'.'};
+  if(!lim)return {ok:false,txt:'Lote '+(r.codigo||'')+': falta ofrecerlo al ICBF.'};
+  if(Date.now()<=Date.parse(lim))return {ok:false,txt:'Lote '+(r.codigo||'')+': esperando la respuesta del ICBF hasta el '+fdate(lim)+'.'};
+  return {ok:true,txt:'Lote '+(r.codigo||'')+': plazos de rezago cumplidos.'};
+}
+const enlacesMercado=q=>{const t=String(q||'').trim();if(!t)return '';const ml='https://listado.mercadolibre.com.co/'+encodeURIComponent(norm(t).replace(/\s+/g,'-')),gg='https://www.google.com/search?tbm=shop&q='+encodeURIComponent(t+' Colombia');
+  return `<a class="btn alt sm" href="${esc(ml)}" target="_blank" rel="noopener">Ver precios en MercadoLibre</a><a class="btn alt sm" href="${esc(gg)}" target="_blank" rel="noopener">Buscar en Google Shopping</a>`};
+async function tasar(p,silencio){
+  if(!S.sample){if(!silencio)toast('IA no disponible en esta vista');return false}
+  const imgs=await imagesOf(p,4);if(!imgs.length&&!p.descripcion&&!p.objeto){if(!silencio)toast('El objeto no tiene fotos ni descripción para tasar');return false}
+  try{const o=await S.sample.json(`${imgs.length?'Estas fotos son':'No hay fotos disponibles; usa la descripción. Se trata'} de un objeto en buen estado que una empresa de mensajería en Colombia va a subastar (rezago: nadie lo reclamó). Reconócelo (tipo, marca, modelo, capacidad, talla) y estima su precio en el mercado colombiano con lo que sabes. Datos del registro: ${JSON.stringify({objeto:p.objeto,descripcion:p.descripcion,marca:p.marca,color:p.color,estado:p.condicion,texto:p.textoVisible})}. Responde SOLO con JSON: {"objeto":"nombre corto",${PROMPT_PRECIO}}`,{...(imgs.length?{images:imgs}:{}),modelTier:'default'});
+    const ta=o&&tasacionDe(o);if(ta&&!imgs.length)ta.confianza='baja';if(!ta){if(!silencio)toast('La IA no pudo estimar el precio: escriba un precio de referencia');return false}
+    return await write(()=>S.db.collection('paquetes').doc(p.id).update({tasacion:ta,historial:histAdd(p,'Tasado por la IA: usado '+rango(ta.usado)+', nuevo '+rango(ta.nuevo))}),silencio?'':'Precio estimado para '+p.codigo);
+  }catch(e){if(!silencio)toast(e&&e.code==='rate_limited'?'IA ocupada: intente en un momento':'La IA no respondió');return false}
+}
+function renderSubastas(){
+  const el=$('#sb_list');if(!el)return;const a=document.activeElement;if(a&&a.tagName==='INPUT'&&el.contains(a))return;
+  const fs=$('#sb_sede');if(fs){const v=fs.value;fs.innerHTML='<option value="">Todas las sedes</option>'+opcSedes(v);fs.value=v}
+  const todos=S.paq.filter(enSubasta),fe=$('#sb_f').value,fsd=fs?fs.value:'',cnt=k=>todos.filter(p=>estadoSubasta(p)===k).length;
+  const vend=todos.filter(p=>p.estado==='subastado').reduce((s,p)=>s+(+((p.subasta||{}).venta||{}).valor||0),0);
+  $('#sb_stats').innerHTML=[['Por tasar',cnt('por_tasar')],['Precio por aprobar',cnt('tasado')],['Listos para subastar',cnt('lista')],['Vendidos',cnt('subastado')],['Valor obtenido',money(vend)]].map(([k,v])=>`<div class="stat"><span class="big">${esc(v)}</span><span class="meta">${esc(k)}</span></div>`).join('');
+  const list=todos.filter(p=>(!fe||estadoSubasta(p)===fe)&&(!fsd||sedeNom(p)===fsd)).sort((a,b)=>days(b.ingreso)-days(a.ingreso));
+  const w=S.canWrite!==false;
+  el.innerHTML=list.length?list.map(p=>{const est=estadoSubasta(p),ta=p.tasacion,sb=p.subasta||{},ref=referencia(p),sug=sugerido(p),lg=legalSubasta(p),src=fotoSrc(p),q=(ta&&ta.busqueda)||[p.marca,p.objeto].filter(Boolean).join(' ')||p.descripcion;
+    return `<div class="alert ${est==='subastado'?'g':est==='retirado'?'k':''}" style="display:block">
+    <div style="display:flex;gap:12px;align-items:flex-start">${src&&!p.privado?`<div class="mthumb"><img src="${esc(src)}" alt=""></div>`:''}<div style="flex:1">
+      <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><b>${esc(p.codigo)} · ${esc((ta&&ta.modelo)||p.objeto||'objeto')}</b><span class="meta">${esc(SB_EST[est])}</span></div>
+      <div>${esc(p.descripcion||'')}</div>
+      <div class="meta">Estado <b>${esc(p.condicion)}</b> · ${esc(sedeNom(p))}, estante ${esc(p.ubicacion)} · ${days(p.ingreso)} días en custodia${+p.valor?' · valor declarado en la guía '+money(p.valor):''}</div>
+      ${ta?`<div class="meta">Precio en el mercado estimado por la IA el ${fdate(ta.t)} (confianza ${esc(ta.confianza)}): nuevo ${esc(rango(ta.nuevo))} · usado ${esc(rango(ta.usado))}. Es un estimado con lo que sabe la IA, no una consulta en vivo: confírmelo con los enlaces.</div>`:'<div class="meta">Aún sin precio de mercado.</div>'}
+      ${est==='subastado'?`<div><b>Vendido en ${money(sb.venta.valor)}</b> · ${fdate(sb.venta.fecha)}${sb.venta.acta?' · acta '+esc(sb.venta.acta):''}</div>`
+        :sug?`<div style="margin-top:4px">Precio base sugerido: <b>${money(sug)}</b> <span class="meta">(${Math.round((SB_FACTOR[p.condicion]||.5)*100)}% del ${esc(ref.de)}, ${money(ref.v)})</span>${est==='lista'?` · <b>aprobado: ${money(sb.precioBase)}</b>`:''}</div>`:''}
+      <div class="meta" style="color:${lg.ok?'inherit':'var(--danger,#c0392b)'}">${esc(lg.txt)}</div>
+    </div></div>
+    <div class="bar" style="margin-top:8px">${enlacesMercado(q)}<button class="btn alt sm" data-open="${esc(p.id)}">Ver ficha</button></div>
+    ${w&&est!=='subastado'?`<div class="bar" style="margin-top:6px">${est==='retirado'?`<button class="btn alt sm" data-sb="volver|${esc(p.id)}">Volver a la subasta</button>`:`
+      ${S.sample&&!ta?`<button class="btn red sm" data-sb="tasar|${esc(p.id)}">Tasar con IA</button>`:''}
+      <input type="number" inputmode="numeric" placeholder="Precio verificado en el mercado" data-sbref="${esc(p.id)}" value="${+sb.referencia||''}" style="flex:1 1 170px" aria-label="Precio de referencia verificado">
+      <input type="number" inputmode="numeric" placeholder="Precio base" data-sbbase="${esc(p.id)}" value="${est==='lista'?+sb.precioBase:sug||''}" style="flex:1 1 130px" aria-label="Precio base de la subasta">
+      <button class="btn ${est==='lista'?'alt':'red'} sm" data-sb="aprobar|${esc(p.id)}">${est==='lista'?'Cambiar precio':'Aprobar precio base'}</button>
+      ${est==='lista'?`<button class="btn red sm" data-sb="vender|${esc(p.id)}" ${lg.ok?'':'disabled title="'+esc(lg.txt)+'"'}>Registrar venta</button>`:''}
+      ${ta?`<button class="btn alt sm" data-sb="tasar|${esc(p.id)}">Volver a tasar</button>`:''}
+      <button class="btn alt sm" data-sb="retirar|${esc(p.id)}">Retirar</button>`}</div>`:''}
+    </div>`}).join(''):'<p class="meta">No hay objetos en esta lista. Los objetos llegan aquí cuando se abren por tiempo (ficha del paquete → Abrir y fotografiar el objeto) y quedan en buen estado.</p>';
+}
+$('#sb_f').addEventListener('change',renderSubastas);$('#sb_sede').addEventListener('change',renderSubastas);
+document.addEventListener('input',e=>{const t=e.target;if(!t.dataset||!t.dataset.sbref)return;const p=S.paq.find(x=>x.id===t.dataset.sbref);if(!p)return;const v=+t.value,b=document.querySelector(`[data-sbbase="${CSS.escape(p.id)}"]`);
+  if(b&&v>0)b.value=Math.max(1000,Math.round(v*(SB_FACTOR[p.condicion]||.5)/1000)*1000)});
+document.addEventListener('click',async e=>{const t=e.target.closest('[data-sb]');if(!t)return;const [acc,id]=t.dataset.sb.split('|'),p=S.paq.find(x=>x.id===id);if(!p)return;
+  const sb=p.subasta||{},now=new Date().toISOString();
+  if(acc==='tasar'){const txt=t.textContent;t.disabled=true;t.textContent='Tasando…';const ok=await tasar(p);if(!ok&&t.isConnected){t.disabled=false;t.textContent=txt}return}
+  if(acc==='aprobar'){const ref=Math.round(+(document.querySelector(`[data-sbref="${CSS.escape(id)}"]`)||{}).value||0),base=Math.round(+(document.querySelector(`[data-sbbase="${CSS.escape(id)}"]`)||{}).value||0);
+    if(!(base>0)){toast('Escriba el precio base');return}
+    write(()=>S.db.collection('paquetes').doc(id).update({subasta:{...sb,estado:'lista',precioBase:base,referencia:ref>0?ref:(+sb.referencia||0),sugerido:sugerido({...p,subasta:{referencia:ref}}),aprobado:{t:now,por:S.me||''}},historial:histAdd(p,'Precio base de subasta aprobado: '+money(base)+(ref>0?' (referencia verificada '+money(ref)+')':''))}),'Precio base '+money(base)+' aprobado');return}
+  if(acc==='retirar'){write(()=>S.db.collection('paquetes').doc(id).update({subasta:{...sb,estado:'retirado',retirado:{t:now,por:S.me||''}},historial:histAdd(p,'Retirado de la subasta')}),'Retirado de la subasta');return}
+  if(acc==='volver'){write(()=>S.db.collection('paquetes').doc(id).update({subasta:{...sb,estado:'',retirado:null},historial:histAdd(p,'Vuelve a la lista de subasta')}),'De vuelta en la subasta');return}
+  if(acc==='vender'){const lg=legalSubasta(p);if(!lg.ok){toast(lg.txt);return}
+    $('#mbody').innerHTML=`<h2>Venta en subasta · ${esc(p.codigo)}</h2><p class="meta">${esc(p.descripcion||p.objeto||'')} · precio base ${money(sb.precioBase)}</p>
+    <div class="row2"><label class="f">Valor final de venta ($)<input id="sv_v" type="number" inputmode="numeric" value="${+sb.precioBase||''}"></label><label class="f">Acta o lote de la subasta<input id="sv_a"></label></div>
+    <label class="f">Nota<input id="sv_n" placeholder="Ej.: subasta pública del 15 de diciembre"></label>
+    <div class="bar" style="margin-top:12px"><button class="btn red sm" id="sv_ok">Registrar venta</button><button class="btn alt sm" data-close>Cancelar</button></div>`;modal.style.display='grid';
+    $('#sv_ok').onclick=async()=>{const v=Math.round(+$('#sv_v').value),a=$('#sv_a').value.trim();if(!(v>0)){toast('Escriba el valor de venta');return}if(!a){toast('Escriba el acta o lote de la subasta');return}
+      if(await write(()=>S.db.collection('paquetes').doc(id).update({estado:'subastado',subasta:{...sb,estado:'subastado',venta:{valor:v,acta:a.slice(0,60),nota:$('#sv_n').value.trim().slice(0,200),fecha:now,por:S.me||''}},historial:histAdd(p,'Vendido en subasta por '+money(v)+', acta '+a)}),p.codigo+' vendido en '+money(v)))closeM()}}
+});
+$('#sb_tasar').addEventListener('click',async e=>{const b=e.target,faltan=S.paq.filter(p=>enSubasta(p)&&estadoSubasta(p)==='por_tasar').slice(0,10);
+  if(!faltan.length){toast('No hay objetos por tasar');return}if(!S.sample){toast('IA no disponible en esta vista');return}
+  b.disabled=true;let ok=0;for(const [i,p] of faltan.entries()){b.textContent='Tasando '+(i+1)+' de '+faltan.length+'…';if(await tasar(p,true))ok++}
+  b.disabled=false;b.textContent='Tasar con IA los que faltan';toast(ok+' de '+faltan.length+' objeto(s) tasados')});
+$('#sb_copy').addEventListener('click',async()=>{
+  const list=S.paq.filter(p=>enSubasta(p)&&estadoSubasta(p)==='lista');if(!list.length){toast('No hay objetos listos para subastar');return}
+  const cel=x=>String(x??'').replace(/[\t\n\r]+/g,' ');
+  const filas=[['Código','Objeto','Descripción','Estado','Sede','Estante','Precio base','Precio usado estimado','Precio nuevo estimado','Situación legal'],
+    ...list.map(p=>[p.codigo,(p.tasacion||{}).modelo||p.objeto||'',p.descripcion||'',p.condicion,sedeNom(p),p.ubicacion,(p.subasta||{}).precioBase||'',p.tasacion?rango(p.tasacion.usado):'',p.tasacion?rango(p.tasacion.nuevo):'',legalSubasta(p).txt])];
+  try{await navigator.clipboard.writeText(filas.map(f=>f.map(cel).join('\t')).join('\n'));toast(list.length+' objeto(s) copiados: péguelos en Excel')}catch(e){toast('No se pudo copiar en este navegador')}});
 
 /* lista de averiados para la transportadora */
 function renderAverias(){
@@ -2107,7 +2214,7 @@ function renderStats(){
   const b=$('#deldemo');if(b)b.onclick=async()=>{b.disabled=true;for(const p of S.paq.filter(p=>p.muestra))await write(()=>S.db.collection('paquetes').doc(p.id).delete());for(const r of S.rec.filter(r=>r.muestra))await write(()=>S.db.collection('reclamos').doc(r.id).delete());toast('Datos de ejemplo borrados')};
 }
 
-function renderAll(){renderMiSede();renderPulso();renderAverias();renderCamaras();renderRec();renderInv();renderDisp();renderRezago();renderConc();renderStats();renderPrec();const q=$('#q').value;if(q&&!$('#res').querySelector('.why'))localSearch(q)}
+function renderAll(){renderMiSede();renderPulso();renderAverias();renderSubastas();renderCamaras();renderRec();renderInv();renderDisp();renderRezago();renderConc();renderStats();renderPrec();const q=$('#q').value;if(q&&!$('#res').querySelector('.why'))localSearch(q)}
 function banner(m){$('#banner').innerHTML=m?`<div class="banner">${esc(m)}</div>`:''}
 
 /* ---------- pestañas y QR ---------- */

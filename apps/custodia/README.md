@@ -1,7 +1,7 @@
 # Custodia: buscador de envíos
 
 Copia de respaldo del artifact publicado en claude.ai
-(https://claude.ai/artifact/4DfAbYsxbJmyQFXj6wdyJW), versión 1795873282-53cd.
+(https://claude.ai/artifact/4DfAbYsxbJmyQFXj6wdyJW), versión 1795874355-4fbd.
 
 App para la bodega de custodia de una transportadora en Colombia: búsqueda de
 envíos por descripción, registro con video, reclamos, inventario, conciliación
@@ -45,6 +45,17 @@ interfaz, pero sin datos.
 - El registro con apertura ("Abierto en rezago" o con autorización) acepta
   fotos y ofrece dejar el objeto fuera de su caja con la misma regla de
   estantes. El Inventario filtra "Siguen en su caja" / "Fuera de caja".
+- Pestaña **Subastas**: los objetos abiertos que quedan en buen estado o
+  usados. La IA reconoce el objeto en la foto y estima su precio nuevo y
+  usado en Colombia (con lo que sabe la IA, no es una consulta en vivo; hay
+  enlaces a MercadoLibre y Google Shopping para confirmarlo). Precio base
+  sugerido: 60 % (bueno) o 50 % (usado) del precio de referencia, que es el
+  precio verificado por el personal o, si no hay, el punto medio del usado
+  estimado. Flujo: por tasar → precio por aprobar → lista → vendida (valor
+  final y acta) o retirada. "Registrar venta" solo se activa cuando el lote
+  de rezago cumplió el plazo de recuperación y el del ICBF, y si no hay un
+  reclamo abierto que coincida. Confirmar con abogado que la subasta está
+  permitida para rezagos postales.
 
 ## Pendiente: integración con los sistemas de la transportadora (pospuesta)
 
