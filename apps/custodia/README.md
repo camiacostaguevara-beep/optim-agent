@@ -1,15 +1,32 @@
 # Custodia: buscador de envíos
 
 Copia de respaldo del artifact publicado en claude.ai
-(https://claude.ai/artifact/4DfAbYsxbJmyQFXj6wdyJW), versión 1795623424-2ac7.
+(https://claude.ai/artifact/4DfAbYsxbJmyQFXj6wdyJW), versión 1795871637-79a1.
 
 App para la bodega de custodia de una transportadora en Colombia: búsqueda de
 envíos por descripción, registro con video, reclamos, inventario, conciliación
-de guías, disposición final (rezago y donación), venta a empleados y tablero.
+de guías, disposición final (rezago y donación) y tablero.
 
 Funciona dentro de claude.ai: usa `window.claude` (base de datos compartida,
 archivos, IA y perfil de usuario). Abierta como archivo local se ve la
 interfaz, pero sin datos.
+
+## Clientes y privacidad
+
+- Los clientes reportan su envío en un formulario aparte
+  (`formulario_cliente.html`, publicado en
+  https://claude.ai/artifact/BAiMtJfmiKdPprtB8fpiB5). El formulario no lee
+  ningún dato: arma el reporte y lo envía por WhatsApp a la empresa.
+- Si alguien sin acceso de personal abre la app interna (lector, visitante de
+  fuera de la organización o sin sesión), ve solo una pantalla para reportar
+  su envío. Las reglas de la base de datos le impiden leer paquetes,
+  reclamos, fotos y configuración. Solo `publico/portal` (nombre, logo, color
+  y WhatsApp de la empresa) es legible para todos.
+- El personal puede eliminar fotos, videos y reclamos (si la subida está
+  restringida, solo el personal autorizado y los administradores). Cada
+  eliminación pide un motivo y queda en el Tablero (quién, cuándo, por qué,
+  sin guardar los datos borrados). Los archivos que la cuenta no pudo borrar
+  quedan ocultos y un administrador termina de borrarlos desde el Tablero.
 
 ## Pendiente: integración con los sistemas de la transportadora (pospuesta)
 

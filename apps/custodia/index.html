@@ -178,7 +178,9 @@ tbody tr:last-child td{border-bottom:0}
 .menu-mas{display:grid;gap:8px;margin-top:8px}
 .menu-mas button{display:flex;align-items:center;gap:12px;padding:14px;border-radius:14px;border:1px solid var(--line);background:var(--surface-2);color:var(--ink);font:600 16px var(--f-body);cursor:pointer;text-align:left}
 .menu-mas svg{width:22px;height:22px;color:var(--brand-ink)}
-.mgrid{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}.mthumb{position:relative;width:84px;height:84px;border-radius:10px;overflow:hidden;background:var(--surface-2);flex:none;border:1px solid var(--line)}.mthumb img{width:100%;height:100%;object-fit:cover}.mthumb .v{position:absolute;left:3px;bottom:3px;background:rgba(0,0,0,.7);color:#fff;font-size:11px;padding:1px 5px;border-radius:3px}.mthumb .x{position:absolute;top:3px;right:3px;width:28px;height:28px;border:0;border-radius:50%;background:rgba(0,0,0,.7);color:#fff;font-size:18px;line-height:1;cursor:pointer}
+.mgrid{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}.mthumb{position:relative;width:84px;height:84px;border-radius:10px;overflow:hidden;background:var(--surface-2);flex:none;border:1px solid var(--line)}.mthumb img{width:100%;height:100%;object-fit:cover}.mthumb .v{position:absolute;left:3px;bottom:3px;background:rgba(0,0,0,.7);color:#fff;font-size:11px;padding:1px 5px;border-radius:3px}.mthumb .x{position:absolute;top:3px;right:3px;width:28px;height:28px;border:0;border-radius:50%;background:rgba(0,0,0,.7);color:#fff;font-size:18px;line-height:1;cursor:pointer}.mthumb .x.del{background:rgba(160,20,10,.85)}
+body[data-modo=cliente] .shell,body[data-modo=cliente] #estilo_btn,body[data-modo=cliente] #status,body[data-modo=cliente] .appbar .sede{display:none!important}
+#portal{max-width:560px;margin:32px auto;padding:0 16px}#portal .card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:22px}#portal h1{font-size:clamp(26px,6vw,34px);line-height:1.1;margin:0 0 10px}#portal .bar{margin-top:16px}
 .etq{display:flex;gap:14px;align-items:center;background:#fff;color:#111;border:2px dashed #111;border-radius:10px;padding:12px;margin:12px 0}
 .etq svg{width:120px;height:120px;flex:none}
 .etq .big{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:24px;font-weight:700;color:#111}
@@ -472,12 +474,14 @@ details>summary{list-style:none}details>summary::-webkit-details-marker{display:
     <div id="empresa"></div>
     <div id="personal"></div>
     <h3>Precisión de la IA</h3><div id="prec"></div>
+    <div id="eliminados"></div>
     <div id="admin" style="margin-top:24px"></div>
   </section>
 </main>
 </div>
 <input type="file" id="add_media" accept="image/*,video/*" multiple hidden>
 <div class="toast" id="toast"></div>
+<div id="portal" hidden></div>
 <div class="modal" id="modal"><div id="mbody"></div></div>
 
 <script>
@@ -492,7 +496,7 @@ const fdate=d=>d?new Date(d).toLocaleDateString('es-CO',{day:'numeric',month:'sh
 const toast=m=>{const t=$('#toast');t.textContent=m;t.style.display='block';clearTimeout(toast.h);toast.h=setTimeout(()=>t.style.display='none',3000)};
 const use=n=>{try{return window.claude&&window.claude.use?window.claude.use(n).catch(()=>null):Promise.resolve(null)}catch(e){return Promise.resolve(null)}};
 
-const S={db:null,sample:null,assets:null,user:null,me:null,paq:[],rec:[],lotes:[],rez:[],imp:[],fb:[],cfgP:{},cfgE:{},cfgS:{},adm:[],cfg:{},loaded:false,canWrite:true,isAdmin:false,names:{}};
+const S={db:null,sample:null,assets:null,user:null,me:null,paq:[],rec:[],lotes:[],rez:[],imp:[],fb:[],cfgP:{},cfgE:{},cfgS:{},adm:[],cfg:{},pub:null,elim:[],loaded:false,canWrite:true,isAdmin:false,names:{}};
 
 /* ---------- búsqueda local ---------- */
 const SYN={zapatos:'tenis',zapatillas:'tenis',calzado:'tenis',telefono:'celular',movil:'celular',smartphone:'celular',computador:'portatil',laptop:'portatil',computadora:'portatil',chamarra:'chaqueta',campera:'chaqueta',auriculares:'audifonos',cascos:'audifonos',marron:'cafe',tv:'televisor',tele:'televisor'};
@@ -878,7 +882,7 @@ function openDetail(id,pp){
   ${src?`<img src="${esc(src)}" alt="Foto del contenido" style="width:100%;max-height:320px;object-fit:contain;border-radius:6px;background:var(--bg)">`:''}
   <div class="etq">${qrSvg(APP_URL+'#'+p.id)}<div><span style="color:#444;font-size:13px">${esc(marcaNombre())} · Abierto en custodia</span><div class="big">${esc(p.codigo)}</div><div>Estante <b>${esc(p.ubicacion)}</b> · ${fdate(p.ingreso)}</div></div></div>
   <p class="meta">Haga captura de esta etiqueta para imprimirla. Al escanear el QR con el celular se abre esta ficha.</p>
-  ${gallery(p.media,true)}${recuperable(p)?`<p class="bar"><button class="btn alt sm" data-addm="paquetes|${esc(p.id)}">Agregar otro video</button>${p.guia?(admOf(p.guia)?`<button class="btn alt sm" data-adm="${esc(admOf(p.guia).id)}">Ver foto de admisión</button>`:''):`<button class="btn sm" data-findadm="${esc(p.id)}">Buscar su guía por foto de admisión</button>`}</p><div id="fa_box"></div>`:''}
+  ${gallery(p.media,true,'paquetes|'+p.id)}${recuperable(p)?`<p class="bar"><button class="btn alt sm" data-addm="paquetes|${esc(p.id)}">Agregar otro video</button>${p.guia?(admOf(p.guia)?`<button class="btn alt sm" data-adm="${esc(admOf(p.guia).id)}">Ver foto de admisión</button>`:''):`<button class="btn sm" data-findadm="${esc(p.id)}">Buscar su guía por foto de admisión</button>`}</p><div id="fa_box"></div>`:''}
   <p><b>${esc(p.descripcion||p.objeto)}</b></p>
   <div class="tags">${(p.etiquetas||[]).map(t=>`<span class="tag">${esc(t)}</span>`).join('')}</div>
   <p class="meta">${esc(p.origen||'¿?')} → ${esc(p.destino||'¿?')} · ${p.peso?esc(p.peso)+' kg · ':''}${esc(p.medidas||'')} · empaque: ${esc(p.empaque)} · valor ${money(p.valor)}<br>Texto visible: ${esc(p.textoVisible||'—')}<br>${(()=>{const rc=S.rec.find(x=>x.paqueteId===p.id&&x.autorizaApertura);return rc?'<b>El cliente '+esc(rc.cliente)+' autorizó abrirlo con testigo.</b><br>':''})()}Apertura: ${esc({exterior:'sin abrir',remitente:'autorizó el remitente',destinatario:'autorizó el destinatario',rezago:'en rezago con acta'}[p.apertura]||'no registrada')} · Testigo: ${esc(p.testigo||'—')} · Estado: <b>${esc(ESTADO[p.estado]||p.estado)}</b><br>Producto: ${esc(p.condicion||'—')} · Material: ${esc(p.material||'—')}</p>
@@ -1212,8 +1216,8 @@ function renderRecList(){
   const list=S.rec.slice().sort((a,b)=>order[a.estado]-order[b.estado]||String(b.creado).localeCompare(String(a.creado)));
   $('#rlist').innerHTML=list.length?list.map(r=>`<div class="alert ${r.estado==='abierto'?'':r.estado==='encontrado'?'g':'k'}" style="display:block">
    <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><b>${esc(r.cliente)}</b><span class="meta">${esc(r.estado)} · ${fdate(r.creado)} · ${money(r.valor)}</span></div>
-   <div style="display:flex;gap:12px;align-items:flex-start">${fotoSrc(r)?`<img src="${esc(fotoSrc(r))}" alt="Foto del cliente" style="width:84px;height:84px;object-fit:cover;border-radius:4px;flex:none">`:''}<div>${esc(r.descripcion)}${gallery((r.media||[]).filter(m=>m.tipo==='video'||(r.media||[]).length>1))}${r.estado==='abierto'?`<button class="btn alt sm" data-addm="reclamos|${esc(r.id)}">Agregar fotos del cliente</button>`:''}${(r.fotoTags||[]).length?`<div class="tags">${r.fotoTags.map(t=>`<span class="tag">${esc(t)}</span>`).join('')}</div>`:''}</div></div><div class="meta">${esc(r.origen||'¿?')} → ${esc(r.destino||'¿?')}${r.guia?' · guía '+esc(r.guia):''} · ${esc(r.contacto)}</div>
-   <div class="bar" style="margin-top:6px"><button class="btn sm" data-reply="${esc(r.id)}">Responder por WhatsApp</button>${r.estado==='abierto'&&admOf(r.guia)?`<button class="btn red sm" data-cmpadm="${esc(r.id)}">Buscar con la foto de admisión</button>`:''}${(r.respuestas||[]).length?`<span class="meta" style="align-self:center">${r.respuestas.length} respuesta(s) · última ${fdate(r.respuestas.at(-1).t)}</span>`:'<span class="meta" style="align-self:center">Sin responder</span>'}${r.autorizaApertura?'<span class="meta" style="align-self:center">· autorizó apertura</span>':''}${r.codigoCliente?`<span class="meta" style="align-self:center">· ${esc(r.codigoCliente)}</span>`:''}</div>
+   <div style="display:flex;gap:12px;align-items:flex-start">${!(r.media||[]).length&&fotoSrc(r)?`<div class="mthumb"><img src="${esc(fotoSrc(r))}" alt="Foto del cliente">${puedeBorrar()?`<button type="button" class="x del" data-delfoto="${esc(r.id)}" aria-label="Eliminar foto" title="Eliminar foto">×</button>`:''}</div>`:''}<div>${esc(r.descripcion)}${gallery(r.media,false,'reclamos|'+r.id)}${r.estado==='abierto'?`<button class="btn alt sm" data-addm="reclamos|${esc(r.id)}">Agregar fotos del cliente</button>`:''}${(r.fotoTags||[]).length?`<div class="tags">${r.fotoTags.map(t=>`<span class="tag">${esc(t)}</span>`).join('')}</div>`:''}</div></div><div class="meta">${esc(r.origen||'¿?')} → ${esc(r.destino||'¿?')}${r.guia?' · guía '+esc(r.guia):''} · ${esc(r.contacto)}</div>
+   <div class="bar" style="margin-top:6px"><button class="btn sm" data-reply="${esc(r.id)}">Responder por WhatsApp</button>${r.estado==='abierto'&&admOf(r.guia)?`<button class="btn red sm" data-cmpadm="${esc(r.id)}">Buscar con la foto de admisión</button>`:''}${(r.respuestas||[]).length?`<span class="meta" style="align-self:center">${r.respuestas.length} respuesta(s) · última ${fdate(r.respuestas.at(-1).t)}</span>`:'<span class="meta" style="align-self:center">Sin responder</span>'}${r.autorizaApertura?'<span class="meta" style="align-self:center">· autorizó apertura</span>':''}${r.codigoCliente?`<span class="meta" style="align-self:center">· ${esc(r.codigoCliente)}</span>`:''}${puedeBorrar()?`<button class="btn alt sm" data-delrec="${esc(r.id)}" style="margin-left:auto">Eliminar reclamo</button>`:''}</div>
    ${bloqueBusqueda(r)}
    ${r.paqueteId?`<p>Paquete: <button class="btn alt sm" data-open="${esc(r.paqueteId)}">${esc((S.paq.find(p=>p.id===r.paqueteId)||{}).codigo||r.paqueteId)}</button></p>`:''}
    ${r.estado==='abierto'?`<div class="bar" style="margin-top:8px"><button class="btn sm" data-match="${esc(r.id)}">Buscar coincidencias</button><button class="btn alt sm" data-match="${esc(r.id)}" data-ai="1">Buscar con IA</button>${fotoSrc(r)||(r.media||[]).length?`<button class="btn red sm" data-cmp="${esc(r.id)}">Comparar foto con la custodia</button>`:''}</div><div class="list" id="m_${esc(r.id)}"></div>`:''}
@@ -1595,11 +1599,12 @@ async function imagesOf(ent,max){
   if(!urls.length&&fotoSrc(ent))urls.push(fotoSrc(ent));
   const out=[];for(const u of urls.filter(Boolean).slice(0,max)){const b=await blobOf(u);if(b)out.push(b)}return out;
 }
-function gallery(list,big){
-  if(!list||!list.length)return '';
-  return `<div class="mgrid">${list.map(m=>{const src=mThumbSrc(m),who=({cliente:'cliente',admision:'admisión',camara:'cámara'})[m.origen]||'personal';
-    if(big&&m.tipo==='video'&&m.id&&!m.pend)return `<div style="width:100%"><video controls playsinline preload="metadata" src="${esc(blobUrl(m.id))}" ${m.posterId?`poster="${esc(blobUrl(m.posterId))}"`:''} style="width:100%;max-height:320px;border-radius:6px;background:#000"></video><span class="meta">Video · subido por ${who} · ${fdate(m.t)}</span></div>`;
-    return `<div class="mthumb" title="${who}">${src?`<img src="${esc(src)}" alt="">`:''}<span class="v">${m.tipo==='video'?'video · ':''}${who}</span></div>`}).join('')}</div>`;
+function gallery(list,big,ctx){
+  if(!list||!list.length)return '';const del=ctx&&puedeBorrar();
+  return `<div class="mgrid">${list.map((m,i)=>{const src=mThumbSrc(m),who=({cliente:'cliente',admision:'admisión',camara:'cámara'})[m.origen]||'personal',
+    x=del?`data-delm="${esc(ctx)}|${i}"`:'',nom=m.tipo==='video'?'video':'foto';
+    if(big&&m.tipo==='video'&&m.id&&!m.pend)return `<div style="width:100%"><video controls playsinline preload="metadata" src="${esc(blobUrl(m.id))}" ${m.posterId?`poster="${esc(blobUrl(m.posterId))}"`:''} style="width:100%;max-height:320px;border-radius:6px;background:#000"></video><span class="meta">Video · subido por ${who} · ${fdate(m.t)}</span>${x?` <button type="button" class="btn alt sm" ${x}>Eliminar video</button>`:''}</div>`;
+    return `<div class="mthumb" title="${who}">${src?`<img src="${esc(src)}" alt="">`:''}<span class="v">${m.tipo==='video'?'video · ':''}${who}</span>${x?`<button type="button" class="x del" ${x} aria-label="Eliminar ${nom}" title="Eliminar ${nom}">×</button>`:''}</div>`}).join('')}</div>`;
 }
 /* agregar a un paquete o reclamo existente */
 let addTarget=null;
@@ -1619,6 +1624,95 @@ async function onAddMedia(e){
   if(col==='paquetes')upd.historial=histAdd(ent,up.media.length+' archivo(s) agregados');
   if(await write(()=>S.db.collection(col).doc(id).update(upd),up.media.length+' archivo(s) agregados'+(S.sample?' y analizados':''))&&col==='paquetes')setTimeout(()=>openDetail(id),300);
 }
+/* ---------- eliminar fotos, videos y reclamos (solo personal) ---------- */
+const puedeBorrar=()=>!!S.db&&S.canWrite!==false&&canUpload();
+const MOTIVOS=['Foto o video equivocado, o de otro envío','Registro duplicado','Error al registrar','El cliente pidió borrar sus datos (Ley 1581)','Otro'];
+const archivosDe=m=>[m.id,m.posterId,...(m.frames||[])].filter(x=>x&&!String(x).startsWith('pend-'));
+/* Borra los archivos del almacén. Si esta cuenta no puede (un Colaborador solo borra lo que subió) o no hay señal,
+   devuelve los que quedaron para que un administrador los borre desde el Tablero. */
+async function borrarArchivos(ids){
+  const quedan=[];for(const id of [...new Set(ids)]){if(!S.assets||!navigator.onLine){quedan.push(id);continue}
+    try{await conTiempo(S.assets.delete(id),20000)}catch(e){if(!(e&&e.code==='not_found'))quedan.push(id)}}
+  return quedan;
+}
+async function registrarBorrado(o,quedan){
+  const t=new Date().toISOString();
+  try{await S.db.collection('eliminaciones').doc(clave()).set({t,por:S.me||'',...o,pendientes:quedan})}catch(e){}
+}
+function pedirBorrado(titulo,texto,alOk){
+  $('#mbody').innerHTML=`<h2>${esc(titulo)}</h2><p>${esc(texto)}</p><p class="meta">No se puede deshacer. Queda anotado en el Tablero quién lo borró, cuándo y por qué, sin guardar los datos borrados.</p>
+  <label class="f">Motivo<select id="bo_m">${MOTIVOS.map(m=>`<option>${esc(m)}</option>`).join('')}</select></label>
+  <div class="bar" style="margin-top:14px"><button class="btn red sm" id="bo_ok">Eliminar</button><button class="btn alt sm" data-close>Cancelar</button></div>`;
+  modal.style.display='grid';
+  $('#bo_ok').onclick=async e=>{e.target.disabled=true;e.target.textContent='Eliminando…';try{await alOk($('#bo_m').value)}finally{if(modal.style.display!=='none'&&$('#bo_ok'))closeM()}};
+}
+const COL_LISTA={paquetes:'paq',reclamos:'rec',admisiones:'adm'};
+function borrarMedio(col,id,i){
+  if(!puedeBorrar()){toast('Su cuenta no puede eliminar archivos');return}
+  const ent=(S[COL_LISTA[col]]||[]).find(x=>x.id===id),m=ent&&(ent.media||[])[i];if(!m)return;
+  if(m.pend||String(m.id||'').startsWith('pend-')){toast('Este archivo aún no se ha enviado. Elimínelo cuando haya señal y se envíe.');return}
+  const nom=m.tipo==='video'?'video':'foto',queda=(ent.media||[]).length-1;
+  pedirBorrado('Eliminar '+nom,`Se borrará ${m.tipo==='video'?'este video':'esta foto'} ${col==='reclamos'?'del reclamo de '+(ent.cliente||'un cliente'):col==='admisiones'?'de la admisión de la guía '+(ent.guia||''):'del paquete '+(ent.codigo||'')}.${col==='paquetes'&&m.tipo==='video'?' La IA ya no podrá usar este video para reconocer el paquete.':''}${queda?'':' Es el único archivo: el registro queda sin imágenes.'}`,async motivo=>{
+    const quita=archivosDe(m),media=(ent.media||[]).filter((_,k)=>k!==i),upd={media};
+    if(quita.includes(ent.fotoId)){const f=media.find(x=>x.tipo==='foto'&&x.id&&!x.pend)||media.find(x=>x.posterId&&!x.pend);upd.fotoId=f?(f.tipo==='foto'?f.id:f.posterId):''}
+    if(col==='paquetes')upd.historial=histAdd(ent,nom.charAt(0).toUpperCase()+nom.slice(1)+' eliminado: '+motivo);
+    if(!await write(()=>S.db.collection(col).doc(id).update(upd)))return;
+    const quedan=await borrarArchivos(quita);await registrarBorrado({tipo:nom,coleccion:col,registro:id,motivo,archivos:quita.length},quedan);
+    toast(nom.charAt(0).toUpperCase()+nom.slice(1)+' eliminado'+(quedan.length?' · un administrador debe terminar de borrar el archivo desde el Tablero':''));
+    closeM();if(col==='paquetes')setTimeout(()=>openDetail(id),300);else if(col==='admisiones'&&typeof openAdm==='function')setTimeout(()=>openAdm(id),300);
+  });
+}
+function borrarFotoVieja(id){
+  const r=S.rec.find(x=>x.id===id);if(!r||!puedeBorrar())return;
+  pedirBorrado('Eliminar foto',`Se borrará la foto del reclamo de ${r.cliente||'un cliente'}.`,async motivo=>{
+    if(!await write(()=>S.db.collection('reclamos').doc(id).update({fotoId:'',fotoMini:''})))return;
+    const quita=r.fotoId?[r.fotoId]:[],quedan=await borrarArchivos(quita);await registrarBorrado({tipo:'foto',coleccion:'reclamos',registro:id,motivo,archivos:quita.length},quedan);
+    toast('Foto eliminada');closeM()});
+}
+function borrarReclamo(id){
+  const r=S.rec.find(x=>x.id===id);if(!r)return;if(!puedeBorrar()){toast('Su cuenta no puede eliminar reclamos');return}
+  const quita=[...new Set([...(r.media||[]).flatMap(archivosDe),r.fotoId].filter(x=>x&&!String(x).startsWith('pend-')))];
+  pedirBorrado('Eliminar reclamo',`Se borrará el reclamo de ${r.cliente||'un cliente'}${r.codigoCliente?' ('+r.codigoCliente+')':''} con sus datos de contacto${quita.length?', sus '+quita.length+' archivo(s)':''} y el resultado de la búsqueda.${r.paqueteId?' El paquete vinculado sigue en custodia.':''}`,async motivo=>{
+    if(!await write(()=>S.db.collection('reclamos').doc(id).delete()))return;
+    const quedan=await borrarArchivos(quita);await registrarBorrado({tipo:'reclamo',coleccion:'reclamos',registro:id,motivo,archivos:quita.length},quedan);
+    toast('Reclamo eliminado'+(quedan.length?' · un administrador debe terminar de borrar '+quedan.length+' archivo(s) desde el Tablero':''));closeM()});
+}
+document.addEventListener('click',e=>{
+  const a=e.target.closest('[data-delm]');if(a){e.stopPropagation();const [col,id,i]=a.dataset.delm.split('|');borrarMedio(col,id,+i);return}
+  const b=e.target.closest('[data-delrec]');if(b){borrarReclamo(b.dataset.delrec);return}
+  const c=e.target.closest('[data-delfoto]');if(c)borrarFotoVieja(c.dataset.delfoto);
+});
+function renderEliminados(){
+  const el=$('#eliminados');if(!el)return;if(!S.isAdmin||!S.elim.length){el.innerHTML='';return}
+  const pend=S.elim.filter(x=>(x.pendientes||[]).length),np=pend.reduce((s,x)=>s+x.pendientes.length,0),
+    tipo={foto:'Foto',video:'Video',reclamo:'Reclamo'},de={paquetes:'paquete',reclamos:'reclamo',admisiones:'admisión'};
+  el.innerHTML=`<h3>Eliminaciones</h3>${np?`<div class="banner"><b>${np} archivo(s) por terminar de borrar.</b> Los retiró alguien sin permiso para borrar archivos de otros, o sin señal. Ya nadie los ve en la app.<div class="bar" style="margin-top:8px"><button class="btn red sm" id="el_fin">Borrar ahora</button></div></div>`:''}
+  <div style="overflow-x:auto"><table class="stack"><thead><tr><th>Fecha</th><th>Qué</th><th>Motivo</th><th>Quién</th></tr></thead><tbody>${S.elim.slice(0,30).map(x=>`<tr><td>${fdate(x.t)}</td><td>${esc(tipo[x.tipo]||x.tipo)}${x.tipo!=='reclamo'?' de '+esc(de[x.coleccion]||x.coleccion):''}${x.archivos?' · '+x.archivos+' archivo(s)':''}</td><td>${esc(x.motivo)}</td><td data-uid="${esc(x.por)}">${esc(S.names[x.por]||'—')}</td></tr>`).join('')}</tbody></table></div>`;
+  const ids=[...new Set(S.elim.map(x=>x.por).filter(x=>x&&!S.names[x]))];if(S.user&&ids.length)S.user.profiles(ids).then(ps=>{let n=0;for(const id of ids){const nm=ps&&ps[id]&&ps[id].name;if(nm){S.names[id]=nm;n++}}if(n)renderEliminados()}).catch(()=>{});
+  const b=$('#el_fin');if(b)b.onclick=async()=>{b.disabled=true;b.textContent='Borrando…';let ok=0;
+    for(const x of pend){const quedan=await borrarArchivos(x.pendientes);ok+=x.pendientes.length-quedan.length;await write(()=>S.db.collection('eliminaciones').doc(x.id).update({pendientes:quedan}))}
+    toast(ok+' archivo(s) borrados')};
+}
+
+/* ---------- portal del cliente: quien no es del personal no ve envíos, fotos ni reclamos ---------- */
+function modoCliente(){
+  document.body.dataset.modo='cliente';closeM();const pub=S.pub||{},num=/^\d{10,15}$/.test(pub.whatsapp||'')?pub.whatsapp:'';
+  if(pub.nombre||pub.logo||pub.color)aplicarMarca({nombre:pub.nombre||'',logo:pub.logo||'',color:pub.color||''});
+  const el=$('#portal');el.hidden=false;
+  el.innerHTML=`<div class="card"><h1>¿No ha llegado su envío?</h1>
+  <p>Repórtelo en nuestro formulario. Lo buscamos en todas nuestras bodegas y oficinas y le respondemos por WhatsApp.</p>
+  <p class="meta">Por su seguridad, aquí no se muestran envíos, fotos ni reclamos de otras personas: usted solo ingresa los datos de su envío.</p>
+  ${num?`<div class="bar"><a class="btn red" href="${esc(FORM_URL+'#w'+num)}" target="_blank" rel="noopener">Reportar mi envío</a><a class="btn alt" href="https://wa.me/${num}" target="_blank" rel="noopener">Escribir por WhatsApp</a></div>`
+   :`<p class="meta">Pida a la transportadora el enlace del formulario de reclamos.</p>`}
+  <p class="meta" style="margin-top:22px">¿Trabaja en la transportadora? Su cuenta aún no tiene acceso al inventario: pida al administrador que lo agregue como Colaborador o Editor.</p></div>`;
+}
+const publicoDeseado=()=>({whatsapp:S.cfgE.whatsapp||'',nombre:MARCA.nombre||'',color:MARCA.color||'',logo:MARCA.logo||''});
+function sincronizarPublico(){
+  if(!S.db||S.canWrite===false||S.pub===null||!S.cfgEok||!S.marcaOk)return;
+  const d=publicoDeseado();if(Object.keys(d).every(k=>(S.pub[k]||'')===d[k]))return;
+  S.pub={...d};S.realDb.doc('publico/portal').set(d).catch(()=>{});
+}
+
 /* personal autorizado */
 const canUpload=()=>!(S.cfgP&&S.cfgP.restringir)||S.isAdmin||(S.cfgP.autorizados||[]).includes(S.me);
 async function renderPersonal(){
@@ -1676,7 +1770,7 @@ function openAdm(id){
   const a=S.adm.find(x=>x.id===id);if(!a)return;const av=(a.avistamientos||[]).slice().sort((x,y)=>String(x.t).localeCompare(String(y.t)));
   const p=S.paq.find(x=>x.guia===a.guia);
   $('#mbody').innerHTML=`<h2>Guía ${esc(a.guia)}</h2><p class="meta">Admitida en ${esc(a.oficina||'—')} el ${fdate(a.fecha)} · ${esc(a.origen)} → ${esc(a.destino)}${a.peso?' · '+esc(a.peso)+' kg':''}${a.medidas?' · '+esc(a.medidas):''}</p>
-  ${gallery(a.media,true)}<p><b>${esc(a.descripcion)}</b><br><span class="meta">Contenido declarado: ${esc(a.contenido||'—')}${a.averias?' · averías al admitir: '+esc(a.averias):''}</span></p>
+  ${gallery(a.media,true,'admisiones|'+a.id)}<p><b>${esc(a.descripcion)}</b><br><span class="meta">Contenido declarado: ${esc(a.contenido||'—')}${a.averias?' · averías al admitir: '+esc(a.averias):''}</span></p>
   ${p?`<p>Está en custodia: <button class="btn alt sm" data-open="${esc(p.id)}">${esc(p.codigo)}</button></p>`:''}
   <h3>Recorrido visto en cámaras (${av.length})</h3>
   ${av.length?`<ol class="hist">${av.map(x=>`<li>${fdate(x.t)} ${esc(String(x.t).slice(11,16))} · <b>${esc(x.sede)}</b>${x.camara?' · cámara '+esc(x.camara):''} · ${x.pct}%${x.ok?' · confirmado':''}${x.foto?` · <a href="${esc(blobUrl(x.foto))}" target="_blank" rel="noopener">ver</a>`:''}</li>`).join('')}</ol>`:'<p class="meta">Sin avistamientos todavía.</p>'}
@@ -1872,9 +1966,10 @@ window.addEventListener('hashchange',routeHash);
   const [db,sample,assets,user]=await Promise.all(['db','sample','assets','user'].map(use));
   Object.assign(S,{db:db?dbConCola(db):null,realDb:db,sample,assets,user});
   try{OFF.pend=(await idbAll('cola')).sort((a,b)=>a.k<b.k?-1:1);OFF.blobs=(await idbAll('blobs')).length}catch(e){}
-  if(user){try{S.me=await user.id()||''}catch(e){}try{S.isAdmin=!!(await user.canEdit())}catch(e){}try{const cw=await user.can('data.write');S.writeOk=cw;if(cw===false){S.canWrite=false;banner('Su cuenta solo puede consultar. Pida acceso como Editor para registrar paquetes.')}}catch(e){}}
+  if(user){try{S.me=await user.id()||''}catch(e){}try{S.isAdmin=!!(await user.canEdit())}catch(e){}try{const cw=await user.can('data.write');S.writeOk=cw;if(cw===false)S.canWrite=false}catch(e){}}
   if(!sample){$('#aiq').hidden=true}
-  if(!db){$('#status').textContent='Sin conexión';banner('Abra esta aplicación con una cuenta autorizada para ver y registrar paquetes.');return}
+  if(!db){modoCliente();return}
+  if(S.writeOk===false){const pg=await new Promise(ok=>{const t=setTimeout(()=>ok(null),8000);db.doc('publico/portal').get().then(s=>{clearTimeout(t);ok(s.exists?s.data():{})},()=>{clearTimeout(t);ok(null)})});S.pub=pg;modoCliente();return}
   $('#status').textContent='Cargando datos…';
   setTimeout(async()=>{if(S.loaded||S.paq.length)return;const c=await idbGet('snap','datos');if(!c||S.paq.length)return;S.paq=c.paq||[];S.rec=c.rec||[];S.adm=c.adm||[];reaplicar();renderAll();renderAdm();$('#status').textContent='Datos guardados en este dispositivo el '+fdate(c.t)+' '+String(c.t).slice(11,16)+' UTC';estadoConexion()},4000);
   if(OFF.pend.length||OFF.blobs){estadoConexion();setTimeout(sincronizar,2000)}
@@ -1899,8 +1994,10 @@ window.addEventListener('hashchange',routeHash);
   db.doc('config/personal').onSnapshot(s=>{S.cfgP=s.exists?s.data():{};renderPersonal()},()=>{});
   db.doc('config/sedes').onSnapshot(s=>{S.cfgS=s.exists?s.data():{};const o=$('#ad_of');if(o)o.innerHTML=sedeOpts('Oficina');renderSedes();renderMiSede();renderAll()},()=>{});
   db.collection('admisiones').orderBy('fecha','desc').limit(1000).onSnapshot(s=>{S.adm=s.docs.map(d=>({...d.data(),id:d.id}));reaplicar('admisiones');programarCopia();renderAdm()},()=>{});
-  db.doc('config/empresa').onSnapshot(s=>{S.cfgE=s.exists?s.data():{};renderEmpresa()},()=>{});
-  db.doc('config/marca').onSnapshot(s=>{if(!marcaBorr)aplicarMarca(s.exists?s.data():{})},()=>{});
+  db.doc('config/empresa').onSnapshot(s=>{S.cfgE=s.exists?s.data():{};S.cfgEok=!s.metadata||!s.metadata.fromCache;renderEmpresa();sincronizarPublico()},()=>{});
+  db.doc('publico/portal').onSnapshot(s=>{S.pub=s.exists?s.data():{};sincronizarPublico()},()=>{});
+  db.collection('eliminaciones').orderBy('t','desc').limit(100).onSnapshot(s=>{S.elim=s.docs.map(d=>({...d.data(),id:d.id}));renderEliminados()},()=>{});
+  db.doc('config/marca').onSnapshot(s=>{if(!marcaBorr)aplicarMarca(s.exists?s.data():{});S.marcaOk=!s.metadata||!s.metadata.fromCache;sincronizarPublico()},()=>{});
   db.doc('config/disposicion').onSnapshot(s=>{S.cfg=s.exists?s.data():{};renderAll()},()=>{});
 })();
 renderAll();

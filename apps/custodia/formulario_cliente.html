@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Reportar envío perdido</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Narrow:wght@500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* VOICE: claro y tranquilo, para alguien preocupado por su envío.
+   IDEA: una guía de envío que el cliente llena a mano.
+   PICTURE: el formulario mismo, en una columna, como una etiqueta.
+   COLOUR and TYPE: kraft y blanco de etiqueta, tinta oscura, verde de WhatsApp solo en el botón final; Archivo Narrow + Inter.
+   LAYOUT: encabezado kraft corto, formulario en una columna de 560px, botón grande al final. */
+:root{color-scheme:light dark;--bg:light-dark(#f4ede2,#17130f);--card:light-dark(#fff,#221c16);--ink:light-dark(#1d1a16,#f1e9dc);--mute:light-dark(#6b5f51,#b3a593);--line:light-dark(#e2d6c4,#3a3027);--kraft:light-dark(#c9a06b,#8a6a42);--red:light-dark(#d23a22,#ff6a4d);--wa:#1f8f4e}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 Inter,system-ui,sans-serif;overflow-x:clip}
+header{background:var(--kraft);color:#1d1a16;padding:24px max(5vw,16px) 20px;border-bottom:6px solid #1d1a16}
+h1,h2{font-family:"Archivo Narrow",Inter,sans-serif;line-height:1.05;margin:0}
+h1{font-size:clamp(30px,6vw,42px);text-wrap:balance}
+h2{font-size:22px;margin:26px 0 10px}
+header p{margin:8px 0 0;font-size:16px;max-width:560px}
+main{max-width:600px;margin:0 auto;padding:8px max(4vw,16px) 60px}
+form{display:grid;gap:14px}
+label.f{display:grid;gap:6px;font-weight:600;font-size:15px}
+.req{color:var(--red)}
+input,select,textarea{font:16px Inter,sans-serif;color:var(--ink);background:var(--card);border:2px solid var(--line);border-radius:10px;padding:12px;min-height:48px;width:100%}
+textarea{min-height:110px;resize:vertical}
+input:focus,select:focus,textarea:focus,button:focus-visible,a:focus-visible{outline:3px solid var(--red);outline-offset:1px}
+.row2{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
+.hint{color:var(--mute);font-size:14px;font-weight:400}
+.check{display:flex;gap:10px;align-items:flex-start;font-size:15px;background:var(--card);border-radius:10px;padding:12px;border:2px solid var(--line)}
+.check input{width:22px;height:22px;min-height:0;flex:none;margin-top:2px}
+.photos{background:var(--card);border-left:6px solid var(--kraft);border-radius:8px;padding:14px 16px}
+.photos ol{margin:6px 0 0;padding-left:20px}
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;font:600 17px Inter,sans-serif;border:0;border-radius:12px;padding:14px 18px;min-height:56px;cursor:pointer;text-decoration:none;width:100%}
+.wa{background:var(--wa);color:#fff}
+.alt{background:transparent;color:var(--ink);border:2px solid var(--ink);min-height:48px;font-size:15px}
+.err{color:var(--red);font-weight:600;min-height:1.5em}
+.done{background:var(--card);border-radius:10px;padding:18px;border:2px solid var(--wa)}
+.done .code{font-family:"Archivo Narrow",sans-serif;font-size:34px;display:block}
+.warn{background:var(--card);border-left:6px solid var(--red);padding:12px 14px;border-radius:8px;margin-top:16px}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<header>
+  <h1>¿No ha llegado su envío?</h1>
+  <p>Cuéntenos qué envió. Lo buscamos en nuestras bodegas y le respondemos por WhatsApp.</p>
+</header>
+<main>
+  <div class="warn" id="nonum" hidden>Este enlace no tiene el número de WhatsApp de la empresa. Pida a la transportadora el enlace correcto del formulario.</div>
+  <form id="f" novalidate>
+    <h2>Sus datos</h2>
+    <label class="f">Nombre completo <span class="req">*</span><input id="nom" autocomplete="name" required></label>
+    <label class="f">Su WhatsApp <span class="req">*</span><input id="tel" type="tel" inputmode="tel" autocomplete="tel" placeholder="300 123 4567" required><span class="hint">Aquí le enviaremos la respuesta.</span></label>
+    <label class="f">Usted es<select id="rol"><option>Remitente (quien envió)</option><option>Destinatario (quien debía recibir)</option></select></label>
+
+    <h2>El envío</h2>
+    <label class="f">Número de guía<input id="guia" inputmode="numeric" placeholder="Completo o los números que recuerde"></label>
+    <div class="row2">
+      <label class="f">Ciudad de origen <span class="req">*</span><input id="orig" required></label>
+      <label class="f">Ciudad de destino <span class="req">*</span><input id="dest" required></label>
+    </div>
+    <div class="row2">
+      <label class="f">Fecha de envío<input id="fecha" type="date"></label>
+      <label class="f">Valor declarado ($)<input id="valor" type="number" inputmode="numeric"></label>
+    </div>
+
+    <h2>¿Qué envió?</h2>
+    <label class="f">Contenido <span class="req">*</span><textarea id="cont" required placeholder="Ej.: unos tenis Nike negros talla 42, nuevos, en su caja"></textarea></label>
+    <label class="f">¿Cómo iba empacado?<textarea id="emp" placeholder="Ej.: caja de cartón café de unos 35 cm, cinta transparente, bolsa negra por fuera"></textarea><span class="hint">Esto es lo que más nos ayuda: en bodega vemos los paquetes cerrados, por fuera.</span></label>
+    <div class="photos"><b>Fotos que le pediremos en el chat</b>
+      <ol><li>La caja o bolsa como la envió (con cintas y marcas).</li><li>La guía o el recibo de admisión.</li><li>El producto, si tiene foto de la compra.</li></ol>
+    </div>
+
+    <h2>Autorizaciones</h2>
+    <label class="check"><input type="checkbox" id="datos"> <span>Autorizo el tratamiento de mis datos personales para atender este reclamo, según la Ley 1581 de 2012. <span class="req">*</span></span></label>
+    <label class="check"><input type="checkbox" id="abrir"> <span>Si encuentran un paquete que puede ser el mío, autorizo que lo abran en presencia de un testigo para confirmarlo.</span></label>
+
+    <p class="err" id="err" role="alert"></p>
+    <button class="btn wa" id="go" type="submit">Enviar por WhatsApp</button>
+    <p class="hint">Se abrirá WhatsApp con su reporte listo. Solo toque enviar y adjunte las fotos en el mismo chat.</p>
+  </form>
+
+  <div class="done" id="done" hidden>
+    <span class="hint">Su número de reporte</span><span class="code" id="code"></span>
+    <p>Si WhatsApp no se abrió, toque el botón de nuevo o copie el mensaje y envíelo al número de la empresa.</p>
+    <p class="hint">Número de la empresa: <b id="numtxt"></b></p>
+    <div style="display:grid;gap:10px">
+      <a class="btn wa" id="walink" href="#" target="_blank" rel="noopener">Abrir WhatsApp de nuevo</a>
+      <button class="btn alt" id="copy" type="button">Copiar mensaje</button>
+      <button class="btn alt" id="new" type="button">Hacer otro reporte</button>
+    </div>
+  </div>
+</main>
+<script>
+{
+const $=s=>document.querySelector(s);
+const num=(location.hash.match(/^#w(\d{10,15})$/)||[])[1]||'';
+if(!num){$('#nonum').hidden=false;$('#go').disabled=true;$('#go').style.opacity=.5}
+let msg='';
+const v=id=>$(id).value.trim();
+$('#f').addEventListener('submit',e=>{
+  e.preventDefault();const err=$('#err');err.textContent='';
+  const tel=v('#tel').replace(/\D/g,'');
+  if(!v('#nom')||!v('#orig')||!v('#dest')||!v('#cont')){err.textContent='Llene los campos marcados con *.';return}
+  if(tel.length<10){err.textContent='Revise su número de WhatsApp.';return}
+  if(!$('#datos').checked){err.textContent='Debe autorizar el tratamiento de datos para atender su reclamo.';return}
+  if(!num){err.textContent='Este enlace no tiene el número de la empresa.';return}
+  const code='REC-'+Date.now().toString(36).toUpperCase().slice(-6);
+  msg=[`*REPORTE DE ENVÍO PERDIDO ${code}*`,
+   `Nombre: ${v('#nom')}`,`WhatsApp: ${tel}`,`Soy: ${$('#rol').value}`,
+   `Guía: ${v('#guia')||'no la tengo'}`,`Origen: ${v('#orig')}`,`Destino: ${v('#dest')}`,
+   `Fecha de envío: ${v('#fecha')||'no recuerdo'}`,`Valor declarado: ${v('#valor')?'$'+Number(v('#valor')).toLocaleString('es-CO'):'no indicado'}`,
+   `Contenido: ${v('#cont')}`,`Empaque: ${v('#emp')||'no indicado'}`,
+   `Autorizo tratamiento de datos (Ley 1581): SÍ`,`Autorizo abrir el paquete con testigo para confirmarlo: ${$('#abrir').checked?'SÍ':'NO'}`,
+   ``,`Adjunto fotos de la caja, la guía y el producto.`].join('\n');
+  const link='https://wa.me/'+num+'?text='+encodeURIComponent(msg);
+  $('#walink').href=link;$('#code').textContent=code;$('#numtxt').textContent='+'+num;
+  $('#f').hidden=true;$('#done').hidden=false;window.scrollTo(0,0);
+  const a=document.createElement('a');a.href=link;a.target='_blank';a.rel='noopener';document.body.appendChild(a);a.click();a.remove();
+});
+$('#copy').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(msg);$('#copy').textContent='Mensaje copiado'}catch(e){$('#copy').textContent='No se pudo copiar'}});
+$('#new').addEventListener('click',()=>{$('#f').reset();$('#f').hidden=false;$('#done').hidden=true;$('#copy').textContent='Copiar mensaje';window.scrollTo(0,0)});
+}
+</script>
+</body>
+</html>
