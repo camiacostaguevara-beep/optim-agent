@@ -275,6 +275,7 @@ details>summary{list-style:none}details>summary::-webkit-details-marker{display:
 <symbol id="i-conciliar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></symbol>
 <symbol id="i-disposicion" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 11c0 5.6-7 10-7 10z"/></symbol>
 <symbol id="i-tablero" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20h18"/><path d="M6 20V11M11 20V5M16 20v-6M21 20V9"/></symbol>
+<symbol id="i-averias" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></symbol>
 <symbol id="i-mas" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></symbol>
 <symbol id="i-ojo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></symbol>
 <symbol id="i-sede" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.2 7-12a7 7 0 0 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="9" r="2.5"/></symbol>
@@ -292,6 +293,7 @@ details>summary{list-style:none}details>summary::-webkit-details-marker{display:
     <button role="tab" data-t="registrar" aria-selected="false"><svg><use href="#i-registrar"/></svg><span>Registrar</span></button>
     <button role="tab" data-t="reclamos" aria-selected="false"><svg><use href="#i-reclamos"/></svg><span>Reclamos</span></button>
     <button role="tab" data-t="inventario" aria-selected="false"><svg><use href="#i-inventario"/></svg><span>Inventario</span></button>
+    <button role="tab" data-t="averias" aria-selected="false" class="sec"><svg><use href="#i-averias"/></svg><span>Averías</span></button>
     <button role="tab" data-t="admision" aria-selected="false" class="sec"><svg><use href="#i-admision"/></svg><span>Admisión</span></button>
     <button role="tab" data-t="camaras" aria-selected="false" class="sec"><svg><use href="#i-camaras"/></svg><span>Cámaras</span></button>
     <button role="tab" data-t="asistente" aria-selected="false" class="sec"><svg><use href="#i-asistente"/></svg><span>Asistente IA</span></button>
@@ -367,7 +369,8 @@ details>summary{list-style:none}details>summary::-webkit-details-marker{display:
       <label class="f">Dato de verificación (lo debe decir el dueño)<input id="ver" placeholder="Ej.: serial termina en 4471"></label>
       <label class="f">Testigo de la apertura<input id="test" placeholder="Nombre"></label>
       <label class="check"><input type="checkbox" id="priv"> Contenido sensible (documentos, medicamentos, datos personales): ocultar la foto en búsquedas</label>
-      <label class="check"><input type="checkbox" id="sello"> Paquete resellado con cinta "Abierto en custodia" y etiqueta QR pegada</label>
+      <label class="check" id="fuera_box" hidden><input type="checkbox" id="fuera"> El objeto queda fuera de su caja, con etiqueta QR, en los estantes de objetos sueltos (OB buen estado, OD dañado)</label>
+      <label class="check" id="sello_box"><input type="checkbox" id="sello"> Paquete resellado con cinta "Abierto en custodia" y etiqueta QR pegada</label>
       <button class="btn red" id="save">Guardar y generar etiqueta</button>
     </form>
   </section>
@@ -401,6 +404,14 @@ details>summary{list-style:none}details>summary::-webkit-details-marker{display:
     <div id="por_sede" style="overflow-x:auto;margin-top:10px"></div>
     <div class="bar" style="margin:14px 0"><input id="f_txt" placeholder="Filtrar por código, estante u objeto"><select id="f_sede" aria-label="Sede" style="flex:0 1 200px"></select><label class="check" style="flex:0 0 auto;align-self:center"><input type="checkbox" id="f_nn"> Solo NN</label><select id="f_est" style="flex:0 1 200px"><option value="custodia">En custodia</option><option value="separado">Separados para disposición</option><option value="entregado">Entregados</option><option value="dispuesto">Enviados a reciclaje</option><option value="rezago">En rezago</option><option value="donado">Donados</option><option value="">Todos</option></select></div>
     <div style="overflow-x:auto"><table class="stack" id="inv"></table></div>
+  </section>
+
+  <section id="averias" hidden>
+    <h2>Averiados e indemnizaciones</h2>
+    <p class="meta">Aquí llegan solos los paquetes en los que la IA o el personal vio daños en las fotos o videos, en el empaque o en el objeto. La transportadora corrobora cada caso con su guía, confirma la avería y registra la indemnización.</p>
+    <div class="stats" id="av_stats"></div>
+    <div class="bar" style="margin:14px 0"><select id="av_f" aria-label="Estado de la revisión" style="flex:0 1 200px"><option value="por_revisar">Por revisar</option><option value="confirmado">Confirmados: por indemnizar</option><option value="indemnizado">Indemnizados</option><option value="descartado">Descartados</option><option value="">Todos</option></select><select id="av_sede" aria-label="Sede" style="flex:0 1 200px"></select><button class="btn alt sm" id="av_copy" type="button">Copiar lista para la transportadora</button></div>
+    <div class="list" id="av_list"></div>
   </section>
 
   <section id="admision" hidden>
@@ -708,7 +719,7 @@ $('#drop_gal').addEventListener('click',()=>$('#foto_gal').click());
 const RM=[],CM=[];
 const onStaffVideo=async e=>{
   const files=[...e.target.files];e.target.value='';if(!files.length)return;
-  if(await addFiles(files,RM,$('#rm_grid'),'rm',$('#aistate'),'video')){fotoBlob=firstImg(RM);fotoMini=RM[0].mini;analyze()}
+  if(await addFiles(files,RM,$('#rm_grid'),'rm',$('#aistate'),$('#aper').value==='exterior'?'video':null)){fotoBlob=firstImg(RM);fotoMini=RM[0].mini;analyze()}
 };
 $('#foto').addEventListener('change',onStaffVideo);$('#foto_gal').addEventListener('change',onStaffVideo);
 function suggestShelf(z){
@@ -788,7 +799,7 @@ async function analyze(){
   try{const lim=await S.sample.limits();if(!lim||!lim.images){st.textContent='Esta cuenta no permite enviar imágenes a la IA: llene los datos a mano.';return}}catch(e){}
   st.textContent='La IA está mirando la foto…';
   try{
-    const o=await S.sample.json(`Analiza los cuadros de un video de 15 segundos que recorre por fuera un paquete en la bodega de custodia de una empresa de mensajería en Colombia (combina lo que se ve en todos: caras, etiquetas, sellos, marcas, averías). ${learnText()}${$('#aper').value==='exterior'?'El paquete está CERRADO: describe el empaque, tamaño, marcas, etiquetas y texto visible; no adivines el contenido, usa objeto "paquete cerrado" si no se ve.':'El paquete fue abierto legalmente: describe su contenido.'} Responde SOLO con JSON:
+    const o=await S.sample.json(`Analiza los cuadros de un video de 15 segundos que recorre por fuera un paquete en la bodega de custodia de una empresa de mensajería en Colombia (combina lo que se ve en todos: caras, etiquetas, sellos, marcas, averías). ${learnText()}${$('#aper').value==='exterior'?'El paquete está CERRADO: describe el empaque, tamaño, marcas, etiquetas y texto visible; no adivines el contenido, usa objeto "paquete cerrado" si no se ve.':'El paquete fue abierto legalmente: describe su contenido y declara en "condicion" el estado del objeto mirando golpes, grietas, piezas rotas o faltantes, rayones, manchas, humedad y fechas vencidas ("Bueno" si no se ve ningún daño); escribe en "averias" los daños vistos.'} Responde SOLO con JSON:
 {"objeto":"nombre corto","categoria":"","marca":"o vacío","color":"","estado":"nuevo|usado|dañado","descripcion":"una frase en español","etiquetas":["8 a 12 palabras clave en español, minúsculas, sin tildes: objeto, sinónimos, marca, modelo, color, material, talla, accesorios"],"texto_visible":"texto o números legibles (guía, nombres, direcciones, seriales) o vacío","averias":"daños visibles del empaque o del contenido (aplastado, roto, mojado, cinta abierta, etc.) o vacío","origen_posible":"ciudad colombiana de donde probablemente salió, deducida SOLO de pistas visibles (dirección del remitente, factura o tienda, indicativo telefónico, sello) o vacío","destino_posible":"ciudad deducida de pistas visibles o vacío","pista_ciudades":"qué pista usaste, frase corta, o vacío","peso_estimado_kg":número aproximado,"peso_bascula_kg":número exacto en kg SOLO si en la foto se ve la pantalla de una báscula, si no null,"zona":"A electrónicos y celulares|B ropa, calzado y accesorios|C hogar, electrodomésticos y cocina|D documentos, alimentos, belleza y otros (responde solo la letra)","condicion":"Bueno|Usado|Dañado parcial|Dañado total|Vencido o perecedero","material":"Mixto|Cartón y papel|Plástico|Electrónico (RAEE)|Textil|Vidrio|Metal|Orgánico|Peligroso (baterías, químicos, medicamentos, aerosoles)","sensible":true/false (documentos de identidad, medicamentos, ropa interior o datos personales),"huella":{"empaque":"caja de cartón|bolsa plástica de mensajería|sobre|bolsa de tela|otro","color_principal":"","cinta":"tipo y color o vacío","logos":["logos o marcas impresas en el empaque"],"etiquetas":["cada etiqueta pegada: color, formato, posición"],"marcas_distintivas":["rasgos únicos: escritos a mano, golpes, parches de cinta"],"tamano":"pequeño|mediano|grande"}}`,{images:aiImages(RM,Math.min(8,(await imgMax())||8)),modelTier:'complex'});
     if(!o){st.textContent='La IA no devolvió datos.';return}
     const set=(id,v)=>{if(v&&!$(id).value)$(id).value=String(v)};
@@ -800,10 +811,13 @@ async function analyze(){
     pick('#cond',o.condicion);pick('#mat',o.material);
     if(+o.peso_bascula_kg>0&&!$('#peso').value){$('#peso').value=Math.round(+o.peso_bascula_kg*100)/100;$('#basstate').textContent='Peso leído de la báscula en la foto: '+$('#peso').value+' kg.'}
     if(!$('#ubi').value){const z=String(o.zona||'D').trim().charAt(0).toUpperCase();$('#ubi').value=suggestShelf(/[A-D]/.test(z)?z:'D')}
+    if(sueltoReg())$('#ubi').value=suggestShelf(zonaSuelto($('#cond').value));
+    if(o.averias&&!sinAveria(o.averias)||DANO.test($('#cond').value))st.dataset.aver='1';else delete st.dataset.aver;
     let msg='Listo. Revise y corrija lo que haga falta antes de guardar.';
     if(o.origen_posible||o.destino_posible)msg+=' Ciudades sugeridas por la IA'+(o.pista_ciudades?' ('+String(o.pista_ciudades)+')':'')+': confírmelas.';
     if(+o.peso_estimado_kg>0&&!$('#peso').value)msg+=' Peso estimado a ojo: '+(+o.peso_estimado_kg)+' kg. Péselo en la báscula para el dato real.';
     st.textContent=msg+' Estante sugerido según el tipo de producto.';
+    if(st.dataset.aver)msg+=' La IA vio averías: al guardar, el paquete pasa a la lista de Averías para que la transportadora lo revise.';
     regAI.huella=o.huella&&typeof o.huella==='object'?o.huella:null;
     st.textContent=msg+' Estante sugerido según el tipo de producto. Leyendo etiquetas…';
     let barras=[];try{barras=[...new Set([...(regAI.vivo||[]),...await leerCodigos(imgsDe(RM))])]}catch(err){}regAI.barras=barras;
@@ -846,7 +860,8 @@ $('#rform').addEventListener('submit',async e=>{
   if(!v('#ubi')){toast('Indique la ubicación');return}
   if(sedes().length&&!$('#sede_reg').value){toast('Elija la sede de custodia');return}
   if($('#nn').checked&&(!v('#peso')||!v('#med'))){toast('Un NN se identifica por sus características: registre peso y medidas');return}
-  if($('#aper').value!=='exterior'&&!$('#sello').checked){toast('Confirme que el paquete quedó resellado');return}
+  const suelto=$('#aper').value!=='exterior'&&$('#fuera').checked;
+  if($('#aper').value!=='exterior'&&!suelto&&!$('#sello').checked){toast('Confirme que el paquete quedó resellado');return}
   if($('#aper').value!=='exterior'&&!v('#test')){toast('Una apertura necesita testigo');return}
   const btn=$('#save');btn.disabled=true;
   const now=new Date(),code='CST-'+now.toISOString().slice(2,10).replace(/-/g,'')+'-'+Math.random().toString(36).slice(2,6).toUpperCase();
@@ -861,13 +876,15 @@ $('#rform').addEventListener('submit',async e=>{
   if(regAI.huella)p.huella=regAI.huella;if(regAI.guias.length)p.guiasLeidas=regAI.guias;if(regAI.barras.length)p.guiaCodigoBarras=regAI.barras[0];
   if(regAI.sinIA)p.iaPendiente=true;
   if($('#nn').checked){p.nn=true;p.historial.push(ev('Registrado como NN: sin guía ni nombre'))}
+  if(suelto){p.fueraDeCaja=true;p.abierto={t:now.toISOString(),por:S.me||'',testigo:v('#test'),base:$('#aper').value};p.historial.push(ev('Abierto: el objeto queda fuera de su caja, estado '+p.condicion))}
+  if(esAveriado(p))p.averia=nuevaAveria(p,regAI.sinIA?'personal':'registro');
   if(regAI.guia&&!S.paq.some(x=>x.guia===regAI.guia)){p.guia=regAI.guia;p.historial.push(ev('Guía '+regAI.guia+(regAI.barras.includes(regAI.guia)?' leída del código de barras':' leída del video por la IA')))}
   const fin=Object.fromEntries(FB_CAMPOS.map(([k,id])=>[k,$(id).value]));
   const ok=await write(()=>S.db.collection('paquetes').doc(id).set(p),'Paquete '+code+' registrado');
   if(ok&&aiSug){const campos={},corr=[];for(const [k] of FB_CAMPOS){if(!aiSug[k]&&!fin[k])continue;const same=norm(aiSug[k]).trim()===norm(fin[k]).trim();campos[k]=same;if(!same)corr.push({campo:k,ia:String(aiSug[k]).slice(0,80),final:String(fin[k]).slice(0,80)})}
     fbLog({tipo:'foto',ref:id,ok:!corr.length,campos,corr});aiSug=null}
   btn.disabled=false;
-  if(ok){e.target.reset();fotoBlob=null;fotoMini='';regAI={huella:null,guias:[],guia:'',barras:[],vivo:[],sinIA:false};$('#nn').checked=false;RM.length=0;$('#rm_grid').innerHTML='';$('#aistate').textContent='';openDetail(id,{...p,id})}
+  if(ok){e.target.reset();vistaApertura();fotoBlob=null;fotoMini='';regAI={huella:null,guias:[],guia:'',barras:[],vivo:[],sinIA:false};$('#nn').checked=false;RM.length=0;$('#rm_grid').innerHTML='';$('#aistate').textContent='';openDetail(id,{...p,id})}
 });
 
 /* ---------- detalle, etiqueta y entrega ---------- */
@@ -882,12 +899,15 @@ function openDetail(id,pp){
   ${src?`<img src="${esc(src)}" alt="Foto del contenido" style="width:100%;max-height:320px;object-fit:contain;border-radius:6px;background:var(--bg)">`:''}
   <div class="etq">${qrSvg(APP_URL+'#'+p.id)}<div><span style="color:#444;font-size:13px">${esc(marcaNombre())} · Abierto en custodia</span><div class="big">${esc(p.codigo)}</div><div>Estante <b>${esc(p.ubicacion)}</b> · ${fdate(p.ingreso)}</div></div></div>
   <p class="meta">Haga captura de esta etiqueta para imprimirla. Al escanear el QR con el celular se abre esta ficha.</p>
-  ${gallery(p.media,true,'paquetes|'+p.id)}${recuperable(p)?`<p class="bar"><button class="btn alt sm" data-addm="paquetes|${esc(p.id)}">Agregar otro video</button>${p.guia?(admOf(p.guia)?`<button class="btn alt sm" data-adm="${esc(admOf(p.guia).id)}">Ver foto de admisión</button>`:''):`<button class="btn sm" data-findadm="${esc(p.id)}">Buscar su guía por foto de admisión</button>`}</p><div id="fa_box"></div>`:''}
+  ${gallery(p.media,true,'paquetes|'+p.id)}${recuperable(p)?`<p class="bar"><button class="btn alt sm" data-addm="paquetes|${esc(p.id)}">${p.fueraDeCaja?'Agregar fotos o video':'Agregar otro video'}</button>${p.guia?(admOf(p.guia)?`<button class="btn alt sm" data-adm="${esc(admOf(p.guia).id)}">Ver foto de admisión</button>`:''):`<button class="btn sm" data-findadm="${esc(p.id)}">Buscar su guía por foto de admisión</button>`}</p><div id="fa_box"></div>`:''}
   <p><b>${esc(p.descripcion||p.objeto)}</b></p>
   <div class="tags">${(p.etiquetas||[]).map(t=>`<span class="tag">${esc(t)}</span>`).join('')}</div>
   <p class="meta">${esc(p.origen||'¿?')} → ${esc(p.destino||'¿?')} · ${p.peso?esc(p.peso)+' kg · ':''}${esc(p.medidas||'')} · empaque: ${esc(p.empaque)} · valor ${money(p.valor)}<br>Texto visible: ${esc(p.textoVisible||'—')}<br>${(()=>{const rc=S.rec.find(x=>x.paqueteId===p.id&&x.autorizaApertura);return rc?'<b>El cliente '+esc(rc.cliente)+' autorizó abrirlo con testigo.</b><br>':''})()}Apertura: ${esc({exterior:'sin abrir',remitente:'autorizó el remitente',destinatario:'autorizó el destinatario',rezago:'en rezago con acta'}[p.apertura]||'no registrada')} · Testigo: ${esc(p.testigo||'—')} · Estado: <b>${esc(ESTADO[p.estado]||p.estado)}</b><br>Producto: ${esc(p.condicion||'—')} · Material: ${esc(p.material||'—')}</p>
   <p class="meta">Sede: <b>${esc(sedeNom(p))}</b>${enTransito(p)?` · <b>en tránsito a ${esc(p.traslado.a)}</b> desde ${fdate(p.traslado.fecha)}${p.traslado.guia?' · guía de traslado '+esc(p.traslado.guia):''}`:''}</p>
   ${enTransito(p)?`<div class="bar"><button class="btn red sm" data-recibir="${esc(p.id)}">Recibir en ${esc(p.traslado.a)}</button><button class="btn alt sm" data-cancelt="${esc(p.id)}">Cancelar traslado</button></div>`:p.estado==='custodia'&&sedes().length>1?`<div class="bar"><button class="btn alt sm" data-trasl="${esc(p.id)}">Trasladar a otra sede</button></div>`:''}
+  ${p.fueraDeCaja?`<p class="meta"><b>Objeto fuera de su caja</b> desde ${fdate((p.abierto||{}).t)} · estado <b>${esc(p.condicion||'—')}</b>${(p.estadoIA||{}).razon?' · IA: '+esc(p.estadoIA.razon):''}${(p.abierto||{}).acta?' · acta '+esc(p.abierto.acta):''}${(p.abierto||{}).testigo?' · testigo '+esc(p.abierto.testigo):''}</p>`:''}
+  ${estadoAveria(p)?`<p class="meta" style="color:var(--danger,#c0392b)"><b>Avería ${esc(AV_EST[estadoAveria(p)])}</b>: ${esc((p.averia||{}).descripcion||p.averias||p.condicion||'')} <button class="btn alt sm" data-ir="averias">Ver en Averías</button></p>`:''}
+  ${['custodia','separado','rezago'].includes(p.estado)&&!p.fueraDeCaja&&!enTransito(p)&&puedeAbrir(p)?`<div class="bar"><button class="btn red sm" data-abrirobj="${esc(p.id)}">Abrir y fotografiar el objeto</button><span class="meta" style="align-self:center">${esc(puedeAbrir(p))}</span></div>`:''}
   ${p.estado==='custodia'&&!enTransito(p)?`<div class="bar"><input id="mv" placeholder="Nuevo estante" style="flex:1 1 140px"><button class="btn alt sm" data-move="${esc(p.id)}">Mover</button><button class="btn red sm" data-deliver="${esc(p.id)}">Verificar y entregar</button><button class="btn alt sm" data-sep="${esc(p.id)}">Separar para disposición</button></div>`
    :p.estado==='custodia'?''
    :p.estado==='separado'?`<div class="bar"><button class="btn alt sm" data-back="${esc(p.id)}">Devolver a custodia</button><button class="btn red sm" data-deliver="${esc(p.id)}">Verificar y entregar</button></div>`
@@ -1244,6 +1264,8 @@ function renderInv(){
   $('#alerts').innerHTML=
     llegan.map(p=>`<div class="alert g"><span>Por recibir en <b>${esc(ms)}</b>: <b>${esc(p.codigo)}</b> · ${esc(p.objeto||p.descripcion)} · viene de ${esc(sedeNom(p))}</span><button class="btn sm" data-recibir="${esc(p.id)}">Recibir</button></div>`).join('')+
     matches.slice(0,10).map(m=>`<div class="alert g"><span>Posible coincidencia: reclamo de <b>${esc(m.r.cliente)}</b> con <b>${esc(m.p.codigo)}</b> (${m.s.pct}%) · ${esc(sedeNom(m.p))}, estante <b>${esc(m.p.ubicacion)}</b>: verifíquelo</span><span class="bar"><button class="btn alt sm" data-open="${esc(m.p.id)}">Ver</button><button class="btn sm" data-link="${esc(m.r.id)}|${esc(m.p.id)}">Vincular</button></span></div>`).join('')+
+    (()=>{const n=S.paq.filter(p=>estadoAveria(p)==='por_revisar').length;return n?`<div class="alert"><span><b>${n}</b> paquete(s) con averías por revisar</span><button class="btn sm" data-ir="averias">Ver averías</button></div>`:''})()+
+    (()=>{const n=custodia().filter(p=>p.estado==='custodia'&&!p.fueraDeCaja&&days(p.ingreso)>=90).length;return n?`<div class="alert k"><span><b>${n}</b> paquete(s) con más de 3 meses: con el acta de rezago se pueden abrir y pasar a objetos fuera de caja (botón en la ficha)</span></div>`:''})()+
     (old.length?`<div class="alert"><span><b>${old.length}</b> paquete(s) con más de 30 días en custodia</span></div>`:'')+
     (disp.length?`<div class="alert"><span><b>${disp.length}</b> paquete(s) afectados listos para separar (pestaña Disposición)</span></div>`:'')+
     (stale.length?`<div class="alert k"><span><b>${stale.length}</b> paquete(s) sin confirmar en estante hace más de 15 días</span></div>`:'')+
@@ -1252,12 +1274,14 @@ function renderInv(){
   const ft=norm($('#f_txt').value),fe=$('#f_est').value;
   const fsd=($('#f_sede')||{}).value||'';
   const fnn=($('#f_nn')||{}).checked;
-  const rows=S.paq.filter(p=>(!fnn||esNN(p))&&(!fsd||sedeNom(p)===fsd||(enTransito(p)&&p.traslado.a===fsd))&&(!fe||p.estado===fe)&&(!ft||norm([p.codigo,p.ubicacion,p.sede,p.objeto,p.descripcion,...(p.etiquetas||[])].join(' ')).includes(ft)))
+  const fsu=($('#f_suelto')||{}).value||'';
+  const rows=S.paq.filter(p=>(!fnn||esNN(p))&&(!fsu||(fsu==='suelto')===!!p.fueraDeCaja)&&(!fsd||sedeNom(p)===fsd||(enTransito(p)&&p.traslado.a===fsd))&&(!fe||p.estado===fe)&&(!ft||norm([p.codigo,p.ubicacion,p.sede,p.objeto,p.descripcion,...(p.etiquetas||[])].join(' ')).includes(ft)))
     .sort((a,b)=>sedeNom(a).localeCompare(sedeNom(b))||String(a.ubicacion).localeCompare(String(b.ubicacion)));
   $('#inv').innerHTML=`<thead><tr><th>Código</th><th>Contenido</th><th>Sede</th><th>Estante</th><th>Días</th><th>Confirmado</th><th></th></tr></thead><tbody>`+
-    (rows.length?rows.map(p=>`<tr><td><button class="btn alt sm" data-open="${esc(p.id)}">${esc(p.codigo)}</button></td><td>${esc(p.objeto||p.descripcion)}</td><td>${esc(sedeNom(p))}${enTransito(p)?' → '+esc(p.traslado.a):''}</td><td><b>${esc(p.ubicacion)}</b></td><td>${days(p.ingreso)}</td><td>${p.estado==='custodia'?'hace '+days(p.verificado||p.ingreso)+' d':esc(ESTADO[p.estado]||p.estado)}</td><td>${p.estado==='custodia'?`<button class="btn sm" data-check="${esc(p.id)}">Está aquí</button>`:''}</td></tr>`).join(''):'<tr><td colspan="7" class="meta">Sin paquetes con ese filtro.</td></tr>')+'</tbody>';
+    (rows.length?rows.map(p=>`<tr><td><button class="btn alt sm" data-open="${esc(p.id)}">${esc(p.codigo)}</button></td><td>${esc(p.objeto||p.descripcion)}${p.fueraDeCaja?' <span class="tag">fuera de caja · '+esc(p.condicion||'')+'</span>':''}${estadoAveria(p)&&estadoAveria(p)!=='descartado'?' <span class="tag">avería</span>':''}</td><td>${esc(sedeNom(p))}${enTransito(p)?' → '+esc(p.traslado.a):''}</td><td><b>${esc(p.ubicacion)}</b></td><td>${days(p.ingreso)}</td><td>${p.estado==='custodia'?'hace '+days(p.verificado||p.ingreso)+' d':esc(ESTADO[p.estado]||p.estado)}</td><td>${p.estado==='custodia'?`<button class="btn sm" data-check="${esc(p.id)}">Está aquí</button>`:''}</td></tr>`).join(''):'<tr><td colspan="7" class="meta">Sin paquetes con ese filtro.</td></tr>')+'</tbody>';
 }
-$('#f_txt').addEventListener('input',renderInv);$('#f_nn').addEventListener('change',renderInv);$('#f_est').addEventListener('change',renderInv);
+$('#f_txt').addEventListener('input',renderInv);$('#f_nn').addEventListener('change',renderInv);
+{const fs=document.createElement('select');fs.id='f_suelto';fs.setAttribute('aria-label','Con caja o fuera de caja');fs.style.flex='0 1 180px';fs.innerHTML='<option value="">Con y sin caja</option><option value="caja">Siguen en su caja</option><option value="suelto">Fuera de caja</option>';$('#f_nn').closest('label').after(fs);fs.addEventListener('change',renderInv)}$('#f_est').addEventListener('change',renderInv);
 
 /* ---------- disposición final ---------- */
 const AFECT=/^(Dañado parcial|Dañado total|Vencido o perecedero)$/;
@@ -1608,22 +1632,161 @@ function gallery(list,big,ctx){
 }
 /* agregar a un paquete o reclamo existente */
 let addTarget=null;
-document.addEventListener('click',e=>{const t=e.target.closest('[data-addm]');if(!t)return;if(!canUpload()){toast('Solo el personal autorizado puede subir fotos y videos');return}addTarget=t.dataset.addm;$('#add_media').accept=addTarget.startsWith('paquetes')?'video/*':'image/*';$('#add_media').click()});
+document.addEventListener('click',e=>{const t=e.target.closest('[data-addm]');if(!t)return;if(!canUpload()){toast('Solo el personal autorizado puede subir fotos y videos');return}addTarget=t.dataset.addm;const pk=addTarget.startsWith('paquetes')?S.paq.find(x=>x.id===addTarget.split('|')[1]):null;$('#add_media').accept=addTarget.startsWith('paquetes')?(pk&&pk.fueraDeCaja?'image/*,video/*':'video/*'):'image/*';$('#add_media').click()});
 async function onAddMedia(e){
   const files=[...e.target.files];e.target.value='';if(!files.length||!addTarget)return;
   const [col,id]=addTarget.split('|'),ent=(col==='paquetes'?S.paq:S.rec).find(x=>x.id===id);if(!ent)return;
   const list=[];toast('Preparando '+files.length+' archivo(s)…');
-  const want=col==='paquetes'?'video':'foto';for(const f of files.slice(0,10)){if(!f.type.startsWith(want==='video'?'video/':'image/')){toast(want==='video'?'El personal sube solo videos':'El cliente sube solo fotos');continue}try{list.push(await prepMedia(f,null))}catch(err){toast(err.message||'No se pudo leer '+f.name)}}
+  const want=col==='paquetes'?(ent.fueraDeCaja?'':'video'):'foto';for(const f of files.slice(0,10)){if(want&&!f.type.startsWith(want==='video'?'video/':'image/')){toast(want==='video'?'El personal sube solo videos':'El cliente sube solo fotos');continue}try{list.push(await prepMedia(f,null))}catch(err){toast(err.message||'No se pudo leer '+f.name)}}
   if(!list.length)return;
   const up=await uploadMedia(list,col==='reclamos'?'cliente':'personal',col+'/'+id);if(!up.media.length)return;
   const upd={media:[...(ent.media||[]),...up.media].slice(-30)};if(!ent.fotoId&&up.mainId)upd.fotoId=up.mainId;
-  if(S.sample){try{const o=await S.sample.json(`Estas imágenes (fotos y cuadros de video) son ${col==='reclamos'?'del producto que un cliente perdió':'de un paquete en custodia'}. Responde SOLO con JSON: {"etiquetas":["6 a 10 palabras clave en español, minúsculas, sin tildes: objeto, marca, modelo, color, material, detalles"],"texto_visible":"texto o números legibles o vacío"}`,{images:aiImages(list,6),modelTier:'quick'});
+  if(S.sample){try{const o=await S.sample.json(`Estas imágenes (fotos y cuadros de video) son ${col==='reclamos'?'del producto que un cliente perdió':'de un paquete en custodia'}. Responde SOLO con JSON: {"etiquetas":["6 a 10 palabras clave en español, minúsculas, sin tildes: objeto, marca, modelo, color, material, detalles"],"texto_visible":"texto o números legibles o vacío","averias":"daños visibles del empaque o del objeto (aplastado, roto, mojado, rayado, cinta abierta) o vacío si no se ve ninguno"}`,{images:aiImages(list,6),modelTier:'quick'});
     if(o&&Array.isArray(o.etiquetas)){const tags=o.etiquetas.map(t=>norm(t).trim()).filter(Boolean);
+      if(col==='paquetes'&&o.averias&&!sinAveria(o.averias)){upd.averias=[ent.averias,String(o.averias)].filter(Boolean).join(' · ').slice(0,300);if(!ent.averia||ent.averia.estado==='descartado')upd.averia=nuevaAveria({...ent,averias:upd.averias},'ia');upd.historial=histAdd(ent,'La IA vio averías en los archivos nuevos: '+String(o.averias).slice(0,120))}
       if(col==='paquetes'){upd.etiquetas=[...new Set([...(ent.etiquetas||[]),...tags])].slice(0,30);if(o.texto_visible)upd.textoVisible=[ent.textoVisible,String(o.texto_visible)].filter(Boolean).join(' · ').slice(0,300)}
       else upd.fotoTags=[...new Set([...(ent.fotoTags||[]),...tags])].slice(0,20)}}catch(err){}}
-  if(col==='paquetes')upd.historial=histAdd(ent,up.media.length+' archivo(s) agregados');
+  if(col==='paquetes')upd.historial=[...(upd.historial||histAdd(ent,'')).filter(x=>x.accion),ev(up.media.length+' archivo(s) agregados')].slice(-30);
   if(await write(()=>S.db.collection(col).doc(id).update(upd),up.media.length+' archivo(s) agregados'+(S.sample?' y analizados':''))&&col==='paquetes')setTimeout(()=>openDetail(id),300);
 }
+/* ---------- averías, indemnizaciones y objetos fuera de caja ---------- */
+const DANO=/^Dañado/;
+const sinAveria=t=>!String(t||'').trim()||/^(ning[uú]n[ao]?|no|nada|sin aver[ií]as?|sin da[nñ]os?|no se ven?|n\/a|-)\.?$/i.test(String(t).trim());
+const esAveriado=p=>!sinAveria(p.averias)||DANO.test(p.condicion||'')||['Caja rota','Mojado'].includes(p.empaque);
+const AV_EST={por_revisar:'por revisar',confirmado:'confirmada: por indemnizar',indemnizado:'indemnizada',descartado:'descartada'};
+const estadoAveria=p=>p.averia&&p.averia.estado?p.averia.estado:esAveriado(p)&&recuperable(p)?'por_revisar':'';
+const textoAveria=p=>[!sinAveria(p.averias)?p.averias:'',DANO.test(p.condicion||'')?'producto '+p.condicion.toLowerCase():'',['Caja rota','Mojado'].includes(p.empaque)?'empaque: '+p.empaque.toLowerCase():''].filter(Boolean).join(' · ');
+const nuevaAveria=(p,origen)=>({estado:'por_revisar',t:new Date().toISOString(),por:S.me||'',origen,descripcion:textoAveria(p).slice(0,300),historial:[{t:new Date().toISOString(),quien:S.me||'',accion:'Detectada'+(origen==='ia'?' por la IA':origen==='registro'?' al registrar':' por el personal')}]});
+const zonaSuelto=cond=>DANO.test(cond||'')||/Vencido/.test(cond||'')?'OD':'OB';
+const sueltoReg=()=>$('#aper').value!=='exterior'&&$('#fuera').checked;
+/* Antes de 3 meses solo se abre con autorización del remitente o del destinatario; después, con el acta de rezago. */
+function puedeAbrir(p){
+  if(p.estado==='rezago')return 'En rezago: ya se puede abrir con acta';
+  if(days(p.ingreso)>=90)return 'Lleva '+days(p.ingreso)+' días: se puede abrir con el acta de rezago';
+  const rc=S.rec.find(x=>x.paqueteId===p.id&&x.autorizaApertura);if(rc)return 'El cliente autorizó abrirlo con testigo';
+  return '';
+}
+function vistaApertura(){
+  const ab=$('#aper').value!=='exterior';$('#fuera_box').hidden=!ab;if(ab&&$('#aper').value==='rezago'&&!$('#fuera').dataset.toc)$('#fuera').checked=true;
+  $('#sello_box').hidden=ab&&$('#fuera').checked;
+  $('#foto_gal').accept=ab?'video/*,image/*':'video/*';
+  const bt=$('#drop').querySelector('b');if(bt)bt.textContent=ab?'Grabar video del objeto fuera de su caja':'Grabar video de 15 segundos del paquete';
+  $('#drop_gal').textContent=ab?'O subir fotos del objeto (o un video ya grabado)':'O subir un video ya grabado';if(!ab)delete $('#fuera').dataset.toc;
+  if(sueltoReg()&&(!$('#ubi').value||/^O[BD]-/.test($('#ubi').value)))$('#ubi').value=suggestShelf(zonaSuelto($('#cond').value));
+}
+$('#aper').addEventListener('change',vistaApertura);$('#fuera').addEventListener('change',e=>{e.target.dataset.toc='1';vistaApertura()});
+$('#cond').addEventListener('change',()=>{if(sueltoReg()&&(!$('#ubi').value||/^O[BD]-/.test($('#ubi').value)))$('#ubi').value=suggestShelf(zonaSuelto($('#cond').value))});
+
+/* Abrir un paquete que ya cumplió el plazo: el objeto sale de su caja, se fotografía y la IA declara su estado. */
+let OBJ=[];
+function abrirObjeto(id){
+  const p=S.paq.find(x=>x.id===id);if(!p)return;const motivo=puedeAbrir(p);if(!motivo){toast('Aún no se puede abrir: faltan '+(90-days(p.ingreso))+' días o la autorización del cliente');return}
+  if(!canUpload()){toast('Solo el personal autorizado puede subir fotos');return}
+  OBJ=[];const base=p.estado==='rezago'||days(p.ingreso)>=90?'rezago':'remitente';
+  $('#mbody').innerHTML=`<h2>Abrir ${esc(p.codigo)}</h2><p class="meta">${esc(motivo)}. Saque el objeto de su caja delante del testigo y tómele fotos: de frente, de lado, de cerca a cada daño y a la etiqueta o serial. La IA declara si está en buen estado o dañado y le asigna un estante de objetos sueltos.</p>
+  <label class="f">Base legal<select id="ob_base"><option value="rezago" ${base==='rezago'?'selected':''} ${days(p.ingreso)<90&&p.estado!=='rezago'?'disabled':''}>Rezago: más de 3 meses, con acta</option><option value="remitente" ${base==='remitente'?'selected':''}>Autorización del remitente</option><option value="destinatario">Autorización del destinatario</option></select></label>
+  <div class="row2"><label class="f">Testigo<input id="ob_test" placeholder="Nombre"></label><label class="f">Número de acta<input id="ob_acta" placeholder="Obligatorio en rezago"></label></div>
+  <input type="file" id="ob_cam" accept="image/*" capture="environment" hidden><input type="file" id="ob_gal" accept="image/*" multiple hidden>
+  <div class="bar"><button class="btn red sm" id="ob_tomar" type="button">Tomar foto del objeto</button><button class="btn alt sm" id="ob_subir" type="button">Subir fotos</button></div>
+  <div class="mgrid" id="ob_grid"></div><p class="meta" id="ob_st">Agregue de 1 a 6 fotos del objeto fuera de su caja.</p>
+  <div id="ob_res" hidden>
+    <label class="f">¿Qué es?<input id="ob_desc"></label>
+    <div class="row2"><label class="f">Estado declarado<select id="ob_cond"><option>Bueno</option><option>Usado</option><option>Dañado parcial</option><option>Dañado total</option><option>Vencido o perecedero</option></select></label><label class="f">Estante de objetos sueltos<input id="ob_ubi"></label></div>
+    <label class="f">Daños vistos<input id="ob_dano" placeholder="Vacío si está en buen estado"></label>
+  </div>
+  <div class="bar" style="margin-top:12px"><button class="btn red sm" id="ob_ok" disabled>Guardar como objeto fuera de caja</button><button class="btn alt sm" data-close>Cancelar</button></div>`;
+  modal.style.display='grid';
+  const grid=()=>{$('#ob_grid').innerHTML=OBJ.map((m,i)=>`<div class="mthumb"><img src="${m.mini}" alt=""><button type="button" class="x" data-obrm="${i}" aria-label="Quitar">×</button></div>`).join('');$('#ob_ok').disabled=!OBJ.length};
+  const sug=()=>{$('#ob_ubi').value=suggestShelfEn(zonaSuelto($('#ob_cond').value),p.sede||'')};
+  $('#ob_cond').onchange=sug;
+  $('#mbody').onclick=e=>{const t=e.target.closest('[data-obrm]');if(t){OBJ.splice(+t.dataset.obrm,1);grid()}};
+  const tomar=async e=>{const fs=[...e.target.files].filter(f=>f.type.startsWith('image/'));e.target.value='';if(!fs.length)return;
+    for(const f of fs){if(OBJ.length>=6){toast('Máximo 6 fotos');break}try{OBJ.push(await prepMedia(f,$('#ob_st')))}catch(err){toast(err.message||'No se pudo leer la foto')}}grid();analizarObjeto(p)};
+  $('#ob_cam').onchange=tomar;$('#ob_gal').onchange=tomar;$('#ob_tomar').onclick=()=>$('#ob_cam').click();$('#ob_subir').onclick=()=>$('#ob_gal').click();
+  $('#ob_ok').onclick=()=>guardarObjeto(p);
+}
+function suggestShelfEn(z,sd){
+  const used={};custodia().filter(x=>(x.sede||'')===sd).forEach(x=>{const u=String(x.ubicacion||'');if(u.startsWith(z+'-'))used[u]=(used[u]||0)+1});
+  const list=Object.entries(used).sort((a,b)=>a[1]-b[1]);return list.length&&list[0][1]<15?list[0][0]:z+'-'+(Object.keys(used).length+1)+'-1';
+}
+let obSeq=0;
+async function analizarObjeto(p){
+  const res=$('#ob_res'),st=$('#ob_st'),n=++obSeq;if(!OBJ.length)return;res.hidden=false;
+  if(!$('#ob_desc').value)$('#ob_desc').value=p.descripcion&&!/paquete cerrado/i.test(p.objeto||'')?p.descripcion:'';
+  const fijar=()=>{if(!$('#ob_ubi').value||/^O[BD]-/.test($('#ob_ubi').value))$('#ob_ubi').value=suggestShelfEn(zonaSuelto($('#ob_cond').value),p.sede||'')};
+  if(!S.sample||!navigator.onLine){st.textContent='Sin IA en este momento: declare el estado a mano.';fijar();return}
+  st.innerHTML=escaneo('La IA está revisando el estado del objeto…');
+  try{const o=await S.sample.json(`Estas fotos muestran un objeto que se sacó de su caja en la bodega de custodia de una empresa de mensajería en Colombia (ya es custodia de la empresa por tiempo). Declara su estado mirando solo lo que se ve: golpes, grietas, piezas rotas o faltantes, rayones, manchas, humedad, óxido, fugas, fechas vencidas. Si no se ve ningún daño, el estado es "Bueno" (o "Usado" si tiene uso normal). Responde SOLO con JSON: {"objeto":"nombre corto","descripcion":"una frase en español con marca, modelo, color y accesorios","condicion":"Bueno|Usado|Dañado parcial|Dañado total|Vencido o perecedero","danos":"daños vistos, en una frase, o vacío","razon":"en qué te basas, frase corta","seguro":true si las fotos alcanzan para decidir, false si hace falta otra foto,"etiquetas":["6 a 10 palabras clave en español, minúsculas, sin tildes"],"marca":"o vacío","color":""}`,{images:OBJ.map(m=>m.blob).slice(0,6),modelTier:'default'});
+    if(n!==obSeq||!o)return;
+    if(o.descripcion)$('#ob_desc').value=String(o.descripcion).slice(0,200);
+    const op=[...$('#ob_cond').options].find(x=>norm(x.value)===norm(o.condicion||''));if(op)$('#ob_cond').value=op.value;
+    $('#ob_dano').value=sinAveria(o.danos)?'':String(o.danos).slice(0,200);fijar();
+    OBJ.ia={...o,t:new Date().toISOString()};
+    st.textContent='La IA declara: '+$('#ob_cond').value+(o.razon?' ('+String(o.razon).slice(0,140)+')':'')+'.'+(o.seguro===false?' Pide otra foto para estar segura: agregue una de cerca.':' Revise y guarde.');
+  }catch(e){if(n===obSeq){st.textContent=e&&e.code==='rate_limited'?'IA ocupada: declare el estado a mano o intente en un momento.':'La IA no respondió: declare el estado a mano.';fijar()}}
+}
+async function guardarObjeto(p){
+  const base=$('#ob_base').value,test=$('#ob_test').value.trim(),acta=$('#ob_acta').value.trim(),cond=$('#ob_cond').value,ubi=$('#ob_ubi').value.trim().toUpperCase(),dano=$('#ob_dano').value.trim();
+  if(!test){toast('Una apertura necesita testigo');return}if(base==='rezago'&&!acta){toast('Escriba el número del acta de rezago');return}if(!ubi){toast('Indique el estante');return}
+  if(base==='rezago'&&days(p.ingreso)<90&&p.estado!=='rezago'){toast('Aún no cumple 3 meses');return}
+  const b=$('#ob_ok');b.disabled=true;b.textContent='Subiendo fotos…';
+  const up=await uploadMedia(OBJ,'personal','paquetes/'+p.id);if(!up.media.length){b.disabled=false;b.textContent='Guardar como objeto fuera de caja';return}
+  const ia=OBJ.ia||null,now=new Date().toISOString();
+  const upd={fueraDeCaja:true,apertura:base,abierto:{t:now,por:S.me||'',testigo:test,acta,base},condicion:cond,ubicacionAnterior:p.ubicacion,ubicacion:ubi,verificado:now,
+    descripcion:$('#ob_desc').value.trim()||p.descripcion||'',media:[...(p.media||[]),...up.media].slice(-30),
+    historial:histAdd(p,'Abierto ('+(base==='rezago'?'rezago, acta '+acta:'autorización del '+base)+', testigo '+test+'): objeto fuera de su caja, estado '+cond+', pasa del estante '+p.ubicacion+' al '+ubi)};
+  if(up.mainId)upd.fotoId=up.mainId;
+  if(ia){upd.estadoIA={condicion:ia.condicion||'',razon:String(ia.razon||'').slice(0,200),seguro:ia.seguro!==false,t:ia.t};
+    if(ia.objeto&&(!p.objeto||/paquete cerrado/i.test(p.objeto)))upd.objeto=String(ia.objeto).slice(0,60);if(ia.marca&&!p.marca)upd.marca=String(ia.marca).slice(0,60);if(ia.color&&!p.color)upd.color=String(ia.color).slice(0,40);
+    if(Array.isArray(ia.etiquetas))upd.etiquetas=[...new Set([...(p.etiquetas||[]),...ia.etiquetas.map(x=>norm(x).trim()).filter(Boolean)])].slice(0,30)}
+  if(dano)upd.averias=[p.averias,'objeto: '+dano].filter(Boolean).join(' · ').slice(0,300);
+  const tras={...p,...upd};if(esAveriado(tras)&&(!p.averia||p.averia.estado==='descartado'))upd.averia=nuevaAveria(tras,ia?'ia':'personal');
+  else if(p.averia&&dano)upd.averia={...p.averia,descripcion:textoAveria(tras).slice(0,300)};
+  if(ia)fbLog({tipo:'estado_objeto',ref:p.id,ok:norm(ia.condicion||'')===norm(cond),campos:{condicion:norm(ia.condicion||'')===norm(cond)},corr:norm(ia.condicion||'')===norm(cond)?[]:[{campo:'condicion',ia:String(ia.condicion||''),final:cond}]});
+  if(await write(()=>S.db.collection('paquetes').doc(p.id).update(upd),p.codigo+' quedó como objeto fuera de caja en '+ubi+(upd.averia?' · pasó a Averías':''))){OBJ=[];closeM();setTimeout(()=>openDetail(p.id),300)}
+  else{b.disabled=false;b.textContent='Guardar como objeto fuera de caja'}
+}
+document.addEventListener('click',e=>{const t=e.target.closest('[data-abrirobj]');if(t)abrirObjeto(t.dataset.abrirobj)});
+
+/* lista de averiados para la transportadora */
+function renderAverias(){
+  const el=$('#av_list');if(!el)return;
+  const fs=$('#av_sede');if(fs){const v=fs.value;fs.innerHTML='<option value="">Todas las sedes</option>'+opcSedes(v);fs.value=v}
+  const todos=S.paq.filter(p=>estadoAveria(p)),fe=$('#av_f').value,fsd=fs?fs.value:'';
+  const cnt=k=>todos.filter(p=>estadoAveria(p)===k).length,ind=todos.filter(p=>estadoAveria(p)==='indemnizado').reduce((s,p)=>s+(+(p.averia||{}).valorIndemnizado||0),0);
+  $('#av_stats').innerHTML=[['Por revisar',cnt('por_revisar')],['Por indemnizar',cnt('confirmado')],['Indemnizados',cnt('indemnizado')],['Valor indemnizado',money(ind)]].map(([k,v])=>`<div class="stat"><span class="big">${esc(v)}</span><span class="meta">${esc(k)}</span></div>`).join('');
+  const list=todos.filter(p=>(!fe||estadoAveria(p)===fe)&&(!fsd||sedeNom(p)===fsd)).sort((a,b)=>String((b.averia||{}).t||b.ingreso).localeCompare(String((a.averia||{}).t||a.ingreso)));
+  el.innerHTML=list.length?list.map(p=>{const a=p.averia||{},est=estadoAveria(p),ad=p.guia?admOf(p.guia):null,src=fotoSrc(p);
+    const previo=ad?(sinAveria(ad.averias)?'Sin averías al admitirlo en '+(ad.oficina||'la oficina')+': el daño ocurrió después.':'Ya venía con averías al admitirlo: '+ad.averias+'.'):'Sin foto de admisión para comparar.';
+    return `<div class="alert ${est==='por_revisar'?'':est==='descartado'?'k':'g'}" style="display:block">
+    <div style="display:flex;gap:12px;align-items:flex-start">${src&&!p.privado?`<div class="mthumb"><img src="${esc(src)}" alt=""></div>`:''}<div style="flex:1">
+      <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><b>${esc(p.codigo)}${p.guia?' · guía '+esc(p.guia):''}</b><span class="meta">avería ${esc(AV_EST[est])}</span></div>
+      <div>${esc(p.objeto||p.descripcion)} · <b>${esc(a.descripcion||textoAveria(p)||'—')}</b></div>
+      <div class="meta">${esc(sedeNom(p))}, estante ${esc(p.ubicacion)} · ${p.fueraDeCaja?'fuera de su caja, estado '+esc(p.condicion||'—'):'sigue en su caja'} · ${esc(p.origen||'¿?')} → ${esc(p.destino||'¿?')} · valor declarado ${money(p.valor)}${a.t?' · detectada '+fdate(a.t)+(a.origen==='ia'?' por la IA':''):''}</div>
+      <div class="meta">${esc(previo)}${a.caso?' · caso '+esc(a.caso):''}${est==='indemnizado'?' · indemnizado '+money(a.valorIndemnizado):''}${a.nota?' · '+esc(a.nota):''}</div>
+    </div></div>
+    <div class="bar" style="margin-top:8px"><button class="btn alt sm" data-open="${esc(p.id)}">Ver ficha y fotos</button>${ad?`<button class="btn alt sm" data-adm="${esc(ad.id)}">Foto de admisión</button>`:''}${S.canWrite!==false?(est==='por_revisar'?`<button class="btn red sm" data-av="confirmado|${esc(p.id)}">Confirmar avería</button><button class="btn alt sm" data-av="descartado|${esc(p.id)}">No es avería</button>`:est==='confirmado'?`<button class="btn red sm" data-av="indemnizado|${esc(p.id)}">Registrar indemnización</button><button class="btn alt sm" data-av="por_revisar|${esc(p.id)}">Volver a revisar</button>`:`<button class="btn alt sm" data-av="por_revisar|${esc(p.id)}">Volver a revisar</button>`):''}</div></div>`}).join(''):'<p class="meta">No hay paquetes en esta lista.</p>';
+}
+$('#av_f').addEventListener('change',renderAverias);$('#av_sede').addEventListener('change',renderAverias);
+async function cambiarAveria(est,id,extra){
+  const p=S.paq.find(x=>x.id===id);if(!p)return;const a=p.averia||nuevaAveria(p,'personal'),now=new Date().toISOString();
+  const nv={...a,...(extra||{}),estado:est,actualizado:now,historial:[...(a.historial||[]),{t:now,quien:S.me||'',accion:'Avería '+AV_EST[est]+(extra&&extra.valorIndemnizado?' por '+money(extra.valorIndemnizado):'')}].slice(-20)};
+  return write(()=>S.db.collection('paquetes').doc(id).update({averia:nv,historial:histAdd(p,'Avería '+AV_EST[est])}),'Avería '+AV_EST[est]);
+}
+document.addEventListener('click',e=>{const t=e.target.closest('[data-av]');if(!t)return;const [est,id]=t.dataset.av.split('|'),p=S.paq.find(x=>x.id===id);if(!p)return;
+  if(est!=='indemnizado'){cambiarAveria(est,id);return}
+  $('#mbody').innerHTML=`<h2>Indemnización · ${esc(p.codigo)}</h2><p class="meta">${esc((p.averia||{}).descripcion||textoAveria(p))} · valor declarado ${money(p.valor)}</p>
+  <div class="row2"><label class="f">Valor indemnizado ($)<input id="in_v" type="number" inputmode="numeric" value="${+p.valor||''}"></label><label class="f">Número de caso de la transportadora<input id="in_c" value="${esc((p.averia||{}).caso||'')}"></label></div>
+  <label class="f">Nota<input id="in_n" placeholder="Ej.: pagado al remitente por transferencia"></label>
+  <div class="bar" style="margin-top:12px"><button class="btn red sm" id="in_ok">Guardar</button><button class="btn alt sm" data-close>Cancelar</button></div>`;modal.style.display='grid';
+  $('#in_ok').onclick=async()=>{const v=Math.round(+$('#in_v').value);if(!(v>=0)){toast('Revise el valor');return}if(await cambiarAveria('indemnizado',id,{valorIndemnizado:v,caso:$('#in_c').value.trim().slice(0,60),nota:$('#in_n').value.trim().slice(0,200)}))closeM()}});
+$('#av_copy').addEventListener('click',async()=>{
+  const fe=$('#av_f').value,list=S.paq.filter(p=>estadoAveria(p)&&(!fe||estadoAveria(p)===fe));if(!list.length){toast('No hay paquetes en esta lista');return}
+  const cel=x=>String(x??'').replace(/[\t\n\r]+/g,' ');
+  const filas=[['Código','Guía','Sede','Estante','Origen','Destino','Valor declarado','Avería','Estado del producto','Caja','Revisión','Caso','Valor indemnizado','Detectada'],
+    ...list.map(p=>{const a=p.averia||{};return [p.codigo,p.guia||'',sedeNom(p),p.ubicacion,p.origen||'',p.destino||'',+p.valor||0,a.descripcion||textoAveria(p),p.condicion||'',p.fueraDeCaja?'fuera de caja':'en su caja',AV_EST[estadoAveria(p)],a.caso||'',a.valorIndemnizado||'',(a.t||'').slice(0,10)]})];
+  try{await navigator.clipboard.writeText(filas.map(f=>f.map(cel).join('\t')).join('\n'));toast(list.length+' paquete(s) copiados: péguelos en Excel o en el correo')}catch(e){toast('No se pudo copiar en este navegador')}});
+
 /* ---------- eliminar fotos, videos y reclamos (solo personal) ---------- */
 const puedeBorrar=()=>!!S.db&&S.canWrite!==false&&canUpload();
 const MOTIVOS=['Foto o video equivocado, o de otro envío','Registro duplicado','Error al registrar','El cliente pidió borrar sus datos (Ley 1581)','Otro'];
@@ -1864,7 +2027,7 @@ document.addEventListener('click',e=>{const t=e.target.closest('[data-reply]');i
 
 /* ---------- precisión y aprendizaje de la IA ---------- */
 const FB_CAMPOS=[['descripcion','#desc'],['averias','#aver'],['objeto','#obj'],['marca','#marca'],['color','#color'],['condicion','#cond'],['material','#mat'],['origen','#orig'],['destino','#dest'],['peso','#peso'],['estante','#ubi']];
-const FB_TIPOS={admision:'Cruce con fotos de admisión',foto:'Lectura de fotos al registrar',busqueda:'Búsqueda rápida',busqueda_ia:'Búsqueda con IA',cruce_foto:'Comparación de fotos de reclamos',asistente:'Cruces del asistente diario',conciliacion:'Conciliación de guías',conciliacion_ia:'Conciliación de guías con IA'};
+const FB_TIPOS={estado_objeto:'Estado de objetos fuera de caja',admision:'Cruce con fotos de admisión',foto:'Lectura de fotos al registrar',busqueda:'Búsqueda rápida',busqueda_ia:'Búsqueda con IA',cruce_foto:'Comparación de fotos de reclamos',asistente:'Cruces del asistente diario',conciliacion:'Conciliación de guías',conciliacion_ia:'Conciliación de guías con IA'};
 const fbDone=new Set();
 const fbBtns=(src,ref)=>{const k=src+'|'+ref;if(fbDone.has(k))return `<span class="meta">Gracias</span>`;
   return `<span class="bar" data-fbbox="${esc(k)}"><span class="meta" style="align-self:center">¿Acertó?</span><button class="btn alt sm" data-fb="${esc(k)}|1">Sí</button><button class="btn alt sm" data-fb="${esc(k)}|0">No</button></span>`};
@@ -1944,7 +2107,7 @@ function renderStats(){
   const b=$('#deldemo');if(b)b.onclick=async()=>{b.disabled=true;for(const p of S.paq.filter(p=>p.muestra))await write(()=>S.db.collection('paquetes').doc(p.id).delete());for(const r of S.rec.filter(r=>r.muestra))await write(()=>S.db.collection('reclamos').doc(r.id).delete());toast('Datos de ejemplo borrados')};
 }
 
-function renderAll(){renderMiSede();renderPulso();renderCamaras();renderRec();renderInv();renderDisp();renderRezago();renderConc();renderStats();renderPrec();const q=$('#q').value;if(q&&!$('#res').querySelector('.why'))localSearch(q)}
+function renderAll(){renderMiSede();renderPulso();renderAverias();renderCamaras();renderRec();renderInv();renderDisp();renderRezago();renderConc();renderStats();renderPrec();const q=$('#q').value;if(q&&!$('#res').querySelector('.why'))localSearch(q)}
 function banner(m){$('#banner').innerHTML=m?`<div class="banner">${esc(m)}</div>`:''}
 
 /* ---------- pestañas y QR ---------- */

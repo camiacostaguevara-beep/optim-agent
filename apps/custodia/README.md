@@ -1,7 +1,7 @@
 # Custodia: buscador de envíos
 
 Copia de respaldo del artifact publicado en claude.ai
-(https://claude.ai/artifact/4DfAbYsxbJmyQFXj6wdyJW), versión 1795871637-79a1.
+(https://claude.ai/artifact/4DfAbYsxbJmyQFXj6wdyJW), versión 1795873282-53cd.
 
 App para la bodega de custodia de una transportadora en Colombia: búsqueda de
 envíos por descripción, registro con video, reclamos, inventario, conciliación
@@ -27,6 +27,24 @@ interfaz, pero sin datos.
   eliminación pide un motivo y queda en el Tablero (quién, cuándo, por qué,
   sin guardar los datos borrados). Los archivos que la cuenta no pudo borrar
   quedan ocultos y un administrador termina de borrarlos desde el Tablero.
+
+## Averías y objetos fuera de caja
+
+- Pestaña **Averías**: entran solos los paquetes en los que la IA (al
+  registrar o al agregar fotos/videos) o el personal vio daños, más los de
+  empaque roto o mojado y producto dañado. Cada caso muestra si ya venía
+  averiado al admitirlo. La revisión pasa por: por revisar → confirmada (por
+  indemnizar) → indemnizada (valor y número de caso), o descartada. "Copiar
+  lista para la transportadora" copia una tabla para Excel o correo.
+- **Abrir y fotografiar el objeto** (ficha del paquete): disponible con más
+  de 3 meses en custodia o en rezago (acta y testigo obligatorios), o con la
+  autorización del cliente. El objeto queda fuera de su caja, con fotos; la IA
+  declara su estado (bueno, usado, dañado parcial o total, vencido) y se le
+  asigna estante aparte: `OB-` buen estado, `OD-` dañado. Los paquetes que
+  siguen cerrados conservan los estantes A–D. Si está dañado, pasa a Averías.
+- El registro con apertura ("Abierto en rezago" o con autorización) acepta
+  fotos y ofrece dejar el objeto fuera de su caja con la misma regla de
+  estantes. El Inventario filtra "Siguen en su caja" / "Fuera de caja".
 
 ## Pendiente: integración con los sistemas de la transportadora (pospuesta)
 
