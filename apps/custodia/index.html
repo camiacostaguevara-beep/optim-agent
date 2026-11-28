@@ -364,6 +364,13 @@ details>summary{list-style:none}details>summary::-webkit-details-marker{display:
         <label class="f">Ubicación<input id="ubi" placeholder="B-3-2 (estante-nivel-caja)"></label>
       </div>
       <label class="f">Sede de custodia<select id="sede_reg"></select></label>
+      <label class="check"><input type="checkbox" id="vinipel"> Envuelto en vinipel negro (no se puede destapar): se diferencia por peso, medidas, silueta y lo que tenga encima del plástico</label>
+      <div class="banner" id="vin_tips" hidden><b>Cómo registrar un paquete en vinipel negro</b><ol class="pasos" style="margin:6px 0 0">
+        <li><b>Báscula con foto:</b> el peso es la diferencia más confiable entre paquetes negros.</li>
+        <li><b>Medidas:</b> largo x ancho x alto en cm, con la cinta métrica.</li>
+        <li><b>Video:</b> una vuelta completa a la altura del paquete (silueta y esquinas), luego desde arriba con la cinta métrica al lado.</li>
+        <li><b>Linterna:</b> encienda la linterna del celular y acérquela al plástico: muchas veces se transparentan logos, etiquetas o el color de la caja.</li>
+        <li><b>De cerca:</b> stickers, guías, cinta o escritos sobre el plástico, cortes y huecos. Son únicos de cada paquete.</li></ol></div>
       <label class="check"><input type="checkbox" id="nn"> Paquete NN: sin guía y sin nombre, solo la caja o el empaque. Se identifica por fotos y características: registre peso, medidas y marcas.</label>
       <div class="row2">
         <label class="f">Estado del producto<select id="cond"><option>Bueno</option><option>Usado</option><option>Dañado parcial</option><option>Dañado total</option><option>Vencido o perecedero</option></select></label>
@@ -394,6 +401,7 @@ details>summary{list-style:none}details>summary::-webkit-details-marker{display:
       <p class="meta" id="c_ai"></p>
       <div class="row2"><label class="f">Guía (si la tiene)<input id="c_guia"></label><label class="f">Fecha de envío<input id="c_fecha" type="date"></label></div>
       <div class="row2"><label class="f">Origen<input id="c_orig"></label><label class="f">Destino<input id="c_dest"></label><label class="f">Valor declarado ($)<input id="c_val" type="number"></label></div>
+      <div class="row2"><label class="f">Peso que dice la guía (kg)<input id="c_peso" type="number" step="0.01" inputmode="decimal"></label><label class="f">Medidas (cm)<input id="c_med" placeholder="40x30x20"></label><label class="check" style="align-self:end"><input type="checkbox" id="c_vin"> Iba envuelto en vinipel negro</label></div>
       <input type="hidden" id="c_cod">
       <label class="check"><input type="checkbox" id="c_abrir"> El cliente autorizó abrir el paquete con testigo para confirmarlo</label>
       <button class="btn red">Guardar reclamo y buscar</button>
@@ -772,11 +780,14 @@ async function leerCodigos(fuentes){
 const imgsDe=list=>list.flatMap(m=>m.kind==='video'?(m.all&&m.all.length?m.all:m.frames):[m.blob]);
 
 /* ---------- grabación guiada ---------- */
+const PASOS_VINIPEL=[[0,4,'Vuelta completa a la altura del paquete','Que se vean la silueta y las esquinas'],[4,7,'Desde arriba, con la cinta métrica al lado','Tamaño y proporciones'],[7,11,'Linterna del celular encendida y pegada al plástico','Lo que se transparenta: logos, etiquetas, color de la caja'],[11,15,'Lo que hay sobre el plástico','Stickers, guía, cinta, escritos, cortes: quieto en cada uno']];
+$('#vinipel').addEventListener('change',e=>{$('#vin_tips').hidden=!e.target.checked});
+const pasosVideo=()=>$('#vinipel')&&$('#vinipel').checked?PASOS_VINIPEL:PASOS_VIDEO;
 const PASOS_VIDEO=[[0,4,'Frente completo del paquete','Que se vea entero, con buena luz'],[4,8,'Gire despacio','Lados y parte de arriba'],[8,11,'Acérquese a la etiqueta de la guía','Quédese quieto 3 segundos'],[11,15,'Golpes, cintas y marcas','Escritos a mano, stickers, roturas']];
 let guiadoStop=null,codigoVivo=[];
 function guiaNativa(motivo){
   $('#mbody').innerHTML=`<h2>Cómo grabar el video</h2>${motivo?`<p class="meta">${esc(motivo)}</p>`:''}
-  <ol class="pasos">${PASOS_VIDEO.map(([a,b,t,d])=>`<li><b>${a}–${b} s: ${esc(t)}.</b> ${esc(d)}.</li>`).join('')}</ol>
+  <ol class="pasos">${pasosVideo().map(([a,b,t,d])=>`<li><b>${a}–${b} s: ${esc(t)}.</b> ${esc(d)}.</li>`).join('')}</ol>
   <p class="meta">En la cámara del celular desactive los videos de alta eficiencia (HEVC).</p>
   <div class="row2"><button class="btn red" id="gn_ok">Abrir la cámara</button><button class="btn alt" data-close>Cancelar</button></div>`;
   modal.style.display='grid';$('#gn_ok').onclick=()=>{closeM();$('#foto').click()};
@@ -809,7 +820,7 @@ async function grabarGuiado(){
       const vivo=codigoVivo.slice();
       if(await addFiles([file],RM,$('#rm_grid'),'rm',$('#aistate'),'video')){fotoBlob=firstImg(RM);fotoMini=RM[0].mini;regAI.vivo=vivo;analyze()}};
     t0=Date.now();rec.start(500);
-    timer=setInterval(()=>{const s=(Date.now()-t0)/1000,p=PASOS_VIDEO.find(([a,b])=>s>=a&&s<b)||PASOS_VIDEO.at(-1);
+    timer=setInterval(()=>{const s=(Date.now()-t0)/1000,p=pasosVideo().find(([a,b])=>s>=a&&s<b)||pasosVideo().at(-1);
       $('#gp').innerHTML=`${esc(p[2])} · ${Math.max(0,Math.ceil(15-s))} s<small>${esc(p[3])}</small>`;$('#gb').style.width=Math.min(100,s/15*100)+'%';luz();
       if(s>=15&&rec.state==='recording')rec.stop()},250);
   };
@@ -827,12 +838,13 @@ async function analyze(){
   st.textContent='La IA está mirando la foto…';
   try{
     const o=await S.sample.json(`Analiza los cuadros de un video de 15 segundos que recorre por fuera un paquete en la bodega de custodia de una empresa de mensajería en Colombia (combina lo que se ve en todos: caras, etiquetas, sellos, marcas, averías). ${learnText()}${$('#aper').value==='exterior'?'El paquete está CERRADO: describe el empaque, tamaño, marcas, etiquetas y texto visible; no adivines el contenido, usa objeto "paquete cerrado" si no se ve.':'El paquete fue abierto legalmente: describe su contenido y declara en "condicion" el estado del objeto mirando golpes, grietas, piezas rotas o faltantes, rayones, manchas, humedad y fechas vencidas ("Bueno" si no se ve ningún daño); escribe en "averias" los daños vistos.'} Responde SOLO con JSON:
-{"objeto":"nombre corto","categoria":"","marca":"o vacío","color":"","estado":"nuevo|usado|dañado","descripcion":"una frase en español","etiquetas":["8 a 12 palabras clave en español, minúsculas, sin tildes: objeto, sinónimos, marca, modelo, color, material, talla, accesorios"],"texto_visible":"texto o números legibles (guía, nombres, direcciones, seriales) o vacío","averias":"daños visibles del empaque o del contenido (aplastado, roto, mojado, cinta abierta, etc.) o vacío","origen_posible":"ciudad colombiana de donde probablemente salió, deducida SOLO de pistas visibles (dirección del remitente, factura o tienda, indicativo telefónico, sello) o vacío","destino_posible":"ciudad deducida de pistas visibles o vacío","pista_ciudades":"qué pista usaste, frase corta, o vacío","peso_estimado_kg":número aproximado,"peso_bascula_kg":número exacto en kg SOLO si en la foto se ve la pantalla de una báscula, si no null,"cuadro_bascula":número del cuadro (0 = el primero que recibes) donde mejor se lee la pantalla de la báscula, o -1,"zona":"A electrónicos y celulares|B ropa, calzado y accesorios|C hogar, electrodomésticos y cocina|D documentos, alimentos, belleza y otros (responde solo la letra)","condicion":"Bueno|Usado|Dañado parcial|Dañado total|Vencido o perecedero","material":"Mixto|Cartón y papel|Plástico|Electrónico (RAEE)|Textil|Vidrio|Metal|Orgánico|Peligroso (baterías, químicos, medicamentos, aerosoles)","sensible":true/false (documentos de identidad, medicamentos, ropa interior o datos personales),"huella":{"empaque":"caja de cartón|bolsa plástica de mensajería|sobre|bolsa de tela|otro","color_principal":"","cinta":"tipo y color o vacío","logos":["logos o marcas impresas en el empaque"],"etiquetas":["cada etiqueta pegada: color, formato, posición"],"marcas_distintivas":["rasgos únicos: escritos a mano, golpes, parches de cinta"],"tamano":"pequeño|mediano|grande"}}`,{images:(regAI.imgsIA=aiImages(RM,Math.min(8,(await imgMax())||8))),modelTier:'complex'});
+{"objeto":"nombre corto","categoria":"","marca":"o vacío","color":"","estado":"nuevo|usado|dañado","descripcion":"una frase en español","etiquetas":["8 a 12 palabras clave en español, minúsculas, sin tildes: objeto, sinónimos, marca, modelo, color, material, talla, accesorios"],"texto_visible":"texto o números legibles (guía, nombres, direcciones, seriales) o vacío","averias":"daños visibles del empaque o del contenido (aplastado, roto, mojado, cinta abierta, etc.) o vacío","origen_posible":"ciudad colombiana de donde probablemente salió, deducida SOLO de pistas visibles (dirección del remitente, factura o tienda, indicativo telefónico, sello) o vacío","destino_posible":"ciudad deducida de pistas visibles o vacío","pista_ciudades":"qué pista usaste, frase corta, o vacío","peso_estimado_kg":número aproximado,"peso_bascula_kg":número exacto en kg SOLO si en la foto se ve la pantalla de una báscula, si no null,"cuadro_bascula":número del cuadro (0 = el primero que recibes) donde mejor se lee la pantalla de la báscula, o -1,"zona":"A electrónicos y celulares|B ropa, calzado y accesorios|C hogar, electrodomésticos y cocina|D documentos, alimentos, belleza y otros (responde solo la letra)","condicion":"Bueno|Usado|Dañado parcial|Dañado total|Vencido o perecedero","material":"Mixto|Cartón y papel|Plástico|Electrónico (RAEE)|Textil|Vidrio|Metal|Orgánico|Peligroso (baterías, químicos, medicamentos, aerosoles)","sensible":true/false (documentos de identidad, medicamentos, ropa interior o datos personales),"vinipel":true si está envuelto en plástico estirable (vinipel) negro u oscuro que tapa la caja, si no false,"huella":{"empaque":"caja de cartón|bolsa plástica de mensajería|sobre|bolsa de tela|vinipel negro|vinipel transparente|otro","envoltura":"si está en vinipel: muchas o pocas vueltas, dirección, cinta encima, cortes o huecos, bultos o esquinas que se marcan, y lo que se transparenta con la luz (logos, etiquetas, color de la caja); o vacío","color_principal":"","cinta":"tipo y color o vacío","logos":["logos o marcas impresas en el empaque"],"etiquetas":["cada etiqueta pegada: color, formato, posición"],"marcas_distintivas":["rasgos únicos: escritos a mano, golpes, parches de cinta"],"tamano":"pequeño|mediano|grande"}}`,{images:(regAI.imgsIA=aiImages(RM,Math.min(8,(await imgMax())||8))),modelTier:'complex'});
     if(!o){st.textContent='La IA no devolvió datos.';return}
     const set=(id,v)=>{if(v&&!$(id).value)$(id).value=String(v)};
     set('#desc',o.descripcion);set('#obj',o.objeto);set('#marca',o.marca);set('#color',o.color);set('#texto',o.texto_visible);set('#aver',o.averias);
     if(Array.isArray(o.etiquetas))$('#tags').value=o.etiquetas.map(String).join(', ');
     if(o.sensible===true)$('#priv').checked=true;
+    if(o.vinipel===true&&!$('#vinipel').checked){$('#vinipel').checked=true;$('#vin_tips').hidden=false}
     set('#orig',o.origen_posible);set('#dest',o.destino_posible);
     const pick=(id,val)=>{if(!val)return;const op=[...$(id).options].find(x=>norm(x.value).startsWith(norm(val).slice(0,6)));if(op)$(id).value=op.value};
     pick('#cond',o.condicion);pick('#mat',o.material);
@@ -892,6 +904,7 @@ $('#rform').addEventListener('submit',async e=>{
   if(!v('#ubi')){toast('Indique la ubicación');return}
   if(sedes().length&&!$('#sede_reg').value){toast('Elija la sede de custodia');return}
   if($('#nn').checked&&(!v('#peso')||!v('#med'))){toast('Un NN se identifica por sus características: registre peso y medidas');return}
+  if($('#vinipel').checked&&(!(+v('#peso')>0)||!parseMed(v('#med')))){toast('Un paquete en vinipel negro se diferencia por su peso y sus medidas: péselo y escriba largo x ancho x alto en cm');return}
   const suelto=$('#aper').value!=='exterior'&&$('#fuera').checked;
   if($('#aper').value!=='exterior'&&!suelto&&!$('#sello').checked){toast('Confirme que el paquete quedó resellado');return}
   if($('#aper').value!=='exterior'&&!v('#test')){toast('Una apertura necesita testigo');return}
@@ -910,6 +923,7 @@ $('#rform').addEventListener('submit',async e=>{
   if(regAI.huella)p.huella=regAI.huella;if(regAI.guias.length)p.guiasLeidas=regAI.guias;if(regAI.barras.length)p.guiaCodigoBarras=regAI.barras[0];
   if(regAI.sinIA)p.iaPendiente=true;
   if($('#nn').checked){p.nn=true;p.historial.push(ev('Registrado como NN: sin guía ni nombre'))}
+  if($('#vinipel').checked)p.vinipel=true;
   if(suelto){p.fueraDeCaja=true;p.abierto={t:now.toISOString(),por:S.me||'',testigo:v('#test'),base:$('#aper').value};p.historial.push(ev('Abierto: el objeto queda fuera de su caja, estado '+p.condicion))}
   if(esAveriado(p))p.averia=nuevaAveria(p,regAI.sinIA?'personal':'registro');
   if(regAI.guia&&!S.paq.some(x=>x.guia===regAI.guia)){p.guia=regAI.guia;p.historial.push(ev('Guía '+regAI.guia+(regAI.barras.includes(regAI.guia)?' leída del código de barras':' leída del video por la IA')))}
@@ -918,7 +932,7 @@ $('#rform').addEventListener('submit',async e=>{
   if(ok&&aiSug){const campos={},corr=[];for(const [k] of FB_CAMPOS){if(!aiSug[k]&&!fin[k])continue;const same=norm(aiSug[k]).trim()===norm(fin[k]).trim();campos[k]=same;if(!same)corr.push({campo:k,ia:String(aiSug[k]).slice(0,80),final:String(fin[k]).slice(0,80)})}
     fbLog({tipo:'foto',ref:id,ok:!corr.length,campos,corr});aiSug=null}
   btn.disabled=false;
-  if(ok){e.target.reset();vistaApertura();fotoBlob=null;fotoMini='';regAI={huella:null,guias:[],guia:'',barras:[],vivo:[],sinIA:false};mostrarBascula();$('#nn').checked=false;RM.length=0;$('#rm_grid').innerHTML='';$('#aistate').textContent='';openDetail(id,{...p,id})}
+  if(ok){e.target.reset();vistaApertura();fotoBlob=null;fotoMini='';regAI={huella:null,guias:[],guia:'',barras:[],vivo:[],sinIA:false};mostrarBascula();$('#nn').checked=false;$('#vin_tips').hidden=true;RM.length=0;$('#rm_grid').innerHTML='';$('#aistate').textContent='';openDetail(id,{...p,id})}
 });
 
 /* ---------- detalle, etiqueta y entrega ---------- */
@@ -942,6 +956,7 @@ function openDetail(id,pp){
   <p class="meta">Sede: <b>${esc(sedeNom(p))}</b>${enTransito(p)?` · <b>en tránsito a ${esc(p.traslado.a)}</b> desde ${fdate(p.traslado.fecha)}${p.traslado.guia?' · guía de traslado '+esc(p.traslado.guia):''}`:''}</p>
   ${enTransito(p)?`<div class="bar"><button class="btn red sm" data-recibir="${esc(p.id)}">Recibir en ${esc(p.traslado.a)}</button><button class="btn alt sm" data-cancelt="${esc(p.id)}">Cancelar traslado</button></div>`:p.estado==='custodia'&&sedes().length>1?`<div class="bar"><button class="btn alt sm" data-trasl="${esc(p.id)}">Trasladar a otra sede</button></div>`:''}
   ${p.fueraDeCaja?`<p class="meta"><b>Objeto fuera de su caja</b> desde ${fdate((p.abierto||{}).t)} · estado <b>${esc(p.condicion||'—')}</b>${(p.estadoIA||{}).razon?' · IA: '+esc(p.estadoIA.razon):''}${(p.abierto||{}).acta?' · acta '+esc(p.abierto.acta):''}${(p.abierto||{}).testigo?' · testigo '+esc(p.abierto.testigo):''}</p>`:''}
+  ${(esVinipel(p)||esNN(p))&&!p.guia&&recuperable(p)?gemelosFisicos(p):''}
   ${enSubasta(p)?`<p class="meta"><b>Subasta: ${esc(SB_EST[estadoSubasta(p)])}</b>${precioBase(p)?' · precio base '+money(precioBase(p)):''}${p.tasacion?' · usado en el mercado '+esc(rango(p.tasacion.usado)):''} <button class="btn alt sm" data-ir="subastas">Ver en Subastas</button></p>`:''}
   ${estadoAveria(p)?`<p class="meta" style="color:var(--danger,#c0392b)"><b>Avería ${esc(AV_EST[estadoAveria(p)])}</b>: ${esc((p.averia||{}).descripcion||p.averias||p.condicion||'')} <button class="btn alt sm" data-ir="averias">Ver en Averías</button></p>`:''}
   ${['custodia','separado','rezago'].includes(p.estado)&&!p.fueraDeCaja&&!enTransito(p)&&puedeAbrir(p)?`<div class="bar"><button class="btn red sm" data-abrirobj="${esc(p.id)}">Abrir y fotografiar el objeto</button><span class="meta" style="align-self:center">${esc(puedeAbrir(p))}</span></div>`:''}
@@ -1042,9 +1057,9 @@ $('#c_fill').addEventListener('click',async e=>{
   const raw=$('#c_raw').value.trim(),b=e.currentTarget;if(!raw){toast('Pegue el mensaje del cliente');return}
   if(!S.sample){toast('IA no disponible');return}
   b.disabled=true;b.textContent='Leyendo el mensaje…';
-  try{const o=await S.sample.json(`Extrae los datos de este reclamo de un cliente de una empresa de mensajería en Colombia. Responde SOLO con JSON: {"cliente":"nombre o vacío","contacto":"teléfono o correo o vacío","descripcion":"qué envió, con marca, color, talla y detalles, en una frase","guia":"número o parte de la guía o vacío","fecha_envio":"AAAA-MM-DD o vacío (año actual ${new Date().getFullYear()} si no lo dice)","origen":"ciudad o vacío","destino":"ciudad o vacío","valor":número en pesos o 0,"codigo_reporte":"código tipo REC-XXXXXX o vacío","autoriza_apertura":true si el mensaje dice que autoriza abrir el paquete, si no false,"rol":"remitente|destinatario|vacío"}. No inventes datos.\n\nMensaje: ${JSON.stringify(raw)}`,{modelTier:'quick'});
+  try{const o=await S.sample.json(`Extrae los datos de este reclamo de un cliente de una empresa de mensajería en Colombia. Responde SOLO con JSON: {"cliente":"nombre o vacío","contacto":"teléfono o correo o vacío","descripcion":"qué envió, con marca, color, talla y detalles, en una frase","guia":"número o parte de la guía o vacío","fecha_envio":"AAAA-MM-DD o vacío (año actual ${new Date().getFullYear()} si no lo dice)","origen":"ciudad o vacío","destino":"ciudad o vacío","valor":número en pesos o 0,"codigo_reporte":"código tipo REC-XXXXXX o vacío","autoriza_apertura":true si el mensaje dice que autoriza abrir el paquete, si no false,"rol":"remitente|destinatario|vacío","peso_kg":número o 0,"medidas":"largo x ancho x alto en cm o vacío","vinipel":true si dice que iba envuelto en plástico negro o vinipel, si no false}. No inventes datos.\n\nMensaje: ${JSON.stringify(raw)}`,{modelTier:'quick'});
     const f=(id,v)=>{if(v&&!$(id).value)$(id).value=String(v)};
-    f('#c_nom',o.cliente);f('#c_tel',o.contacto);f('#c_desc',o.descripcion);f('#c_guia',o.guia);if(/^\d{4}-\d{2}-\d{2}$/.test(o.fecha_envio||''))f('#c_fecha',o.fecha_envio);f('#c_orig',o.origen);f('#c_dest',o.destino);if(+o.valor>0)f('#c_val',+o.valor);if(o.codigo_reporte)$('#c_cod').value=String(o.codigo_reporte).slice(0,20);if(o.autoriza_apertura===true)$('#c_abrir').checked=true;
+    f('#c_nom',o.cliente);f('#c_tel',o.contacto);f('#c_desc',o.descripcion);f('#c_guia',o.guia);if(/^\d{4}-\d{2}-\d{2}$/.test(o.fecha_envio||''))f('#c_fecha',o.fecha_envio);f('#c_orig',o.origen);f('#c_dest',o.destino);if(+o.peso_kg>0)f('#c_peso',+o.peso_kg);f('#c_med',o.medidas);if(o.vinipel===true)$('#c_vin').checked=true;if(+o.valor>0)f('#c_val',+o.valor);if(o.codigo_reporte)$('#c_cod').value=String(o.codigo_reporte).slice(0,20);if(o.autoriza_apertura===true)$('#c_abrir').checked=true;
     toast('Revise los datos y guarde');
   }catch(err){toast('La IA no respondió: llene a mano')}finally{b.disabled=false;b.textContent='Llenar el reclamo con IA'}
 });
@@ -1069,7 +1084,7 @@ $('#cform').addEventListener('submit',async e=>{
     const up=await uploadMedia(CM,'cliente','reclamos/'+ref.id);cMedia=up.media;fotoId=up.mainId;if(!fotoId&&up.mini)cMini=up.mini;
     const d=await describePhoto(cBlob,aiImages(CM,6));if(d){fotoDesc=String(d.descripcion||'');fotoTags=Array.isArray(d.etiquetas)?d.etiquetas.map(String).slice(0,12):[]}
   }
-  const r={codigoCliente:$('#c_cod').value,autorizaApertura:$('#c_abrir').checked,cliente:v('#c_nom'),contacto:v('#c_tel'),descripcion:v('#c_desc')||fotoDesc,guia:v('#c_guia'),fechaEnvio:v('#c_fecha'),origen:v('#c_orig'),destino:v('#c_dest'),valor:+v('#c_val')||0,
+  const r={codigoCliente:$('#c_cod').value,autorizaApertura:$('#c_abrir').checked,cliente:v('#c_nom'),contacto:v('#c_tel'),descripcion:v('#c_desc')||fotoDesc,guia:v('#c_guia'),fechaEnvio:v('#c_fecha'),origen:v('#c_orig'),destino:v('#c_dest'),valor:+v('#c_val')||0,peso:+v('#c_peso')||0,medidas:v('#c_med'),vinipel:$('#c_vin').checked,
     fotoId,media:cMedia,fotoMini:cBlob&&!fotoId?cMini:'',fotoDesc,fotoTags,estado:'abierto',creado:new Date().toISOString(),por:S.me||''};
   const ok=await write(()=>ref.set(r),'Reclamo guardado');btn.disabled=false;
   if(ok){const hadFoto=!!cBlob;e.target.reset();$('#c_raw').value='';$('#c_cod').value='';cBlob=null;cMini='';CM.length=0;$('#cm_grid').innerHTML='';$('#c_ai').textContent='';$('#c_prev').innerHTML='<b>Foto del producto que envió el cliente (opcional)</b>';$('#newrec').open=false;
@@ -1183,8 +1198,10 @@ function renderMarcaAdmin(){
 
 /* ---------- búsqueda nacional de un reclamo ---------- */
 const digitosGuia=r=>String(r.guia||'').replace(/\D/g,'');
+/* Peso y medidas de referencia de un reclamo: los de la admisión de su guía o los que dio el cliente. */
+function refClaim(r,soloAdm){const a=r.guia?admOf(r.guia):null;if(a&&(pesoDe(a)||parseMed(a.medidas)))return fisDe(a);if(soloAdm)return null;return pesoDe(r)||parseMed(r.medidas)?{peso:pesoDe(r),medidas:r.medidas||'',vinipel:!!r.vinipel}:null}
 function candidatosLocales(r,n){
-  const toks=tokens([r.descripcion,r.fotoDesc,...(r.fotoTags||[]),r.origen,r.destino].join(' ')),g=digitosGuia(r),envio=Date.parse(r.fechaEnvio||'');
+  const toks=tokens([r.descripcion,r.fotoDesc,...(r.fotoTags||[]),r.origen,r.destino].join(' ')),g=digitosGuia(r),envio=Date.parse(r.fechaEnvio||''),rf=refClaim(r);
   const out=[];
   for(const p of custodia()){
     if(envio&&Date.parse(p.ingreso||'')<envio-864e5)continue;
@@ -1195,6 +1212,7 @@ function candidatosLocales(r,n){
     const t=score(p,toks).pct;if(t>=40)why.push('contenido');sc+=t*.7;
     if(r.destino&&norm(r.destino)===norm(p.destino)){sc+=8;why.push('destino')}
     if(r.origen&&norm(r.origen)===norm(p.origen)){sc+=8;why.push('origen')}
+    if(rf){const fz=fisico(rf,p);if(fz.peso==='no'||fz.med==='no'){sc-=30}else{if(fz.peso==='si'){sc+=20;why.push('mismo peso')}if(fz.med==='si'){sc+=20;why.push('mismas medidas')}}}
     if(sc>=30)out.push({p,pct:Math.min(99,Math.round(sc)),why:why.join(', ')});
   }
   return out.sort((a,b)=>b.pct-a.pct).slice(0,n||5);
@@ -1205,9 +1223,9 @@ async function buscarPorFotos(r,override){
   const locales=candidatosLocales(r,40).filter(x=>(fotoSrc(x.p)||(x.p.media||[]).length)&&!x.p.privado).map(x=>x.p);
   const resto=custodia().filter(p=>(fotoSrc(p)||(p.media||[]).length)&&!p.privado&&!locales.includes(p)).sort((a,b)=>(esNN(b)-esNN(a))||score(b,toks).pct-score(a,toks).pct||String(b.ingreso).localeCompare(String(a.ingreso)));
   const orden=[...locales,...resto].slice(0,8);if(!orden.length)throw {code:'sin_custodia'};
-  const cands=[];for(const p of orden){const bs=await imagesOf(p,2);if(bs.length)cands.push({id:p.id,imgs:bs,datos:{sede:sedeNom(p),desc:p.descripcion,marca:p.marca,color:p.color,texto:p.textoVisible,averias:p.averias,orig:p.origen,dest:p.destino,kg:p.peso,huella:p.huella||null}})}
+  const cands=[];for(const p of orden){const bs=await imagesOf(p,2);if(bs.length)cands.push({id:p.id,imgs:bs,fis:fisDe(p),datos:{sede:sedeNom(p),desc:p.descripcion,marca:p.marca,color:p.color,texto:p.textoVisible,averias:p.averias,orig:p.origen,dest:p.destino,kg:pesoDe(p),medidas:p.medidas,vinipel:esVinipel(p),huella:p.huella||null}})}
   if(!cands.length)throw {code:'sin_custodia'};
-  const vm=await visualMatch(cimgs,override?'fotos del paquete cerrado tomadas al admitirlo en la oficina':'las fotos que envió el cliente de su envío',cands,`Lo que dice el cliente: ${JSON.stringify(r.descripcion||'')} (origen ${JSON.stringify(r.origen||'')}, destino ${JSON.stringify(r.destino||'')}).`);
+  const vm=await visualMatch(cimgs,override?'fotos del paquete cerrado tomadas al admitirlo en la oficina':'las fotos que envió el cliente de su envío',cands,`Lo que dice el cliente: ${JSON.stringify(r.descripcion||'')} (origen ${JSON.stringify(r.origen||'')}, destino ${JSON.stringify(r.destino||'')}).`,refClaim(r,override));
   return {toks,comparados:cands.length,res:vm.filter(x=>x.pct>=20).map(x=>({...x,p:S.paq.find(p=>p.id===x.id)})).filter(x=>x.p)};
 }
 const guardarBusquedaIA=(r,out,auto)=>write(()=>S.db.collection('reclamos').doc(r.id).update({busquedaIA:{fecha:new Date().toISOString(),por:S.me||'',auto:!!auto,comparados:out.comparados,candidatos:out.res.slice(0,5).map(x=>({id:x.id,pct:x.pct,why:String(x.why).slice(0,200)}))},busquedaIAEnProceso:null}));
@@ -1589,22 +1607,41 @@ Transcribe: números de guía o remesa (secuencias de 6 o más dígitos; tambié
 Reglas: copia los dígitos exactamente; si un dígito no se lee con seguridad escribe "?" en su lugar; no completes ni adivines; si el mismo número aparece en varios cuadros, compáralos para confirmar cada dígito y marca "seguro" solo si todos los dígitos se leen igual.
 Responde SOLO con JSON: {"guias":[{"numero":"...","seguro":true}],"remitente":"","destinatario":"","telefonos":[],"ciudades":[],"otros_textos":[]}`,{images:imgs,modelTier:'complex'});
 }
-const FEAT=[['numeros','números de guía',45],['etiquetas','etiquetas',18],['logos','logos',15],['empaque','empaque',12],['color','color',10],['cinta','cinta y sellos',8],['forma','forma y tamaño',8],['marcas','marcas únicas',12],['averias','averías',4]];
+/* Peso y medidas: lo que más diferencia paquetes envueltos en vinipel negro, que por fuera se ven iguales. */
+function parseMed(t){const n=(String(t||'').replace(/,/g,'.').match(/\d+(\.\d+)?/g)||[]).map(Number).filter(x=>x>0);if(n.length<3)return null;let m=n.slice(0,3);if(/\d\s*mm\b/i.test(t)||m.every(x=>x>200))m=m.map(x=>x/10);return m.sort((a,b)=>b-a)}
+const pesoDe=x=>x?(+((x.pesoBascula||{}).kg)||+x.peso||0):0;
+function fisico(a,b){
+  const pa=pesoDe(a),pb=pesoDe(b),ma=parseMed(a&&a.medidas),mb=parseMed(b&&b.medidas),r={peso:'nv',med:'nv',txt:[]};
+  if(pa>0&&pb>0){const d=Math.abs(pa-pb)/Math.max(pa,pb);r.peso=d<=.12?'si':d>=.35?'no':'nv';r.txt.push((r.peso==='si'?'✓':r.peso==='no'?'✗':'≈')+' peso '+pa+' / '+pb+' kg')}
+  if(ma&&mb){const tol=(x,y,k,c)=>Math.abs(x-y)<=Math.max(c,k*Math.max(x,y));r.med=ma.every((v,i)=>tol(v,mb[i],.12,3))?'si':ma.some((v,i)=>!tol(v,mb[i],.3,6))?'no':'nv';r.txt.push((r.med==='si'?'✓':r.med==='no'?'✗':'≈')+' medidas '+ma.join('x')+' / '+mb.join('x')+' cm')}
+  return r;
+}
+function ajusteFisico(pct,fz,numerosSi){
+  if(!fz)return pct;if(fz.peso==='no'||fz.med==='no')return Math.min(pct,20);
+  const b=(fz.peso==='si'?12:0)+(fz.med==='si'?12:0);return b?Math.min(numerosSi?99:88,pct+b):pct;
+}
+const FEAT=[['numeros','números de guía',45],['etiquetas','etiquetas',18],['logos','logos',15],['empaque','empaque',12],['color','color',10],['cinta','cinta y sellos',8],['forma','forma y tamaño',8],['marcas','marcas únicas',12],['envoltura','envoltura de vinipel',10],['averias','averías',4]];
 /* Puntaje calculado aquí, no inventado por la IA: cada rasgo que ella ve igual suma, uno distinto resta,
    y lo que no se ve no cuenta. Sin números de guía legibles el máximo es ~81%. Un número distinto,
    o un logo, etiqueta, empaque o marca única distinta, bajan el resultado a "no es". */
-function scoreFeat(r){
+function scoreFeat(r,vin){
   let pos=0,seen=0;const f={};
-  for(const [k,,w] of FEAT){const v=String(r[k]||'nv').toLowerCase().trim();f[k]=v==='si'||v==='sí'?'si':v==='no'?'no':'nv';if(f[k]==='si'){pos+=w;seen+=w}else if(f[k]==='no')seen+=w}
+  for(const [k,,w] of FEAT){const v=String(r[k]||'nv').toLowerCase().trim();f[k]=v==='si'||v==='sí'?'si':v==='no'?'no':'nv';
+    /* vin 2: ambos en vinipel negro, el color y el empaque iguales no prueban nada. vin 1: solo uno envuelto, lo de la caja quedó tapado. */
+    if(vin===2&&f[k]==='si'&&['color','empaque','logos'].includes(k))f[k]='nv';
+    if(vin===1&&f[k]==='no'&&['color','empaque','logos','etiquetas'].includes(k))f[k]='nv';
+    if(f[k]==='si'){pos+=w;seen+=w}else if(f[k]==='no')seen+=w}
   let pct=seen?Math.round(100*pos/(seen+20)):0;
   if(f.numeros==='si')pct=Math.max(pct,92);
   if(f.numeros==='no')pct=Math.min(pct,8);
   if(['logos','etiquetas','empaque','marcas'].some(k=>f[k]==='no'))pct=Math.min(pct,25);
   return {pct:Math.max(0,Math.min(99,pct)),f};
 }
+const esVinipel=x=>!!x&&(!!x.vinipel||/vinipel negro/.test(norm((x.huella||{}).empaque||''))||/vinipel/.test(norm(x.empaque||'')));
+const fisDe=x=>x?{peso:pesoDe(x),medidas:x.medidas||'',vinipel:esVinipel(x)}:null;
 const featTxt=f=>FEAT.filter(([k])=>f[k]!=='nv').map(([k,t])=>(f[k]==='si'?'✓ ':'✗ ')+t).join(' · ');
 const nivel=p=>p>=85?'Confianza alta':p>=60?'Confianza media: confirme con el dato de verificación':'Confianza baja';
-async function visualMatch(ref,refDesc,cands,ctx){
+async function visualMatch(ref,refDesc,cands,ctx,refFis){
   const max=await imgMax();if(!max)throw {code:'images_unavailable'};
   const R=ref.slice(0,Math.max(1,Math.min(4,max-2))),per=Math.max(1,Math.floor((max-R.length)/2)),out=[];
   for(let i=0;i<cands.length&&i<per*3;i+=per){
@@ -1613,10 +1650,13 @@ async function visualMatch(ref,refDesc,cands,ctx){
 Datos registrados de los candidatos: ${JSON.stringify(batch.map(c=>({id:c.id,...c.datos})))}
 ${ctx||''}
 Para CADA candidato compara contra la referencia rasgo por rasgo. Para cada rasgo responde "si" (claramente igual), "no" (claramente distinto) o "nv" (no se ve en alguna de las dos, o no se puede saber).
-Rasgos: numeros (número de guía o texto impreso legible en ambas), etiquetas (etiquetas pegadas: posición, color, formato), logos (logos, marcas y estampados impresos), empaque (caja de cartón, bolsa plástica de mensajería, sobre, etc.), color, cinta (tipo y color de cinta, sellos, amarres), forma (forma y proporciones), marcas (marcas únicas: escritos a mano como "FRÁGIL", stickers, sellos, parches de cinta; "no" si una de las dos tiene una marca que la otra no tiene en la misma cara visible), averias (golpes, roturas, manchas; un golpe nuevo en custodia puede haber ocurrido en el camino, así que no es prueba en contra).
+Rasgos: numeros (número de guía o texto impreso legible en ambas), etiquetas (etiquetas pegadas: posición, color, formato), logos (logos, marcas y estampados impresos), empaque (caja de cartón, bolsa plástica de mensajería, sobre, etc.), color, cinta (tipo y color de cinta, sellos, amarres), forma (forma y proporciones), marcas (marcas únicas: escritos a mano como "FRÁGIL", stickers, sellos, parches de cinta; "no" si una de las dos tiene una marca que la otra no tiene en la misma cara visible), envoltura (si alguno está envuelto en vinipel o plástico estirable: número de vueltas, dirección, cinta encima del plástico, cortes o huecos, bultos y esquinas que se marcan, lo que se transparenta; "nv" si ninguno está envuelto), averias (golpes, roturas, manchas; un golpe nuevo en custodia puede haber ocurrido en el camino, así que no es prueba en contra).
+VINIPEL NEGRO: muchos paquetes van envueltos en vinipel negro y por fuera se ven iguales. Si ambos están envueltos, el color y el empaque NO los diferencian: compara silueta y proporciones, bultos, envoltura, lo que hay encima del plástico (guía, stickers, cinta, escritos) y lo que se transparenta. Si uno está envuelto y el otro no (lo envolvieron después), lo de la caja quedó tapado: marca "nv" en color, empaque, logos y etiquetas, no "no".
 Sé estricto: el ángulo, la luz y la calidad de la cámara NO son diferencias; un logo, texto, etiqueta o tipo de empaque distinto SÍ lo es. Si la referencia muestra el producto y el candidato una caja cerrada, marca "nv" salvo lo que la caja deje ver (por ejemplo, la marca impresa). Ante la duda responde "nv", nunca "si".
-Responde SOLO con JSON: {"resultados":[{"id":"...","numeros":"si|no|nv","etiquetas":"...","logos":"...","empaque":"...","color":"...","cinta":"...","forma":"...","marcas":"...","averias":"...","razon":"frase corta: qué coincide y qué no"}]} incluyendo TODOS los candidatos.`,{images:[...R,...batch.flatMap(c=>c.imgs)],modelTier:'complex'});
-    for(const r of (o&&Array.isArray(o.resultados)?o.resultados:[])){const c=batch.find(x=>x.id===String(r.id));if(!c)continue;const {pct,f}=scoreFeat(r);out.push({id:c.id,pct,f,why:[featTxt(f),String(r.razon||'')].filter(Boolean).join(' · ')})}
+Responde SOLO con JSON: {"resultados":[{"id":"...","numeros":"si|no|nv","etiquetas":"...","logos":"...","empaque":"...","color":"...","cinta":"...","forma":"...","marcas":"...","envoltura":"...","averias":"...","razon":"frase corta: qué coincide y qué no"}]} incluyendo TODOS los candidatos.`,{images:[...R,...batch.flatMap(c=>c.imgs)],modelTier:'complex'});
+    for(const r of (o&&Array.isArray(o.resultados)?o.resultados:[])){const c=batch.find(x=>x.id===String(r.id));if(!c)continue;
+      const vin=refFis&&c.fis?(!!refFis.vinipel)+(!!c.fis.vinipel):0,sf=scoreFeat(r,vin),fz=refFis&&c.fis?fisico(refFis,c.fis):null,pct=ajusteFisico(sf.pct,fz,sf.f.numeros==='si');
+      out.push({id:c.id,pct,f:sf.f,why:[featTxt(sf.f),fz&&fz.txt.join(' · '),String(r.razon||'')].filter(Boolean).join(' · ')})}
   }
   return out.sort((a,b)=>b.pct-a.pct);
 }
@@ -1784,6 +1824,19 @@ async function guardarObjeto(p){
   else{b.disabled=false;b.textContent='Guardar como objeto fuera de caja'}
 }
 document.addEventListener('click',e=>{const t=e.target.closest('[data-abrirobj]');if(t)abrirObjeto(t.dataset.abrirobj)});
+
+/* Para un paquete sin guía (vinipel o NN): admisiones y reclamos con el mismo peso y medidas, sin usar IA. */
+function gemelosFisicos(p){
+  if(!pesoDe(p)&&!parseMed(p.medidas))return `<p class="meta">Registre el peso y las medidas para buscar envíos con el mismo peso y tamaño.</p>`;
+  const lim=Date.parse(p.ingreso||'')||Date.now();
+  const adm=S.adm.filter(a=>!S.paq.some(x=>x.guia===a.guia&&x.id!==p.id)&&Date.parse(a.fecha||'')<=lim+864e5).map(a=>({a,fz:fisico(p,a)})).filter(x=>x.fz.peso!=='no'&&x.fz.med!=='no'&&(x.fz.peso==='si'||x.fz.med==='si'))
+    .sort((x,y)=>((y.fz.peso==='si')+(y.fz.med==='si'))-((x.fz.peso==='si')+(x.fz.med==='si'))).slice(0,5);
+  const rec=S.rec.filter(r=>r.estado==='abierto').map(r=>({r,rf:refClaim(r)})).filter(x=>x.rf).map(x=>({...x,fz:fisico(p,x.rf)})).filter(x=>x.fz.peso!=='no'&&x.fz.med!=='no'&&(x.fz.peso==='si'||x.fz.med==='si')).slice(0,5);
+  return `<h3>Mismo peso y medidas</h3><p class="meta">Sin guía a la vista, el peso y las medidas son la mejor pista. Confirme con las fotos antes de asignar.</p>`+
+    (adm.length||rec.length?adm.map(x=>`<div class="alert g"><span>Admisión guía <b>${esc(x.a.guia)}</b> · ${esc(x.a.oficina||'')} ${fdate(x.a.fecha)} · ${esc(x.a.origen||'')} → ${esc(x.a.destino||'')}<br><span class="meta">${esc(x.fz.txt.join(' · '))}</span></span><button class="btn alt sm" data-adm="${esc(x.a.id)}">Ver admisión</button></div>`).join('')+
+      rec.map(x=>`<div class="alert g"><span>Reclamo de <b>${esc(x.r.cliente)}</b>${x.r.guia?' · guía '+esc(x.r.guia):''}<br><span class="meta">${esc(x.fz.txt.join(' · '))}</span></span><button class="btn alt sm" data-ir="reclamos">Ver reclamos</button></div>`).join('')
+    :'<p class="meta">Ninguna admisión ni reclamo abierto tiene ese peso y esas medidas.</p>');
+}
 
 /* ---------- subastas: objetos abiertos por tiempo en buen estado ---------- */
 const PROMPT_PRECIO='"modelo":"marca y modelo exactos si se leen, o vacío","precio_nuevo_cop":{"min":número,"max":número} precio de este producto NUEVO en tiendas de Colombia en pesos, o null si no lo puedes estimar,"precio_usado_cop":{"min":número,"max":número} precio de uno USADO en buen estado en Colombia (MercadoLibre, Facebook Marketplace), o null,"busqueda":"texto corto para buscar este producto en MercadoLibre Colombia","confianza_precio":"alta|media|baja"';
@@ -2046,7 +2099,7 @@ const onAdmFoto=async e=>{const files=[...e.target.files];e.target.value='';if(!
   if(await addFiles(files,AM,$('#ad_grid'),'am',$('#ad_st'),'foto')){
     try{const cb=await leerCodigos(imgsDe(AM));if(cb.length&&!$('#ad_guia').value.trim()){$('#ad_guia').value=cb[0];toast('Guía '+cb[0]+' leída del código de barras')}}catch(err){}
     if(!S.sample)return;$('#ad_st').textContent='La IA está describiendo el empaque…';
-    try{const o=await S.sample.json(`Estas fotos muestran un paquete CERRADO en el momento de admitirlo en una oficina de mensajería en Colombia. Describe solo lo que se ve por fuera, para reconocerlo después en cámaras y bodegas. Responde SOLO con JSON: {"descripcion":"una frase: tipo de empaque, tamaño aparente, color, cintas, logos, marcas","etiquetas":["8 a 12 palabras clave en español, minúsculas, sin tildes: empaque, colores, cinta, logos, textos, forma"],"texto_visible":"texto o números legibles o vacío","averias":"daños visibles o vacío","huella":{"empaque":"caja de cartón|bolsa plástica de mensajería|sobre|bolsa de tela|otro","color_principal":"","cinta":"tipo y color o vacío","logos":[],"etiquetas":["cada etiqueta pegada: color, formato, posición"],"marcas_distintivas":[],"tamano":"pequeño|mediano|grande"}}`,{images:aiImages(AM,4),modelTier:'quick'});
+    try{const o=await S.sample.json(`Estas fotos muestran un paquete CERRADO en el momento de admitirlo en una oficina de mensajería en Colombia. Describe solo lo que se ve por fuera, para reconocerlo después en cámaras y bodegas. Responde SOLO con JSON: {"descripcion":"una frase: tipo de empaque, tamaño aparente, color, cintas, logos, marcas","etiquetas":["8 a 12 palabras clave en español, minúsculas, sin tildes: empaque, colores, cinta, logos, textos, forma"],"texto_visible":"texto o números legibles o vacío","averias":"daños visibles o vacío","vinipel":true si está envuelto en plástico estirable (vinipel) negro u oscuro que tapa la caja, si no false,"huella":{"empaque":"caja de cartón|bolsa plástica de mensajería|sobre|bolsa de tela|vinipel negro|vinipel transparente|otro","envoltura":"si está en vinipel: muchas o pocas vueltas, dirección, cinta encima, cortes o huecos, bultos o esquinas que se marcan, y lo que se transparenta con la luz (logos, etiquetas, color de la caja); o vacío","color_principal":"","cinta":"tipo y color o vacío","logos":[],"etiquetas":["cada etiqueta pegada: color, formato, posición"],"marcas_distintivas":[],"tamano":"pequeño|mediano|grande"}}`,{images:aiImages(AM,4),modelTier:'quick'});
       if(o){if(!$('#ad_desc').value)$('#ad_desc').value=String(o.descripcion||'');$('#ad_tags').value=Array.isArray(o.etiquetas)?o.etiquetas.map(String).join(', '):'';$('#ad_st').textContent='Listo. Revise y guarde.'+(o.averias?' Averías: '+o.averias:'');AM.ai=o}}
     catch(err){$('#ad_st').textContent='La IA no respondió; describa el empaque a mano.'}}};
 $('#ad_foto').addEventListener('change',onAdmFoto);$('#ad_foto_gal').addEventListener('change',onAdmFoto);$('#ad_drop').addEventListener('click',()=>$('#ad_foto').click());$('#ad_drop_gal').addEventListener('click',()=>$('#ad_foto_gal').click());
@@ -2092,13 +2145,13 @@ async function findAdmission(pid,btn){
   if(!S.adm.length){box.innerHTML='<p class="meta">Aún no hay admisiones con foto.</p>';return}
   const toks=tokens([p.descripcion,p.objeto,p.marca,p.color,...(p.etiquetas||[]),p.textoVisible].join(' '));const digits=String(p.textoVisible||'').match(/\d{4,}/g)||[];
   const ranked=S.adm.filter(a=>a.guia&&!S.paq.some(x=>x.guia===a.guia)).map(a=>{let s=0;const at=norm([a.descripcion,...(a.etiquetas||[]),a.textoVisible].join(' '));s+=toks.filter(t=>at.includes(t)).length*10;
-    if(digits.some(d=>a.guia.includes(d)))s+=60;if(norm(a.origen)===norm(p.origen)&&p.origen)s+=8;if(norm(a.destino)===norm(p.destino)&&p.destino)s+=8;if(p.peso&&a.peso&&Math.abs(p.peso-a.peso)<=Math.max(.3,a.peso*.15))s+=10;return {a,s}})
+    if(digits.some(d=>a.guia.includes(d)))s+=60;if(norm(a.origen)===norm(p.origen)&&p.origen)s+=8;if(norm(a.destino)===norm(p.destino)&&p.destino)s+=8;{const fz=fisico(p,a);if(fz.peso==='si')s+=20;if(fz.med==='si')s+=20;if(fz.peso==='no'||fz.med==='no')s-=30}return {a,s}})
     .sort((x,y)=>y.s-x.s).slice(0,8);
   if(!S.sample){box.innerHTML=ranked.map(x=>admRow(p,x.a,Math.min(99,x.s),'coincidencia por texto')).join('');return}
   btn.disabled=true;box.innerHTML=escaneo('Comparando el video de este paquete con las fotos de admisión…');
-  try{const mine=await imagesOf(p,4),c=[];for(const x of ranked){const im=await imagesOf(x.a,2);if(im.length)c.push({id:x.a.guia,imgs:im,datos:{guia:x.a.guia,desc:x.a.descripcion,contenido:x.a.contenido,texto:x.a.textoVisible,orig:x.a.origen,dest:x.a.destino,kg:x.a.peso,huella:x.a.huella||null}})}
+  try{const mine=await imagesOf(p,4),c=[];for(const x of ranked){const im=await imagesOf(x.a,2);if(im.length)c.push({id:x.a.guia,imgs:im,fis:fisDe(x.a),datos:{guia:x.a.guia,desc:x.a.descripcion,contenido:x.a.contenido,texto:x.a.textoVisible,orig:x.a.origen,dest:x.a.destino,kg:x.a.peso,medidas:x.a.medidas,huella:x.a.huella||null}})}
     if(!mine.length||!c.length){box.innerHTML='<p class="meta">Faltan imágenes para comparar.</p>';return}
-    const vm=await visualMatch(mine,'cuadros del video de un paquete en custodia (sin guía legible)',c,`Datos del paquete en custodia: ${JSON.stringify({desc:p.descripcion,texto:p.textoVisible,averias:p.averias,kg:p.peso,huella:p.huella||null})}`);
+    const vm=await visualMatch(mine,'cuadros del video de un paquete en custodia (sin guía legible)',c,`Datos del paquete en custodia: ${JSON.stringify({desc:p.descripcion,texto:p.textoVisible,averias:p.averias,kg:pesoDe(p),medidas:p.medidas,vinipel:esVinipel(p),huella:p.huella||null})}`,fisDe(p));
     const res=vm.filter(x=>x.pct>=20).map(x=>({a:S.adm.find(a=>a.guia===x.id),pct:x.pct,why:nivel(x.pct)+' · '+x.why})).filter(r=>r.a);
     box.innerHTML=res.length?res.map(r=>admRow(p,r.a,r.pct,r.why)).join(''):'<p class="meta">Ninguna admisión se parece a este paquete.</p>';
   }catch(e){box.innerHTML='<p class="meta">La IA no respondió.</p>'}finally{btn.disabled=false}

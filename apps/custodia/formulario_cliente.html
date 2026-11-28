@@ -67,9 +67,15 @@ input:focus,select:focus,textarea:focus,button:focus-visible,a:focus-visible{out
       <label class="f">Fecha de envío<input id="fecha" type="date"></label>
       <label class="f">Valor declarado ($)<input id="valor" type="number" inputmode="numeric"></label>
     </div>
+    <div class="row2">
+      <label class="f">Peso que dice la guía (kg)<input id="peso" type="number" step="0.01" inputmode="decimal"></label>
+      <label class="f">Medidas aproximadas (cm)<input id="med" placeholder="Ej.: 40 x 30 x 20"></label>
+    </div>
+    <span class="hint">Muchos paquetes quedan envueltos en plástico negro y por fuera se ven iguales: el peso y las medidas de su guía nos ayudan a encontrar el suyo.</span>
 
     <h2>¿Qué envió?</h2>
     <label class="f">Contenido <span class="req">*</span><textarea id="cont" required placeholder="Ej.: unos tenis Nike negros talla 42, nuevos, en su caja"></textarea></label>
+    <label class="f">¿Lo envolvieron en plástico negro (vinipel)?<select id="vin"><option>No sé</option><option>Sí</option><option>No</option></select></label>
     <label class="f">¿Cómo iba empacado?<textarea id="emp" placeholder="Ej.: caja de cartón café de unos 35 cm, cinta transparente, bolsa negra por fuera"></textarea><span class="hint">Esto es lo que más nos ayuda: en bodega vemos los paquetes cerrados, por fuera.</span></label>
     <div class="photos"><b>Fotos que le pediremos en el chat</b>
       <ol><li>La caja o bolsa como la envió (con cintas y marcas).</li><li>La guía o el recibo de admisión.</li><li>El producto, si tiene foto de la compra.</li></ol>
@@ -114,7 +120,8 @@ $('#f').addEventListener('submit',e=>{
    `Nombre: ${v('#nom')}`,`WhatsApp: ${tel}`,`Soy: ${$('#rol').value}`,
    `Guía: ${v('#guia')||'no la tengo'}`,`Origen: ${v('#orig')}`,`Destino: ${v('#dest')}`,
    `Fecha de envío: ${v('#fecha')||'no recuerdo'}`,`Valor declarado: ${v('#valor')?'$'+Number(v('#valor')).toLocaleString('es-CO'):'no indicado'}`,
-   `Contenido: ${v('#cont')}`,`Empaque: ${v('#emp')||'no indicado'}`,
+   `Peso en la guía: ${v('#peso')?v('#peso')+' kg':'no indicado'}`,`Medidas: ${v('#med')?v('#med')+' cm':'no indicadas'}`,
+   `Contenido: ${v('#cont')}`,`Empaque: ${v('#emp')||'no indicado'}`,`Envuelto en vinipel negro: ${$('#vin').value}`,
    `Autorizo tratamiento de datos (Ley 1581): SÍ`,`Autorizo abrir el paquete con testigo para confirmarlo: ${$('#abrir').checked?'SÍ':'NO'}`,
    ``,`Adjunto fotos de la caja, la guía y el producto.`].join('\n');
   const link='https://wa.me/'+num+'?text='+encodeURIComponent(msg);

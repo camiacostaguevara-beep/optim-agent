@@ -1,7 +1,7 @@
 # Custodia: buscador de envíos
 
 Copia de respaldo del artifact publicado en claude.ai
-(https://claude.ai/artifact/4DfAbYsxbJmyQFXj6wdyJW), versión 1795875764-1e0c.
+(https://claude.ai/artifact/4DfAbYsxbJmyQFXj6wdyJW), versión 1795878437-f75c.
 
 App para la bodega de custodia de una transportadora en Colombia: búsqueda de
 envíos por descripción, registro con video, reclamos, inventario, conciliación
@@ -38,6 +38,24 @@ interfaz, pero sin datos.
   leyó la pantalla. La ficha muestra el peso guardado y, si el personal lo
   corrigió, el peso que se leyó. La foto de la báscula no se usa en las
   comparaciones visuales.
+
+## Paquetes en vinipel negro (no se pueden destapar)
+
+- Casilla "Envuelto en vinipel negro" al registrar (la IA la marca sola si lo
+  ve). Exige peso y medidas (largo x ancho x alto), muestra el protocolo de
+  fotos y cambia los pasos de la grabación guiada: vuelta completa, vista de
+  arriba con cinta métrica, linterna pegada al plástico para ver lo que se
+  transparenta y de cerca lo que hay sobre el plástico.
+- Comparación: si ambos paquetes están en vinipel, color, empaque y logos
+  iguales no suman; si solo uno lo está, sus diferencias de caja no restan.
+  Se agregó el rasgo "envoltura". Peso (±12 %) y medidas (±12 % o 3 cm)
+  suman puntos; si no cuadran (más de 35 % de peso o 30 % / 6 cm de medida),
+  el puntaje baja a 20 % como máximo. Se usa en reclamos (peso y medidas de la
+  admisión de su guía o los que dio el cliente) y en el cruce con admisiones.
+- La ficha de un paquete sin guía en vinipel o NN lista, sin IA, las
+  admisiones y reclamos abiertos con el mismo peso y medidas.
+- Reclamos y formulario del cliente piden el peso de la guía, las medidas y
+  si iba envuelto en vinipel.
 
 ## Averías y objetos fuera de caja
 
